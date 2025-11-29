@@ -39,12 +39,24 @@ export default function ProfileForm({ studentData, onUpdate, isModeratorView = f
   }, [studentData]);
 
   const handleChange = (e) => {
+    // Prevent changes if student and profile is completed
+    if (readOnlyForStudent) {
+      e.preventDefault();
+      return;
+    }
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Prevent submission if student and profile is completed
+    if (readOnlyForStudent) {
+      alert('Profile is locked. Contact your moderator to make changes.');
+      return;
+    }
+    
     try {
       // Mark profile as completed after first save
       const updatedData = {
