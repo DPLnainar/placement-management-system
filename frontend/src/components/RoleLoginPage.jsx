@@ -21,6 +21,13 @@ export default function RoleLogin() {
     password: '',
   });
 
+  // Redirect if no role specified
+  useEffect(() => {
+    if (!role || !['student', 'moderator', 'admin'].includes(role.toLowerCase())) {
+      navigate('/');
+    }
+  }, [role, navigate]);
+
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/dashboard');
@@ -64,6 +71,9 @@ export default function RoleLogin() {
         username: formData.username,
         password: formData.password,
       };
+      
+      console.log('Attempting login with:', { username: loginData.username, role });
+      
       const response = await authAPI.login(loginData);
       
       console.log('Login response:', response.data);
@@ -76,9 +86,16 @@ export default function RoleLogin() {
         throw new Error('Invalid login response from server');
       }
 
-      // Validate role matches
-      if (userInfo.role.toLowerCase() !== role.toLowerCase()) {
-        throw new Error(`Invalid credentials for ${role} login`);
+      // Validate role matches (case-insensitive)
+      const userRole = (userInfo.role || '').toLowerCase();
+      const expectedRole = (role || '').toLowerCase();
+      
+      console.log('Role validation:', { userRole, expectedRole });
+      
+      if (userRole !== expectedRole) {
+        setError(`These credentials are for a ${userInfo.role} account. Please use the correct login page.`);
+        setLoading(false);
+        return;
       }
       
       const userData = {
@@ -207,13 +224,13 @@ export default function RoleLogin() {
             <Button 
               type="submit" 
               className={`w-full bg-gradient-to-r ${config.color}`}
-              disabled={loading}
+              disabled={loading || !formData.username || !formData.password}
             >
               {loading ? (
                 'Signing in...'
               ) : (
                 <>
-                  <LogIn className="mr-2 h-4 w-4" /> Sign In as {role.charAt(0).toUpperCase() + role.slice(1)}
+                  <LogIn className="mr-2 h-4 w-4" /> Sign In as {role ? role.charAt(0).toUpperCase() + role.slice(1) : 'User'}
                 </>
               )}
             </Button>

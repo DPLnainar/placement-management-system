@@ -4,6 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import ChangePassword from './ChangePassword';
+import ProfileForm from './ProfileForm';
+import InternshipForm from './InternshipForm';
+import SkillsForm from './SkillsForm';
+import ResumeUpload from './ResumeUpload';
 import { applicationAPI } from '../services/api';
 import './StudentDashboard.css';
 
@@ -16,13 +20,35 @@ const StudentDashboard = () => {
   const [applyingJobId, setApplyingJobId] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('jobs'); // jobs, profile, internships, skills, career
+  
+  // Student data states
+  const [studentProfile, setStudentProfile] = useState({
+    isProfileCompleted: false
+  });
+  const [internships, setInternships] = useState([]);
+  const [skills, setSkills] = useState([]);
+  const [resume, setResume] = useState(null);
 
   const API_BASE_URL = "http://127.0.0.1:8000/api";
 
   useEffect(() => {
     fetchJobs();
     fetchApplications();
+    loadStudentData();
   }, []);
+
+  const loadStudentData = () => {
+    // Load data from localStorage (in production, fetch from backend)
+    const savedProfile = localStorage.getItem('studentProfile');
+    const savedInternships = localStorage.getItem('internships');
+    const savedSkills = localStorage.getItem('skills');
+    const savedResume = localStorage.getItem('resume');
+
+    if (savedProfile) setStudentProfile(JSON.parse(savedProfile));
+    if (savedInternships) setInternships(JSON.parse(savedInternships));
+    if (savedSkills) setSkills(JSON.parse(savedSkills));
+    if (savedResume) setResume(JSON.parse(savedResume));
+  };
 
   const fetchJobs = async () => {
     setLoading(true);
@@ -361,76 +387,50 @@ const StudentDashboard = () => {
           </>
         )}
 
-        {/* My Profile Tab - Read Only */}
+        {/* My Profile Tab - Read Only for students after first save */}
         {activeTab === 'profile' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>My Profile</CardTitle>
-              <CardDescription>Your profile details (editable only by department moderators)</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-                <p className="text-sm text-amber-800">
-                  <Lock className="inline-block mr-2 h-4 w-4" />
-                  <strong>Note:</strong> Basic profile information cannot be edited by students. 
-                  Contact your department moderator for any changes to personal details, academic records, or contact information.
-                </p>
-              </div>
-              <div className="space-y-4">
-                <p className="text-gray-600">Profile information will be displayed here (read-only view for students)</p>
-              </div>
-            </CardContent>
-          </Card>
+          <ProfileForm 
+            studentData={studentProfile}
+            onUpdate={(data) => {
+              setStudentProfile(data);
+              // In production, save to backend
+              localStorage.setItem('studentProfile', JSON.stringify(data));
+            }}
+          />
         )}
 
         {/* Internships Tab - Editable */}
         {activeTab === 'internships' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Internship Details</CardTitle>
-              <CardDescription>Manage your internship experiences</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-                <p className="text-sm text-green-800">
-                  <FileText className="inline-block mr-2 h-4 w-4" />
-                  You can add, edit, and delete your internship details here.
-                </p>
-              </div>
-              <div className="space-y-4">
-                <Button>Add New Internship</Button>
-                <p className="text-gray-600">Your internship records will appear here</p>
-              </div>
-            </CardContent>
-          </Card>
+          <InternshipForm 
+            internships={internships}
+            onUpdate={(data) => {
+              setInternships(data);
+              // In production, save to backend
+              localStorage.setItem('internships', JSON.stringify(data));
+            }}
+          />
         )}
 
         {/* Skills & Resume Tab - Editable */}
         {activeTab === 'skills' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Skills & Resume</CardTitle>
-              <CardDescription>Update your skills and upload resume</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-                <p className="text-sm text-green-800">
-                  <Award className="inline-block mr-2 h-4 w-4" />
-                  You can update your skills and upload your latest resume here.
-                </p>
-              </div>
-              <div className="space-y-6">
-                <div>
-                  <h3 className="font-semibold mb-3">Technical Skills</h3>
-                  <Button>Edit Skills</Button>
-                </div>
-                <div>
-                  <h3 className="font-semibold mb-3">Resume</h3>
-                  <Button>Upload Resume</Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            <SkillsForm 
+              skills={skills}
+              onUpdate={(data) => {
+                setSkills(data);
+                // In production, save to backend
+                localStorage.setItem('skills', JSON.stringify(data));
+              }}
+            />
+            <ResumeUpload 
+              resumeData={resume}
+              onUpdate={(data) => {
+                setResume(data);
+                // In production, save to backend
+                localStorage.setItem('resume', JSON.stringify(data));
+              }}
+            />
+          </div>
         )}
 
         {/* Career Path Tab */}
