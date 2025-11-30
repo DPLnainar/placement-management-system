@@ -280,6 +280,8 @@ module.exports = {
   requireRole,
   requireSameCollege,
   requireAdminForAssignment,
-  verifyCollegeAdmin  // NEW: Export the critical security middleware
+  verifyCollegeAdmin,
+  protect: authenticate, // Alias for consistency with other routes
+  authorize: requireRole // Alias for consistency with other routes
 };
 

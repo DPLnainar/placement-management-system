@@ -164,9 +164,24 @@ const userSchema = new mongoose.Schema({
     description: { type: String, trim: true }
   }],
   
-  // Resume
+  // Resume and Documents
   resumeLink: { type: String, trim: true, default: '' },
-  resumeFile: { type: String, trim: true, default: '' },
+  resumeFile: { type: String, trim: true, default: '' }, // Cloudinary URL
+  resumePublicId: { type: String, trim: true, default: '' }, // Cloudinary public ID for deletion
+  resumeUploadedAt: { type: Date },
+  
+  // Profile Photo
+  profilePhoto: { type: String, trim: true, default: '' }, // Cloudinary URL
+  profilePhotoPublicId: { type: String, trim: true, default: '' },
+  
+  // Additional Documents
+  documents: [{
+    name: { type: String, trim: true },
+    type: { type: String, enum: ['certificate', 'marksheet', 'id_proof', 'other'], default: 'other' },
+    url: { type: String, trim: true },
+    publicId: { type: String, trim: true },
+    uploadedAt: { type: Date, default: Date.now }
+  }],
   
   createdAt: {
     type: Date,

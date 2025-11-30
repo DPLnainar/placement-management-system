@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const emailTemplates = require('./emailTemplates');
 
 /**
  * Notification Service
@@ -10,8 +11,10 @@ class NotificationService {
     // Email transporter configuration
     this.emailTransporter = null;
     if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD) {
-      this.emailTransporter = nodemailer.createTransporter({
-        service: 'gmail',
+      this.emailTransporter = nodemailer.createTransport({
+        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+        port: parseInt(process.env.EMAIL_PORT) || 587,
+        secure: process.env.EMAIL_SECURE === 'true',
         auth: {
           user: process.env.EMAIL_USER,
           pass: process.env.EMAIL_PASSWORD
@@ -258,6 +261,97 @@ class NotificationService {
       .split('_')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
+  }
+
+  /**
+   * Send welcome email to new user
+   */
+  async sendWelcomeEmail(user, college) {
+    const html = emailTemplates.welcomeEmail({
+      fullName: user.fullName,
+      username: user.username,
+      role: user.role,
+      collegeName: college?.name || ''
+    });
+
+    return this.sendEmail({
+      to: user.email,
+      subject: 'Welcome to the Placement Portal! 🎓',
+      html
+    });
+  }
+
+  /**
+   * Send invitation email
+   */
+  async sendInvitationEmail(invitation, college) {
+    const html = emailTemplates.invitationEmail({
+      fullName: invitation.fullName,
+      email: invitation.email,
+      collegeName: college.name,
+      invitationToken: invitation.token,
+      expiresAt: invitation.expiresAt
+    });
+
+    return this.sendEmail({
+      to: invitation.email,
+      subject: `Invitation to Join ${college.name} Placement Portal`,
+      html
+    });
+  }
+
+  /**
+   * Send password reset email
+   */
+  async sendPasswordResetEmail(user, resetToken) {
+    const html = emailTemplates.passwordResetEmail({
+      fullName: user.fullName,
+      resetToken,
+      expiresIn: '1 hour'
+    });
+
+    return this.sendEmail({
+      to: user.email,
+      subject: 'Reset Your Password - Placement Portal',
+      html
+    });
+  }
+
+  /**
+   * Send application confirmation email
+   */
+  async sendApplicationConfirmation(student, job, application) {
+    const html = emailTemplates.applicationSubmittedEmail({
+      fullName: student.fullName,
+      jobTitle: job.title,
+      company: job.company,
+      applicationDate: application.createdAt
+    });
+
+    return this.sendEmail({
+      to: student.email,
+      subject: `Application Submitted: ${job.company} - ${job.title}`,
+      html
+    });
+  }
+
+  /**
+   * Send offer letter email
+   */
+  async sendOfferLetterEmail(student, job, offerDetails) {
+    const html = emailTemplates.offerLetterEmail({
+      fullName: student.fullName,
+      jobTitle: job.title,
+      company: job.company,
+      package: offerDetails.package,
+      joiningDate: offerDetails.joiningDate
+    });
+
+    return this.sendEmail({
+      to: student.email,
+      subject: `🎉 Congratulations! Offer Letter from ${job.company}`,
+      html
+    });
   }
 }
 

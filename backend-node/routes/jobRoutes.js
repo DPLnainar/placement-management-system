@@ -9,7 +9,13 @@ const {
   getJobs,
   getJobById,
   updateJob,
-  deleteJob
+  deleteJob,
+  extendDeadline,
+  checkEligibility,
+  getJobStatistics,
+  bulkUpdateStatus,
+  closeExpiredJobs,
+  getJobsClosingSoon
 } = require('../controllers/jobController');
 
 const router = express.Router();
@@ -58,6 +64,46 @@ router.delete(
   '/:id',
   requireRole(['admin', 'moderator']),
   deleteJob
+);
+
+// Admin and Moderator: Extend job deadline
+router.put(
+  '/:id/extend-deadline',
+  requireRole(['admin', 'moderator']),
+  extendDeadline
+);
+
+// All roles: Check eligibility for a job
+router.get(
+  '/:id/check-eligibility',
+  checkEligibility
+);
+
+// Admin and Moderator: Get job statistics
+router.get(
+  '/:id/statistics',
+  requireRole(['admin', 'moderator']),
+  getJobStatistics
+);
+
+// Admin: Bulk update job status
+router.post(
+  '/bulk/update-status',
+  requireRole(['admin']),
+  bulkUpdateStatus
+);
+
+// Admin and Moderator: Close expired jobs
+router.post(
+  '/bulk/close-expired',
+  requireRole(['admin', 'moderator']),
+  closeExpiredJobs
+);
+
+// All roles: Get jobs closing soon
+router.get(
+  '/special/closing-soon',
+  getJobsClosingSoon
 );
 
 module.exports = router;

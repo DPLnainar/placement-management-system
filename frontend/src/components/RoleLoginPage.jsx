@@ -83,10 +83,11 @@ export default function RoleLogin() {
       }
 
       // Validate role matches (case-insensitive)
+      // Allow superadmin to login through admin page
       const userRole = (userInfo.role || '').toLowerCase();
       const expectedRole = (role || '').toLowerCase();
       
-      if (userRole !== expectedRole) {
+      if (userRole !== expectedRole && !(userRole === 'superadmin' && expectedRole === 'admin')) {
         setError(`Incorrect username or password`);
         setLoading(false);
         return;

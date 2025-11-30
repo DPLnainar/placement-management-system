@@ -38,6 +38,7 @@ export default function AdminDashboard() {
   const [bulkUploadData, setBulkUploadData] = useState('');
   const [bulkUploadResults, setBulkUploadResults] = useState(null);
   const [bulkUploading, setBulkUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
 
   useEffect(() => {
     // Check if user has valid token
@@ -223,51 +224,152 @@ export default function AdminDashboard() {
     try {
       setBulkUploading(true);
       setBulkUploadResults(null);
+      setUploadProgress({ current: 0, total: 0 });
 
-      // Parse CSV data
-      const lines = bulkUploadData.trim().split('\n');
-      const users = [];
-      const results = { successful: 0, failed: 0, skipped: 0, errors: [] };
+      // Validate and parse CSV data
+      const lines = bulkUploadData.trim().split('\n').filter(line => line.trim());
+      
+      if (lines.length < 2) {
+        alert('Error: CSV must contain at least a header row and one data row');
+        setBulkUploading(false);
+        return;
+      }
 
-      for (let i = 1; i < lines.length; i++) { // Skip header
-        const [username, email, fullName, password, department] = lines[i].split(',').map(s => s.trim());
+      // Validate header
+      const header = lines[0].toLowerCase().replace(/\s/g, '');
+      const expectedHeader = 'username,email,fullname,password,department';
+      if (header !== expectedHeader) {
+        alert(`Error: Invalid CSV header.\nExpected: ${expectedHeader}\nReceived: ${header}\n\nPlease download the template and use the correct format.`);
+        setBulkUploading(false);
+        return;
+      }
+
+      const results = { successful: 0, failed: 0, skipped: 0, errors: [], details: [] };
+      const totalRecords = lines.length - 1;
+      setUploadProgress({ current: 0, total: totalRecords });
+
+      // Valid departments
+      const validDepartments = ['CSE', 'ECE', 'EEE', 'MECH', 'CIVIL', 'IT', 'ISE', 'AI/ML', 'AIDS', 'DS', 'CS', 'MBA'];
+
+      for (let i = 1; i < lines.length; i++) {
+        const lineNumber = i + 1;
+        const line = lines[i].trim();
         
-        if (!username || !email || !fullName || !password || !department) {
+        // Skip empty lines
+        if (!line) {
           results.skipped++;
-          results.errors.push(`Line ${i + 1}: Missing required fields`);
+          results.errors.push(`Line ${lineNumber}: Empty line skipped`);
           continue;
         }
 
+        // Parse CSV line (handle commas in quoted fields)
+        const fields = line.match(/(?:[^,"]+|"[^"]*")+/g);
+        
+        if (!fields || fields.length < 5) {
+          results.skipped++;
+          results.errors.push(`Line ${lineNumber}: Insufficient fields (expected 5, got ${fields?.length || 0})`);
+          continue;
+        }
+
+        const [username, email, fullName, password, department] = fields.map(s => s.trim().replace(/^"|"$/g, ''));
+        
+        // Validate required fields
+        if (!username || !email || !fullName || !password || !department) {
+          results.skipped++;
+          const missingFields = [];
+          if (!username) missingFields.push('username');
+          if (!email) missingFields.push('email');
+          if (!fullName) missingFields.push('fullName');
+          if (!password) missingFields.push('password');
+          if (!department) missingFields.push('department');
+          results.errors.push(`Line ${lineNumber}: Missing fields: ${missingFields.join(', ')}`);
+          continue;
+        }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+          results.skipped++;
+          results.errors.push(`Line ${lineNumber} (${username}): Invalid email format`);
+          continue;
+        }
+
+        // Validate username (no spaces, alphanumeric)
+        const usernameRegex = /^[a-zA-Z0-9_.-]+$/;
+        if (!usernameRegex.test(username)) {
+          results.skipped++;
+          results.errors.push(`Line ${lineNumber} (${username}): Username can only contain letters, numbers, dots, hyphens, and underscores`);
+          continue;
+        }
+
+        // Validate password length
+        if (password.length < 6) {
+          results.skipped++;
+          results.errors.push(`Line ${lineNumber} (${username}): Password must be at least 6 characters`);
+          continue;
+        }
+
+        // Validate department
+        const deptUpper = department.toUpperCase();
+        if (!validDepartments.includes(deptUpper)) {
+          results.skipped++;
+          results.errors.push(`Line ${lineNumber} (${username}): Invalid department '${department}'. Valid: ${validDepartments.join(', ')}`);
+          continue;
+        }
+
+        // Update progress
+        setUploadProgress({ current: i, total: totalRecords });
+
+        // Attempt to create user
         try {
           await userAPI.create({
-            username,
-            email,
+            username: username.toLowerCase(),
+            email: email.toLowerCase(),
             fullName,
             password,
-            department,
+            department: deptUpper,
             role: 'student',
             collegeId: user.collegeId,
           });
           results.successful++;
+          results.details.push({ line: lineNumber, username, status: 'success' });
         } catch (error) {
           results.failed++;
           const errorMsg = error.response?.data?.message || error.message || 'Unknown error';
-          results.errors.push(`${username}: ${errorMsg}`);
+          
+          // Provide more specific error messages
+          let friendlyError = errorMsg;
+          if (errorMsg.includes('duplicate') || errorMsg.includes('already exists')) {
+            friendlyError = 'Username or email already exists';
+          } else if (errorMsg.includes('validation')) {
+            friendlyError = 'Validation failed';
+          }
+          
+          results.errors.push(`Line ${lineNumber} (${username}): ${friendlyError}`);
+          results.details.push({ line: lineNumber, username, status: 'failed', error: friendlyError });
+        }
+
+        // Small delay to prevent overwhelming the server
+        if (i % 10 === 0) {
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
       }
 
       setBulkUploadResults(results);
-      fetchDashboardData();
-
+      setUploadProgress({ current: totalRecords, total: totalRecords });
+      
+      // Refresh dashboard data if any users were created
       if (results.successful > 0) {
-        alert(`Bulk upload complete!\nSuccessful: ${results.successful}\nFailed: ${results.failed}\nSkipped: ${results.skipped}`);
+        await fetchDashboardData();
       }
 
+      // Clear data only if everything was successful
       if (results.failed === 0 && results.skipped === 0) {
         setBulkUploadData('');
       }
     } catch (error) {
-      alert('Error processing bulk upload: ' + (error.message || 'Unknown error'));
+      console.error('Bulk upload error:', error);
+      alert('Error processing bulk upload: ' + (error.message || 'Unknown error occurred. Please check your CSV format and try again.'));
     } finally {
       setBulkUploading(false);
     }
@@ -1244,38 +1346,87 @@ export default function AdminDashboard() {
                   <li>• First line must be: <code className="bg-blue-100 px-1 rounded">username,email,fullName,password,department</code></li>
                   <li>• Each subsequent line represents one student</li>
                   <li>• All fields are required (username, email, fullName, password, department)</li>
-                  <li>• Department codes: CSE, ECE, EEE, MECH, CIVIL, IT, ISE, AI/ML, AIDS, DS, CS, MBA</li>
-                  <li>• No spaces around commas</li>
+                  <li>• <strong>Username:</strong> Only letters, numbers, dots, hyphens, underscores (no spaces)</li>
+                  <li>• <strong>Email:</strong> Must be valid email format</li>
+                  <li>• <strong>Password:</strong> Minimum 6 characters</li>
+                  <li>• <strong>Department codes:</strong> CSE, ECE, EEE, MECH, CIVIL, IT, ISE, AI/ML, AIDS, DS, CS, MBA</li>
+                  <li>• Use quotes for fields with commas: <code className="bg-blue-100 px-1 rounded">"Doe, John"</code></li>
                   <li>• Example: <code className="bg-blue-100 px-1 rounded">johndoe,john@example.com,John Doe,pass123,CSE</code></li>
                 </ul>
               </div>
 
+              {bulkUploading && uploadProgress.total > 0 && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-sm text-purple-900 mb-2">Upload Progress:</h4>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 bg-gray-200 rounded-full h-2.5">
+                      <div 
+                        className="bg-purple-600 h-2.5 rounded-full transition-all duration-300"
+                        style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-sm font-medium text-purple-900">
+                      {uploadProgress.current} / {uploadProgress.total}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {bulkUploadResults && (
                 <div className="border rounded-lg p-4 bg-gray-50">
-                  <h4 className="font-semibold mb-3">Upload Results:</h4>
+                  <h4 className="font-semibold mb-3 flex items-center justify-between">
+                    <span>Upload Results</span>
+                    {bulkUploadResults.successful > 0 && (
+                      <span className="text-sm text-green-600">✓ {bulkUploadResults.successful} students added successfully</span>
+                    )}
+                  </h4>
                   <div className="grid grid-cols-3 gap-4 mb-3">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-green-600">{bulkUploadResults.successful}</div>
-                      <div className="text-xs text-gray-600">Successful</div>
+                    <div className="text-center bg-green-50 p-3 rounded-lg border border-green-200">
+                      <div className="text-3xl font-bold text-green-600">{bulkUploadResults.successful}</div>
+                      <div className="text-xs text-gray-600 font-medium">Successful</div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-red-600">{bulkUploadResults.failed}</div>
-                      <div className="text-xs text-gray-600">Failed</div>
+                    <div className="text-center bg-red-50 p-3 rounded-lg border border-red-200">
+                      <div className="text-3xl font-bold text-red-600">{bulkUploadResults.failed}</div>
+                      <div className="text-xs text-gray-600 font-medium">Failed</div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-yellow-600">{bulkUploadResults.skipped}</div>
-                      <div className="text-xs text-gray-600">Skipped</div>
+                    <div className="text-center bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                      <div className="text-3xl font-bold text-yellow-600">{bulkUploadResults.skipped}</div>
+                      <div className="text-xs text-gray-600 font-medium">Skipped</div>
                     </div>
                   </div>
                   
                   {bulkUploadResults.errors.length > 0 && (
                     <div className="mt-3">
-                      <h5 className="text-sm font-semibold text-red-700 mb-2">Errors:</h5>
-                      <div className="max-h-32 overflow-y-auto bg-white border rounded p-2">
+                      <div className="flex items-center justify-between mb-2">
+                        <h5 className="text-sm font-semibold text-red-700">Errors and Warnings ({bulkUploadResults.errors.length}):</h5>
+                        <button
+                          onClick={() => {
+                            const errorText = bulkUploadResults.errors.join('\n');
+                            navigator.clipboard.writeText(errorText);
+                            alert('Errors copied to clipboard');
+                          }}
+                          className="text-xs text-blue-600 hover:text-blue-800 underline"
+                        >
+                          Copy All Errors
+                        </button>
+                      </div>
+                      <div className="max-h-48 overflow-y-auto bg-white border rounded p-3">
                         {bulkUploadResults.errors.map((error, idx) => (
-                          <div key={idx} className="text-xs text-red-600 mb-1">• {error}</div>
+                          <div key={idx} className="text-xs mb-1.5 flex items-start">
+                            <span className="text-red-500 mr-2 font-bold">⚠</span>
+                            <span className="text-gray-700 flex-1">{error}</span>
+                          </div>
                         ))}
                       </div>
+                      <p className="text-xs text-gray-600 mt-2 italic">
+                        💡 Tip: Fix the errors in your CSV and upload again. Successfully added students won't be duplicated.
+                      </p>
+                    </div>
+                  )}
+
+                  {bulkUploadResults.failed === 0 && bulkUploadResults.skipped === 0 && (
+                    <div className="mt-3 bg-green-50 border border-green-200 rounded p-3 text-center">
+                      <span className="text-green-700 font-semibold">✓ All students uploaded successfully!</span>
                     </div>
                   )}
                 </div>

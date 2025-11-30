@@ -29,4 +29,17 @@ router.put('/:userId/profile',
   studentController.updateStudentProfile
 );
 
+// Enhanced Profile Management Routes (Student only)
+router.put('/education', authenticate, requireRole(['student']), studentController.updateEducation);
+router.put('/skills', authenticate, requireRole(['student']), studentController.updateSkills);
+router.post('/projects', authenticate, requireRole(['student']), studentController.addProject);
+router.put('/projects/:projectId', authenticate, requireRole(['student']), studentController.updateProject);
+router.delete('/projects/:projectId', authenticate, requireRole(['student']), studentController.deleteProject);
+router.post('/experience', authenticate, requireRole(['student']), studentController.addExperience);
+router.post('/certifications', authenticate, requireRole(['student']), studentController.addCertification);
+router.post('/achievements', authenticate, requireRole(['student']), studentController.addAchievement);
+router.put('/social-profiles', authenticate, requireRole(['student']), studentController.updateSocialProfiles);
+router.put('/coding-stats', authenticate, requireRole(['student']), studentController.updateCodingStats);
+router.get('/profile-strength', authenticate, requireRole(['student']), studentController.getProfileStrength);
+
 module.exports = router;

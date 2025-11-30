@@ -6,6 +6,8 @@ const connectDB = require('./config/database');
 // Import middleware
 const logger = require('./middleware/logger');
 const { sanitizeInput } = require('./middleware/validation');
+const { auditMiddleware } = require('./middleware/audit');
+const { generalLimiter, authLimiter, passwordResetLimiter } = require('./middleware/rateLimiter');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
@@ -18,6 +20,15 @@ const eligibilityRoutes = require('./routes/eligibilityRoutes');
 const placementDriveRoutes = require('./routes/placementDriveRoutes');
 const invitationRoutes = require('./routes/invitationRoutes');
 const publicRoutes = require('./routes/publicRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
+const statisticsRoutes = require('./routes/statisticsRoutes');
+const announcementRoutes = require('./routes/announcementRoutes');
+const eventRoutes = require('./routes/eventRoutes');
+const auditRoutes = require('./routes/auditRoutes');
+const workflowRoutes = require('./routes/workflowRoutes');
+const companyRoutes = require('./routes/companyRoutes');
+const searchRoutes = require('./routes/searchRoutes');
+const exportRoutes = require('./routes/exportRoutes');
 
 /**
  * College Placement Management System
@@ -82,6 +93,12 @@ if (process.env.NODE_ENV !== 'production') {
   app.use(logger);
 }
 
+// Audit logging middleware (all authenticated requests)
+app.use(auditMiddleware);
+
+// General rate limiting
+app.use('/api/', generalLimiter);
+
 // ==========================================
 // ROUTES
 // ==========================================
@@ -101,6 +118,9 @@ app.get('/', (req, res) => {
 });
 
 // API Routes
+app.use('/api/auth/login', authLimiter); // Rate limit login attempts
+app.use('/api/auth/forgot-password', passwordResetLimiter); // Rate limit password resets
+app.use('/api/auth/reset-password', passwordResetLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/jobs', jobRoutes);
@@ -111,6 +131,15 @@ app.use('/api/eligibility', eligibilityRoutes);
 app.use('/api/placement-drives', placementDriveRoutes);
 app.use('/api/invitations', invitationRoutes);
 app.use('/api/public', publicRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/api/statistics', statisticsRoutes);
+app.use('/api/announcements', announcementRoutes);
+app.use('/api/events', eventRoutes);
+app.use('/api/audit', auditRoutes);
+app.use('/api/workflow', workflowRoutes);
+app.use('/api/companies', companyRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/export', exportRoutes);
 
 // ==========================================
 // ERROR HANDLING
@@ -233,6 +262,10 @@ const startServer = async () => {
       console.log('   npm run seed  - Create sample admin users');
       console.log('   npm run dev   - Start with nodemon (auto-restart)');
       console.log('='.repeat(60) + '\n');
+      
+      // Start job scheduler for auto-closing expired jobs
+      const { startScheduler } = require('./utils/jobScheduler');
+      startScheduler();
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);

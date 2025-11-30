@@ -41,6 +41,29 @@ const jobSchema = new mongoose.Schema({
     type: Date,
     required: [true, 'Application deadline is required']
   },
+  // Separate registration deadline (can be before application deadline)
+  registrationDeadline: {
+    type: Date,
+    default: null
+  },
+  // Deadline extensions
+  deadlineExtended: {
+    type: Boolean,
+    default: false
+  },
+  originalDeadline: {
+    type: Date,
+    default: null
+  },
+  // Application tracking
+  maxApplications: {
+    type: Number,
+    default: null // null means unlimited
+  },
+  currentApplicationCount: {
+    type: Number,
+    default: 0
+  },
   // Reference to the college this job belongs to
   collegeId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -166,6 +189,35 @@ const jobSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  // Notification settings
+  notifyEligibleStudents: {
+    type: Boolean,
+    default: false
+  },
+  notificationsSent: {
+    type: Boolean,
+    default: false
+  },
+  // Visibility settings
+  isVisible: {
+    type: Boolean,
+    default: true
+  },
+  publishDate: {
+    type: Date,
+    default: Date.now
+  },
+  // Tags for better searchability
+  tags: {
+    type: [String],
+    default: []
+  },
+  // Priority level
+  priority: {
+    type: String,
+    enum: ['low', 'medium', 'high', 'urgent'],
+    default: 'medium'
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -195,8 +247,48 @@ jobSchema.methods.isExpired = function() {
 
 // Check if registration is still open
 jobSchema.methods.isRegistrationOpen = function() {
-  if (!this.registrationDeadline) return true;
-  return new Date() <= this.registrationDeadline && this.status === 'active';
+  const now = new Date();
+  
+  // Check if job is active
+  if (this.status !== 'active') return false;
+  
+  // Check registration deadline if exists
+  if (this.registrationDeadline && now > this.registrationDeadline) {
+    return false;
+  }
+  
+  // Check application deadline
+  if (now > this.deadline) return false;
+  
+  // Check max applications limit
+  if (this.maxApplications && this.currentApplicationCount >= this.maxApplications) {
+    return false;
+  }
+  
+  return true;
+};
+
+// Get days remaining until deadline
+jobSchema.methods.getDaysRemaining = function() {
+  const now = new Date();
+  const deadline = this.registrationDeadline || this.deadline;
+  const timeDiff = deadline - now;
+  return Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+};
+
+// Check if job is closing soon (within 3 days)
+jobSchema.methods.isClosingSoon = function() {
+  const daysRemaining = this.getDaysRemaining();
+  return daysRemaining > 0 && daysRemaining <= 3;
+};
+
+// Extend deadline
+jobSchema.methods.extendDeadline = function(newDeadline) {
+  if (!this.deadlineExtended) {
+    this.originalDeadline = this.deadline;
+    this.deadlineExtended = true;
+  }
+  this.deadline = newDeadline;
 };
 
 // Check if student is eligible for this job

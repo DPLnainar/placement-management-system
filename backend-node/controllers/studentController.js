@@ -356,3 +356,455 @@ module.exports = {
   getStudentProfile: exports.getStudentProfile,
   updateStudentProfile: exports.updateStudentProfile
 };
+
+/**
+ * Add/Update Education History
+ */
+exports.updateEducation = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { tenth, twelfth, graduation, postGraduation } = req.body;
+
+    const studentData = await StudentData.findOne({ userId });
+    if (!studentData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student profile not found'
+      });
+    }
+
+    // Update education fields
+    if (tenth) studentData.education.tenth = { ...studentData.education?.tenth, ...tenth };
+    if (twelfth) studentData.education.twelfth = { ...studentData.education?.twelfth, ...twelfth };
+    if (graduation) studentData.education.graduation = { ...studentData.education?.graduation, ...graduation };
+    if (postGraduation) studentData.education.postGraduation = { ...studentData.education?.postGraduation, ...postGraduation };
+
+    // Update legacy fields for backward compatibility
+    if (tenth?.percentage) studentData.tenthPercentage = tenth.percentage;
+    if (twelfth?.percentage) studentData.twelfthPercentage = twelfth.percentage;
+    if (graduation?.cgpa) studentData.cgpa = graduation.cgpa;
+
+    await studentData.save();
+
+    res.json({
+      success: true,
+      message: 'Education history updated successfully',
+      education: studentData.education,
+      profileCompletion: studentData.profileCompletionPercentage
+    });
+
+  } catch (error) {
+    console.error('Update education error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating education history'
+    });
+  }
+};
+
+/**
+ * Add/Update Technical Skills
+ */
+exports.updateSkills = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { programming, frameworks, tools, databases, cloud, other, softSkills, languages } = req.body;
+
+    const studentData = await StudentData.findOne({ userId });
+    if (!studentData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student profile not found'
+      });
+    }
+
+    // Update technical skills
+    if (programming) studentData.technicalSkills.programming = programming;
+    if (frameworks) studentData.technicalSkills.frameworks = frameworks;
+    if (tools) studentData.technicalSkills.tools = tools;
+    if (databases) studentData.technicalSkills.databases = databases;
+    if (cloud) studentData.technicalSkills.cloud = cloud;
+    if (other) studentData.technicalSkills.other = other;
+
+    // Update soft skills and languages
+    if (softSkills) studentData.softSkills = softSkills;
+    if (languages) studentData.languages = languages;
+
+    await studentData.save();
+
+    res.json({
+      success: true,
+      message: 'Skills updated successfully',
+      technicalSkills: studentData.technicalSkills,
+      softSkills: studentData.softSkills,
+      languages: studentData.languages,
+      profileCompletion: studentData.profileCompletionPercentage
+    });
+
+  } catch (error) {
+    console.error('Update skills error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating skills'
+    });
+  }
+};
+
+/**
+ * Add Project
+ */
+exports.addProject = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const projectData = req.body;
+
+    const studentData = await StudentData.findOne({ userId });
+    if (!studentData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student profile not found'
+      });
+    }
+
+    studentData.projects.push(projectData);
+    await studentData.save();
+
+    res.json({
+      success: true,
+      message: 'Project added successfully',
+      project: studentData.projects[studentData.projects.length - 1],
+      totalProjects: studentData.projects.length,
+      profileCompletion: studentData.profileCompletionPercentage
+    });
+
+  } catch (error) {
+    console.error('Add project error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error adding project'
+    });
+  }
+};
+
+/**
+ * Update Project
+ */
+exports.updateProject = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { projectId } = req.params;
+    const updates = req.body;
+
+    const studentData = await StudentData.findOne({ userId });
+    if (!studentData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student profile not found'
+      });
+    }
+
+    const project = studentData.projects.id(projectId);
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project not found'
+      });
+    }
+
+    Object.assign(project, updates);
+    await studentData.save();
+
+    res.json({
+      success: true,
+      message: 'Project updated successfully',
+      project
+    });
+
+  } catch (error) {
+    console.error('Update project error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating project'
+    });
+  }
+};
+
+/**
+ * Delete Project
+ */
+exports.deleteProject = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { projectId } = req.params;
+
+    const studentData = await StudentData.findOne({ userId });
+    if (!studentData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student profile not found'
+      });
+    }
+
+    studentData.projects.pull(projectId);
+    await studentData.save();
+
+    res.json({
+      success: true,
+      message: 'Project deleted successfully',
+      totalProjects: studentData.projects.length
+    });
+
+  } catch (error) {
+    console.error('Delete project error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting project'
+    });
+  }
+};
+
+/**
+ * Add Experience (Internship or Work)
+ */
+exports.addExperience = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { type, ...experienceData } = req.body; // type: 'internship' or 'work'
+
+    const studentData = await StudentData.findOne({ userId });
+    if (!studentData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student profile not found'
+      });
+    }
+
+    if (type === 'internship') {
+      studentData.internships.push(experienceData);
+    } else if (type === 'work') {
+      studentData.workExperience.push(experienceData);
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid experience type. Use "internship" or "work"'
+      });
+    }
+
+    await studentData.save();
+
+    res.json({
+      success: true,
+      message: `${type === 'internship' ? 'Internship' : 'Work experience'} added successfully`,
+      totalExperienceMonths: studentData.getTotalExperience(),
+      profileCompletion: studentData.profileCompletionPercentage
+    });
+
+  } catch (error) {
+    console.error('Add experience error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error adding experience'
+    });
+  }
+};
+
+/**
+ * Add Certification
+ */
+exports.addCertification = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const certificationData = req.body;
+
+    const studentData = await StudentData.findOne({ userId });
+    if (!studentData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student profile not found'
+      });
+    }
+
+    studentData.certifications.push(certificationData);
+    await studentData.save();
+
+    res.json({
+      success: true,
+      message: 'Certification added successfully',
+      certification: studentData.certifications[studentData.certifications.length - 1],
+      totalCertifications: studentData.certifications.length,
+      profileCompletion: studentData.profileCompletionPercentage
+    });
+
+  } catch (error) {
+    console.error('Add certification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error adding certification'
+    });
+  }
+};
+
+/**
+ * Add Achievement
+ */
+exports.addAchievement = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const achievementData = req.body;
+
+    const studentData = await StudentData.findOne({ userId });
+    if (!studentData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student profile not found'
+      });
+    }
+
+    studentData.achievements.push(achievementData);
+    await studentData.save();
+
+    res.json({
+      success: true,
+      message: 'Achievement added successfully',
+      achievement: studentData.achievements[studentData.achievements.length - 1],
+      totalAchievements: studentData.achievements.length,
+      profileCompletion: studentData.profileCompletionPercentage
+    });
+
+  } catch (error) {
+    console.error('Add achievement error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error adding achievement'
+    });
+  }
+};
+
+/**
+ * Update Social Profiles
+ */
+exports.updateSocialProfiles = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const profiles = req.body;
+
+    const studentData = await StudentData.findOne({ userId });
+    if (!studentData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student profile not found'
+      });
+    }
+
+    studentData.socialProfiles = { ...studentData.socialProfiles, ...profiles };
+    await studentData.save();
+
+    res.json({
+      success: true,
+      message: 'Social profiles updated successfully',
+      socialProfiles: studentData.socialProfiles
+    });
+
+  } catch (error) {
+    console.error('Update social profiles error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating social profiles'
+    });
+  }
+};
+
+/**
+ * Update Coding Stats
+ */
+exports.updateCodingStats = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const stats = req.body;
+
+    const studentData = await StudentData.findOne({ userId });
+    if (!studentData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student profile not found'
+      });
+    }
+
+    studentData.codingStats = { ...studentData.codingStats, ...stats };
+    await studentData.save();
+
+    res.json({
+      success: true,
+      message: 'Coding stats updated successfully',
+      codingStats: studentData.codingStats
+    });
+
+  } catch (error) {
+    console.error('Update coding stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating coding stats'
+    });
+  }
+};
+
+/**
+ * Get Profile Strength Analysis
+ */
+exports.getProfileStrength = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const studentData = await StudentData.findOne({ userId });
+    if (!studentData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student profile not found'
+      });
+    }
+
+    const strength = studentData.getProfileStrength();
+    const totalExperience = studentData.getTotalExperience();
+    const allSkills = studentData.getAllSkills();
+
+    res.json({
+      success: true,
+      profileStrength: strength,
+      analytics: {
+        totalExperienceMonths: totalExperience,
+        totalExperienceYears: Math.floor(totalExperience / 12),
+        totalSkills: allSkills.length,
+        skills: allSkills,
+        totalProjects: studentData.projects?.length || 0,
+        totalCertifications: studentData.certifications?.length || 0,
+        totalAchievements: studentData.achievements?.length || 0,
+        hasResume: !!studentData.resumeUrl
+      }
+    });
+
+  } catch (error) {
+    console.error('Get profile strength error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error getting profile strength'
+    });
+  }
+};
+
+// Update exports
+module.exports = {
+  registerStudent: exports.registerStudent,
+  getStudentProfile: exports.getStudentProfile,
+  updateStudentProfile: exports.updateStudentProfile,
+  updateEducation: exports.updateEducation,
+  updateSkills: exports.updateSkills,
+  addProject: exports.addProject,
+  updateProject: exports.updateProject,
+  deleteProject: exports.deleteProject,
+  addExperience: exports.addExperience,
+  addCertification: exports.addCertification,
+  addAchievement: exports.addAchievement,
+  updateSocialProfiles: exports.updateSocialProfiles,
+  updateCodingStats: exports.updateCodingStats,
+  getProfileStrength: exports.getProfileStrength
+};

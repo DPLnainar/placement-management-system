@@ -1,6 +1,8 @@
 const College = require('../models/College');
 const User = require('../models/User');
 const mongoose = require('mongoose');
+const sendEmail = require('../utils/sendEmail');
+const { bulkUploadSummaryEmail } = require('../utils/emailTemplates');
 
 /**
  * CREATE COLLEGE WITH ADMIN
@@ -410,9 +412,74 @@ exports.getDashboardStats = async (req, res) => {
   }
 };
 
+/**
+ * SEND BULK UPLOAD SUMMARY EMAIL
+ * 
+ * ⚠️ SUPER ADMIN ONLY ⚠️
+ * 
+ * Sends a summary email after bulk college upload
+ */
+exports.sendBulkUploadEmail = async (req, res) => {
+  try {
+    // SECURITY CHECK: Only Super Admin
+    if (req.user.role !== 'superadmin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Insufficient permissions.'
+      });
+    }
+
+    const { results } = req.body;
+
+    if (!results || !results.successful || !results.failed || results.total === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid results data provided'
+      });
+    }
+
+    // Get super admin details
+    const superAdmin = await User.findById(req.user._id);
+    if (!superAdmin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Super admin user not found'
+      });
+    }
+
+    // Generate email template
+    const emailHTML = bulkUploadSummaryEmail(
+      results,
+      superAdmin.fullName || superAdmin.username,
+      superAdmin.email
+    );
+
+    // Send email
+    await sendEmail({
+      to: superAdmin.email,
+      subject: `Bulk Upload Summary: ${results.successful.length}/${results.total} Colleges Created Successfully`,
+      html: emailHTML
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Bulk upload summary email sent successfully'
+    });
+
+  } catch (error) {
+    console.error('Send bulk upload email error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error sending bulk upload summary email',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   createCollegeWithAdmin: exports.createCollegeWithAdmin,
   getAllPlacementData: exports.getAllPlacementData,
   getAllColleges: exports.getAllColleges,
-  getDashboardStats: exports.getDashboardStats
+  getDashboardStats: exports.getDashboardStats,
+  sendBulkUploadEmail: exports.sendBulkUploadEmail
 };

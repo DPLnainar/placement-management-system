@@ -8,7 +8,8 @@ const {
   createCollegeWithAdmin,
   getAllPlacementData,
   getAllColleges,
-  getDashboardStats
+  getDashboardStats,
+  sendBulkUploadEmail
 } = require('../controllers/superAdminController');
 
 /**
@@ -64,5 +65,19 @@ router.get('/placement-data', getAllPlacementData);
  * Returns: totalColleges, totalStudents, totalJobs, totalAdmins
  */
 router.get('/dashboard-stats', getDashboardStats);
+
+/**
+ * POST /api/superadmin/send-bulk-upload-email
+ * Send bulk upload summary email to super admin
+ * 
+ * Body: {
+ *   results: {
+ *     successful: Array<{collegeName, collegeCode, credentials}>,
+ *     failed: Array<{line, collegeName, errors}>,
+ *     total: number
+ *   }
+ * }
+ */
+router.post('/send-bulk-upload-email', sendBulkUploadEmail);
 
 module.exports = router;

@@ -9,28 +9,23 @@ const Job = require('../models/Job');
  */
 exports.createJob = async (req, res) => {
   try {
-    const { title, company, description, salary, location, jobType, deadline } = req.body;
+    const jobData = req.body;
 
     // Validate required fields
-    if (!title || !company || !description || !location || !deadline) {
+    if (!jobData.title || !jobData.company || !jobData.description || !jobData.location || !jobData.deadline) {
       return res.status(400).json({ 
         success: false, 
         message: 'Please provide all required fields: title, company, description, location, deadline' 
       });
     }
 
-    // Create new job
+    // Create new job with all fields
     const newJob = new Job({
-      title,
-      company,
-      description,
-      salary,
-      location,
-      jobType: jobType || 'full-time',
-      deadline: new Date(deadline),
+      ...jobData,
       collegeId: req.user.collegeId._id || req.user.collegeId,
       postedBy: req.user._id,
-      status: 'active'
+      status: jobData.status || 'active',
+      publishDate: jobData.publishDate || Date.now()
     });
 
     await newJob.save();
@@ -69,7 +64,7 @@ exports.createJob = async (req, res) => {
  */
 exports.getJobs = async (req, res) => {
   try {
-    const { status, jobType } = req.query;
+    const { status, jobType, jobCategory, priority, includeExpired } = req.query;
     
     // Build query filter
     const filter = { 
@@ -84,32 +79,38 @@ exports.getJobs = async (req, res) => {
     if (jobType) {
       filter.jobType = jobType;
     }
+    
+    if (jobCategory) {
+      filter.jobCategory = jobCategory;
+    }
+    
+    if (priority) {
+      filter.priority = priority;
+    }
+    
+    // Exclude expired jobs unless explicitly requested
+    if (!includeExpired) {
+      filter.deadline = { $gte: new Date() };
+    }
 
     // Fetch jobs
     const jobs = await Job.find(filter)
       .populate('postedBy', 'username fullName role')
-      .sort({ createdAt: -1 });
+      .sort({ priority: -1, createdAt: -1 });
+
+    // Add computed fields for each job
+    const enrichedJobs = jobs.map(job => ({
+      ...job.toObject(),
+      isExpired: job.isExpired(),
+      isRegistrationOpen: job.isRegistrationOpen(),
+      daysRemaining: job.getDaysRemaining(),
+      isClosingSoon: job.isClosingSoon()
+    }));
 
     res.json({
       success: true,
-      count: jobs.length,
-      jobs: jobs.map(job => ({
-        id: job._id,
-        _id: job._id,
-        title: job.title,
-        company: job.company,
-        description: job.description,
-        salary: job.salary,
-        location: job.location,
-        jobType: job.jobType,
-        deadline: job.deadline,
-        status: job.status,
-        requirements: job.requirements,
-        postedBy: job.postedBy,
-        collegeId: job.collegeId,
-        createdAt: job.createdAt,
-        updatedAt: job.updatedAt
-      }))
+      count: enrichedJobs.length,
+      jobs: enrichedJobs
     });
 
   } catch (error) {
@@ -179,10 +180,10 @@ exports.updateJob = async (req, res) => {
       });
     }
 
-    // Update allowed fields
-    const allowedUpdates = ['title', 'company', 'description', 'salary', 'location', 'jobType', 'deadline', 'status', 'requirements'];
+    // Update all fields (excluding protected ones)
+    const protectedFields = ['_id', 'collegeId', 'postedBy', 'createdAt', 'currentApplicationCount'];
     Object.keys(updates).forEach(key => {
-      if (allowedUpdates.includes(key)) {
+      if (!protectedFields.includes(key)) {
         job[key] = updates[key];
       }
     });
@@ -241,3 +242,313 @@ exports.deleteJob = async (req, res) => {
     });
   }
 };
+
+/**
+ * Extend Job Deadline
+ * 
+ * ADMIN/MODERATOR ONLY
+ */
+exports.extendDeadline = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newDeadline, reason } = req.body;
+
+    if (!newDeadline) {
+      return res.status(400).json({
+        success: false,
+        message: 'New deadline is required'
+      });
+    }
+
+    const job = await Job.findOne({
+      _id: id,
+      collegeId: req.user.collegeId._id || req.user.collegeId
+    });
+
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: 'Job not found'
+      });
+    }
+
+    const newDeadlineDate = new Date(newDeadline);
+    
+    // Validate new deadline is in the future
+    if (newDeadlineDate <= new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: 'New deadline must be in the future'
+      });
+    }
+
+    // Extend the deadline
+    job.extendDeadline(newDeadlineDate);
+    await job.save();
+
+    res.json({
+      success: true,
+      message: 'Deadline extended successfully',
+      job: {
+        id: job._id,
+        title: job.title,
+        originalDeadline: job.originalDeadline,
+        newDeadline: job.deadline,
+        deadlineExtended: job.deadlineExtended
+      }
+    });
+
+  } catch (error) {
+    console.error('Extend deadline error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error extending deadline'
+    });
+  }
+};
+
+/**
+ * Check Student Eligibility for Job
+ * 
+ * STUDENT/ADMIN/MODERATOR
+ */
+exports.checkEligibility = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const StudentData = require('../models/StudentData');
+
+    const job = await Job.findOne({
+      _id: id,
+      collegeId: req.user.collegeId._id || req.user.collegeId
+    });
+
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: 'Job not found'
+      });
+    }
+
+    // Get student data
+    const studentData = await StudentData.findOne({ userId: req.user._id });
+
+    if (!studentData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student data not found. Please complete your profile first.'
+      });
+    }
+
+    // Check eligibility
+    const eligibilityResult = job.checkEligibility(studentData);
+
+    res.json({
+      success: true,
+      isEligible: eligibilityResult.isEligible,
+      issues: eligibilityResult.issues,
+      job: {
+        id: job._id,
+        title: job.title,
+        company: job.company
+      }
+    });
+
+  } catch (error) {
+    console.error('Check eligibility error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error checking eligibility'
+    });
+  }
+};
+
+/**
+ * Get Job Statistics
+ * 
+ * ADMIN/MODERATOR ONLY
+ */
+exports.getJobStatistics = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const Application = require('../models/Application');
+
+    const job = await Job.findOne({
+      _id: id,
+      collegeId: req.user.collegeId._id || req.user.collegeId
+    });
+
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: 'Job not found'
+      });
+    }
+
+    // Get application statistics
+    const applications = await Application.find({ jobId: id });
+    
+    const stats = {
+      totalApplications: applications.length,
+      applicationsByStatus: {
+        pending: applications.filter(a => a.status === 'pending').length,
+        approved: applications.filter(a => a.status === 'approved').length,
+        rejected: applications.filter(a => a.status === 'rejected').length,
+        shortlisted: applications.filter(a => a.status === 'shortlisted').length
+      },
+      daysRemaining: job.getDaysRemaining(),
+      isExpired: job.isExpired(),
+      isClosingSoon: job.isClosingSoon(),
+      registrationOpen: job.isRegistrationOpen(),
+      maxApplications: job.maxApplications,
+      currentApplicationCount: job.currentApplicationCount,
+      applicationLimit: job.maxApplications ? 
+        `${job.currentApplicationCount}/${job.maxApplications}` : 'Unlimited'
+    };
+
+    res.json({
+      success: true,
+      statistics: stats,
+      job: {
+        id: job._id,
+        title: job.title,
+        company: job.company,
+        status: job.status
+      }
+    });
+
+  } catch (error) {
+    console.error('Get job statistics error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching statistics'
+    });
+  }
+};
+
+/**
+ * Bulk Update Job Status
+ * 
+ * ADMIN ONLY
+ */
+exports.bulkUpdateStatus = async (req, res) => {
+  try {
+    const { jobIds, status } = req.body;
+
+    if (!jobIds || !Array.isArray(jobIds) || jobIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Job IDs array is required'
+      });
+    }
+
+    if (!status || !['draft', 'active', 'inactive', 'closed', 'cancelled'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid status is required (draft, active, inactive, closed, cancelled)'
+      });
+    }
+
+    // Update jobs that belong to user's college
+    const result = await Job.updateMany(
+      {
+        _id: { $in: jobIds },
+        collegeId: req.user.collegeId._id || req.user.collegeId
+      },
+      {
+        $set: { status }
+      }
+    );
+
+    res.json({
+      success: true,
+      message: `${result.modifiedCount} jobs updated successfully`,
+      modifiedCount: result.modifiedCount
+    });
+
+  } catch (error) {
+    console.error('Bulk update status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error updating jobs'
+    });
+  }
+};
+
+/**
+ * Auto-Close Expired Jobs
+ * 
+ * ADMIN/SYSTEM - Can be called via cron job
+ */
+exports.closeExpiredJobs = async (req, res) => {
+  try {
+    const now = new Date();
+
+    // Find and close expired jobs
+    const result = await Job.updateMany(
+      {
+        deadline: { $lt: now },
+        status: 'active',
+        collegeId: req.user.collegeId._id || req.user.collegeId
+      },
+      {
+        $set: { status: 'closed' }
+      }
+    );
+
+    res.json({
+      success: true,
+      message: `${result.modifiedCount} expired jobs closed automatically`,
+      closedCount: result.modifiedCount
+    });
+
+  } catch (error) {
+    console.error('Close expired jobs error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error closing expired jobs'
+    });
+  }
+};
+
+/**
+ * Get Jobs Closing Soon
+ * 
+ * Returns jobs closing within next 3 days
+ */
+exports.getJobsClosingSoon = async (req, res) => {
+  try {
+    const threeDaysFromNow = new Date();
+    threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
+
+    const jobs = await Job.find({
+      collegeId: req.user.collegeId._id || req.user.collegeId,
+      status: 'active',
+      deadline: {
+        $gte: new Date(),
+        $lte: threeDaysFromNow
+      }
+    })
+      .populate('postedBy', 'username fullName role')
+      .sort({ deadline: 1 });
+
+    const enrichedJobs = jobs.map(job => ({
+      ...job.toObject(),
+      daysRemaining: job.getDaysRemaining(),
+      isClosingSoon: true
+    }));
+
+    res.json({
+      success: true,
+      count: enrichedJobs.length,
+      jobs: enrichedJobs
+    });
+
+  } catch (error) {
+    console.error('Get jobs closing soon error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching jobs'
+    });
+  }
+};
+
