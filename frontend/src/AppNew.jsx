@@ -11,6 +11,7 @@ import AdminDashboard from './components/AdminDashboard';
 import ModeratorDashboard from './components/ModeratorDashboard';
 import StudentDash from './components/StudentDash';
 import SuperAdminDashboard from './components/SuperAdminDashboard';
+import StudentRegistration from './components/StudentRegistration';
 import CreateJob from './components/CreateJob';
 import Setup from './components/Setup';
 import './App.css';
@@ -42,6 +43,7 @@ function App() {
           <Route path="/login/:role" element={<RoleLoginPage />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/register/:token" element={<StudentRegistration />} />
           <Route path="/setup" element={<Setup />} />
 
           {/* Protected Routes */}

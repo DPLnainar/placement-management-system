@@ -96,7 +96,7 @@ const requireRole = (roles) => {
     if (!roles.includes(req.user.role)) {
       return res.status(403).json({ 
         success: false, 
-        message: `Access denied. Required role: ${roles.join(' or ')}. Your role: ${req.user.role}` 
+        message: 'Access denied. Insufficient permissions.' 
       });
     }
 
@@ -187,7 +187,7 @@ const requireAdminForAssignment = (req, res, next) => {
   if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
     return res.status(403).json({ 
       success: false, 
-      message: 'Only administrators can assign users' 
+      message: 'Access denied. Insufficient permissions.' 
     });
   }
 
@@ -254,7 +254,7 @@ const verifyCollegeAdmin = (req, res, next) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ 
       success: false, 
-      message: 'Access denied. College Admin role required.' 
+      message: 'Access denied. Insufficient permissions.' 
     });
   }
 

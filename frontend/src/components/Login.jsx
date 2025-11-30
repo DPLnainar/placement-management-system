@@ -38,8 +38,6 @@ export default function Login() {
       };
       const response = await authAPI.login(loginData);
       
-      console.log('Login response:', response.data);
-      
       // Handle different response structures
       const resData = response.data.data || response.data;
       const userInfo = resData.user;
@@ -63,27 +61,10 @@ export default function Login() {
         collegeCode: userInfo.college?.code || '',
       };
       
-      console.log('Storing user data:', userData);
-      console.log('Department from backend:', userInfo.department);
-      
       login(userData, tokenInfo);
       
-      // Redirect to role-specific port
-      const rolePortMap = {
-        'admin': 3000,
-        'moderator': 3001,
-        'student': 3002
-      };
-      
-      const targetPort = rolePortMap[userInfo.role.toLowerCase()] || 3000;
-      const currentPort = window.location.port || '3000';
-      
-      // If user logged in from different port, redirect to their role's port
-      if (currentPort !== targetPort.toString()) {
-        window.location.href = `http://localhost:${targetPort}/dashboard`;
-      } else {
-        navigate('/dashboard');
-      }
+      // Navigate to dashboard (single port application)
+      navigate('/dashboard');
     } catch (err) {
       console.error('Login error:', err);
       const errorMsg = err.response?.data?.message || err.message || 'Login failed';

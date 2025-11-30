@@ -181,53 +181,164 @@ exports.getStudentProfile = async (req, res) => {
 /**
  * Update Student Profile
  * 
- * Students can update their own profile information
+ * ROLE-BASED FIELD RESTRICTIONS:
+ * 
+ * Students can update (only if not already set):
+ * - Skills (technical skills, frameworks, tools, databases, cloud)
+ * - Extracurricular activities
+ * - Internships
+ * - Resume/documents
+ * - Projects
+ * - Certifications
+ * 
+ * Students CANNOT update (locked after first save):
+ * - Personal information (fullName, phoneNumber, email)
+ * - Academic details (CGPA, 10th/12th percentage, branch, year, roll number, semester records)
+ * 
+ * Moderators/Admins can update:
+ * - All fields including locked ones
  */
 exports.updateStudentProfile = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.params.userId || req.user._id;
+    const isModerator = req.user.role === 'admin' || req.user.role === 'moderator';
+    const isOwnProfile = userId.toString() === req.user._id.toString();
+
+    // Get existing student data to check what's already set
+    const existingData = await StudentData.findOne({ userId: userId });
+    
+    if (!existingData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student profile not found'
+      });
+    }
+
     const {
+      // Personal Information (locked for students after first save)
       fullName,
       phoneNumber,
-      branch,
-      yearOfStudy,
-      rollNumber,
+      email,
+      
+      // Academic Details (locked for students after first save)
       cgpa,
       tenthPercentage,
       twelfthPercentage,
-      skills
+      branch,
+      yearOfStudy,
+      rollNumber,
+      semesterRecords,
+      totalBacklogs,
+      currentBacklogs,
+      
+      // Updatable by students (even after first save)
+      skills,
+      extracurricularActivities,
+      internships,
+      projects,
+      certifications,
+      achievements,
+      resumeLink,
+      placementPreferences
     } = req.body;
 
-    // Update user info
-    const updateFields = {};
-    if (fullName) updateFields.fullName = fullName;
-
-    if (Object.keys(updateFields).length > 0) {
-      await User.findByIdAndUpdate(userId, updateFields);
+    // Check if student is trying to update locked fields
+    if (!isModerator && isOwnProfile) {
+      const lockedFieldsAttempted = [];
+      
+      // Check personal information
+      if (fullName && existingData.userId) lockedFieldsAttempted.push('fullName');
+      if (phoneNumber && existingData.userId) lockedFieldsAttempted.push('phoneNumber');
+      if (email && existingData.userId) lockedFieldsAttempted.push('email');
+      
+      // Check academic details
+      if (cgpa !== undefined && existingData.cgpa !== null && existingData.cgpa !== undefined) {
+        lockedFieldsAttempted.push('CGPA');
+      }
+      if (tenthPercentage !== undefined && existingData.tenthPercentage !== null && existingData.tenthPercentage !== undefined) {
+        lockedFieldsAttempted.push('10th percentage');
+      }
+      if (twelfthPercentage !== undefined && existingData.twelfthPercentage !== null && existingData.twelfthPercentage !== undefined) {
+        lockedFieldsAttempted.push('12th percentage');
+      }
+      if (branch && existingData.userId) lockedFieldsAttempted.push('branch');
+      if (yearOfStudy && existingData.userId) lockedFieldsAttempted.push('year of study');
+      if (rollNumber && existingData.userId) lockedFieldsAttempted.push('roll number');
+      if (semesterRecords && existingData.semesterRecords && existingData.semesterRecords.length > 0) {
+        lockedFieldsAttempted.push('semester records');
+      }
+      
+      if (lockedFieldsAttempted.length > 0) {
+        return res.status(403).json({
+          success: false,
+          message: `Students cannot modify ${lockedFieldsAttempted.join(', ')} once set. Only moderators can update these fields.`,
+          lockedFields: lockedFieldsAttempted
+        });
+      }
     }
 
-    // Update student data
+    // Build update object based on role
     const studentDataUpdate = {};
-    if (phoneNumber !== undefined) studentDataUpdate.phoneNumber = phoneNumber;
-    if (branch !== undefined) studentDataUpdate.branch = branch;
-    if (yearOfStudy !== undefined) studentDataUpdate.yearOfStudy = yearOfStudy;
-    if (rollNumber !== undefined) studentDataUpdate.rollNumber = rollNumber;
-    if (cgpa !== undefined) studentDataUpdate.cgpa = cgpa;
-    if (tenthPercentage !== undefined) studentDataUpdate.tenthPercentage = tenthPercentage;
-    if (twelfthPercentage !== undefined) studentDataUpdate.twelfthPercentage = twelfthPercentage;
+    
+    if (isModerator) {
+      // Moderators can update everything
+      if (cgpa !== undefined) studentDataUpdate.cgpa = cgpa;
+      if (tenthPercentage !== undefined) studentDataUpdate.tenthPercentage = tenthPercentage;
+      if (twelfthPercentage !== undefined) studentDataUpdate.twelfthPercentage = twelfthPercentage;
+      if (branch !== undefined) studentDataUpdate.branch = branch;
+      if (yearOfStudy !== undefined) studentDataUpdate.yearOfStudy = yearOfStudy;
+      if (rollNumber !== undefined) studentDataUpdate.rollNumber = rollNumber;
+      if (semesterRecords !== undefined) studentDataUpdate.semesterRecords = semesterRecords;
+      if (totalBacklogs !== undefined) studentDataUpdate.totalBacklogs = totalBacklogs;
+      if (currentBacklogs !== undefined) studentDataUpdate.currentBacklogs = currentBacklogs;
+      if (phoneNumber !== undefined) studentDataUpdate.phoneNumber = phoneNumber;
+    } else if (isOwnProfile) {
+      // Students can only update if not already set
+      if (cgpa !== undefined && (existingData.cgpa === null || existingData.cgpa === undefined)) {
+        studentDataUpdate.cgpa = cgpa;
+      }
+      if (tenthPercentage !== undefined && (existingData.tenthPercentage === null || existingData.tenthPercentage === undefined)) {
+        studentDataUpdate.tenthPercentage = tenthPercentage;
+      }
+      if (twelfthPercentage !== undefined && (existingData.twelfthPercentage === null || existingData.twelfthPercentage === undefined)) {
+        studentDataUpdate.twelfthPercentage = twelfthPercentage;
+      }
+    }
+    
+    // Fields students can always update
     if (skills !== undefined) studentDataUpdate.skills = skills;
+    if (extracurricularActivities !== undefined) studentDataUpdate.extracurricularActivities = extracurricularActivities;
+    if (internships !== undefined) studentDataUpdate.internships = internships;
+    if (projects !== undefined) studentDataUpdate.projects = projects;
+    if (certifications !== undefined) studentDataUpdate.certifications = certifications;
+    if (achievements !== undefined) studentDataUpdate.achievements = achievements;
+    if (resumeLink !== undefined) studentDataUpdate.resumeLink = resumeLink;
+    if (placementPreferences !== undefined) studentDataUpdate.placementPreferences = placementPreferences;
 
     if (Object.keys(studentDataUpdate).length > 0) {
       await StudentData.findOneAndUpdate(
         { userId: userId },
         studentDataUpdate,
-        { new: true, upsert: true }
+        { new: true }
       );
+    }
+
+    // Update user info (only moderators)
+    if (isModerator) {
+      const userUpdate = {};
+      if (fullName) userUpdate.fullName = fullName;
+      if (email) userUpdate.email = email;
+      
+      if (Object.keys(userUpdate).length > 0) {
+        await User.findByIdAndUpdate(userId, userUpdate);
+      }
     }
 
     res.status(200).json({
       success: true,
-      message: 'Profile updated successfully'
+      message: isModerator 
+        ? 'Student profile updated successfully by moderator'
+        : 'Profile updated successfully. Note: Personal and academic details cannot be changed once set.'
     });
 
   } catch (error) {

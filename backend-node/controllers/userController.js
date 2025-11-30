@@ -51,7 +51,7 @@ exports.createUser = async (req, res) => {
       if (role !== 'student') {
         return res.status(403).json({ 
           success: false, 
-          message: 'Moderators can only create student accounts' 
+          message: 'Access denied. Insufficient permissions.' 
         });
       }
       
@@ -59,15 +59,15 @@ exports.createUser = async (req, res) => {
       if (department && department !== req.user.department) {
         return res.status(403).json({ 
           success: false, 
-          message: 'Moderators can only create students in their own department' 
+          message: 'Access denied. Insufficient permissions.' 
         });
       }
     } else if (req.user.role === 'admin') {
       // Admins can create moderators and students
       if (!['moderator', 'student'].includes(role)) {
-        return res.status(400).json({ 
+        return res.status(403).json({ 
           success: false, 
-          message: 'Admins can only create moderators or students. Admin users must be created manually by developers.' 
+          message: 'Access denied. Insufficient permissions.' 
         });
       }
     } else {

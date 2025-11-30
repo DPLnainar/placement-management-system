@@ -18,6 +18,9 @@ export default function StudentDash() {
   const [profileTab, setProfileTab] = useState('personal');
   const [resumeFile, setResumeFile] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isDataLocked, setIsDataLocked] = useState(false); // Track if personal/academic data is locked
+  const [isProfileComplete, setIsProfileComplete] = useState(true);
+  const [missingProfileFields, setMissingProfileFields] = useState([]);
   
   const [profileData, setProfileData] = useState({
     // Personal Information
@@ -74,14 +77,8 @@ export default function StudentDash() {
     { semester: 8, cgpa: '', sgpa: '' },
   ]);
 
-  const [arrearHistory, setArrearHistory] = useState([]);
-  const [newArrear, setNewArrear] = useState({
-    subjectName: '',
-    subjectCode: '',
-    semester: '',
-    status: 'pending', // pending, cleared
-    clearedInSemester: '',
-  });
+  const [currentArrears, setCurrentArrears] = useState('');
+  const [arrearHistory, setArrearHistory] = useState('');
 
   const [skills, setSkills] = useState([]);
   const [newSkill, setNewSkill] = useState('');
@@ -110,21 +107,50 @@ export default function StudentDash() {
     fetchProfile();
   }, []);
 
+  const checkProfileCompletion = (userData) => {
+    const requiredFields = {
+      phoneNumber: userData.primaryPhone,
+      dateOfBirth: userData.dateOfBirth,
+      gender: userData.gender,
+      currentAddress: userData.address,
+      cgpa: userData.cgpa,
+      tenthPercentage: userData.tenthPercentage,
+      twelfthPercentage: userData.twelfthPercentage,
+      branch: userData.branch,
+      yearOfStudy: userData.semester,
+      rollNumber: userData.rollNumber || user?.username, // fallback to username
+    };
+
+    const missing = [];
+    Object.entries(requiredFields).forEach(([field, value]) => {
+      if (!value || value === '' || value === null) {
+        missing.push(field);
+      }
+    });
+
+    setMissingProfileFields(missing);
+    setIsProfileComplete(missing.length === 0);
+    
+    return missing.length === 0;
+  };
+
   const fetchProfile = async () => {
     try {
       const userId = user?.id;
       if (!userId) {
-        console.log('No user ID found');
         return;
       }
 
-      console.log('Fetching profile for user:', userId);
       const response = await userAPI.getById(userId);
       
       const currentUser = response.data.data || response.data;
       
       if (currentUser) {
-        console.log('Profile data loaded:', currentUser);
+        
+        // Check if critical data is already filled (data is locked after first save)
+        const hasPersonalData = currentUser.primaryEmail || currentUser.dateOfBirth || currentUser.gender;
+        const hasAcademicData = currentUser.cgpa || currentUser.tenthPercentage || currentUser.twelfthPercentage || currentUser.branch;
+        setIsDataLocked(hasPersonalData || hasAcademicData);
         
         // Populate profile data
         setProfileData({
@@ -167,13 +193,9 @@ export default function StudentDash() {
           setSemesterWiseGPA(currentUser.semesterWiseGPA);
         }
         
-        // Populate arrear history
-        if (currentUser.arrearHistory && Array.isArray(currentUser.arrearHistory) && currentUser.arrearHistory.length > 0) {
-          setArrearHistory(currentUser.arrearHistory.map((arr, idx) => ({
-            ...arr,
-            id: arr._id || idx
-          })));
-        }
+        // Populate arrear data
+        setCurrentArrears(currentUser.currentArrears || '');
+        setArrearHistory(currentUser.arrearHistory || '');
         
         // Populate skills
         if (currentUser.skills && Array.isArray(currentUser.skills) && currentUser.skills.length > 0) {
@@ -198,6 +220,9 @@ export default function StudentDash() {
             id: activity._id || idx
           })));
         }
+
+        // Check profile completion
+        checkProfileCompletion(currentUser);
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -252,7 +277,8 @@ export default function StudentDash() {
         // Semester-wise CGPA
         semesterWiseGPA: semesterWiseGPA,
         
-        // Arrear history
+        // Arrear data
+        currentArrears: currentArrears,
         arrearHistory: arrearHistory,
         
         // Skills
@@ -270,18 +296,18 @@ export default function StudentDash() {
         // Resume
         resumeLink: profileData.resumeLink,
       };
-
-      console.log('Saving profile data:', profileUpdateData);
       
       // Call API to update user profile
-      await userAPI.update(userId, profileUpdateData);
+      const response = await userAPI.update(userId, profileUpdateData);
       
-      // TODO: Handle file upload separately if resumeFile exists
-      if (resumeFile) {
-        console.log('Resume file to upload:', resumeFile.name);
-        // File upload will need multipart/form-data
-        // Can be implemented later with a separate endpoint
+      // Check if backend returned a locked field error
+      if (response.data && response.data.lockedFields) {
+        alert(`Cannot update: ${response.data.message}\n\nLocked fields: ${response.data.lockedFields.join(', ')}`);
+        return;
       }
+      
+      // Set data as locked after first successful save
+      setIsDataLocked(true);
       
       alert('Profile saved successfully!');
     } catch (error) {
@@ -349,34 +375,6 @@ export default function StudentDash() {
       const calculatedCGPA = (totalSGPA / validSGPAs.length).toFixed(2);
       setProfileData({ ...profileData, cgpa: calculatedCGPA });
     }
-  };
-
-  const addArrear = () => {
-    if (newArrear.subjectName && newArrear.semester) {
-      setArrearHistory([...arrearHistory, { ...newArrear, id: Date.now() }]);
-      setNewArrear({
-        subjectName: '',
-        subjectCode: '',
-        semester: '',
-        status: 'pending',
-        clearedInSemester: '',
-      });
-    } else {
-      alert('Please fill subject name and semester');
-    }
-  };
-
-  const removeArrear = (id) => {
-    setArrearHistory(arrearHistory.filter(item => item.id !== id));
-  };
-
-  const updateArrearStatus = (id, status, clearedSem) => {
-    const updated = arrearHistory.map(arrear => 
-      arrear.id === id 
-        ? { ...arrear, status, clearedInSemester: clearedSem } 
-        : arrear
-    );
-    setArrearHistory(updated);
   };
 
   const addInternship = () => {
@@ -451,16 +449,45 @@ export default function StudentDash() {
   const handleApply = async (jobId) => {
     setApplyingJobId(jobId);
     try {
-      console.log('Applying to job:', jobId);
       const response = await applicationAPI.create({ jobId });
-      console.log('Application response:', response);
       alert('Application submitted successfully!');
       setAppliedJobs(prev => new Set([...prev, jobId]));
     } catch (error) {
       console.error('Error applying to job:', error);
       console.error('Error response:', error.response);
-      const errorMsg = error.response?.data?.message || error.response?.data?.detail || error.message || 'Error submitting application';
-      alert(errorMsg);
+      
+      // Check if it's a profile incomplete error
+      if (error.response?.data?.profileIncomplete) {
+        const errorMsg = error.response?.data?.message || 'Please complete your profile before applying to jobs';
+        const missingFields = error.response?.data?.missingFields || [];
+        
+        if (missingFields.length > 0) {
+          const formattedFields = missingFields.map(f => 
+            f.replace(/([A-Z])/g, ' $1')
+             .replace(/^./, str => str.toUpperCase())
+             .trim()
+          ).join(', ');
+          
+          const confirmSwitch = window.confirm(
+            `${errorMsg}\n\nMissing fields: ${formattedFields}\n\nWould you like to go to your profile to complete these details?`
+          );
+          
+          if (confirmSwitch) {
+            setActiveTab('profile');
+          }
+        } else {
+          const confirmSwitch = window.confirm(
+            `${errorMsg}\n\nWould you like to go to your profile to complete these details?`
+          );
+          
+          if (confirmSwitch) {
+            setActiveTab('profile');
+          }
+        }
+      } else {
+        const errorMsg = error.response?.data?.message || error.response?.data?.detail || error.message || 'Error submitting application';
+        alert(errorMsg);
+      }
     } finally {
       setApplyingJobId(null);
     }
@@ -569,6 +596,38 @@ export default function StudentDash() {
             </button>
           </nav>
         </div>
+
+        {/* Profile Incomplete Warning Banner */}
+        {!isProfileComplete && activeTab === 'jobs' && (
+          <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3 flex-1">
+                <h3 className="text-sm font-medium text-yellow-800">
+                  Complete Your Profile to Apply for Jobs
+                </h3>
+                <div className="mt-2 text-sm text-yellow-700">
+                  <p>
+                    You need to complete your profile before you can apply for jobs. 
+                    Missing {missingProfileFields.length} required field(s).
+                  </p>
+                </div>
+                <div className="mt-3">
+                  <button
+                    onClick={() => setActiveTab('profile')}
+                    className="text-sm font-medium text-yellow-800 hover:text-yellow-900 underline"
+                  >
+                    Complete Profile Now →
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Jobs Tab */}
         {activeTab === 'jobs' && (
@@ -758,6 +817,13 @@ export default function StudentDash() {
                 <CardHeader>
                   <CardTitle>Personal Information</CardTitle>
                   <CardDescription>Update your basic and passport details</CardDescription>
+                  {isDataLocked && (
+                    <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <p className="text-sm text-amber-800">
+                        <strong>⚠️ Note:</strong> Personal information cannot be changed once saved. Only moderators can update these fields. You can still update skills, internships, and resume.
+                      </p>
+                    </div>
+                  )}
                 </CardHeader>
                 <CardContent>
                   <form className="space-y-6">
@@ -773,6 +839,8 @@ export default function StudentDash() {
                             value={profileData.primaryEmail}
                             onChange={(e) => setProfileData({ ...profileData, primaryEmail: e.target.value })}
                             placeholder="primary@example.com"
+                            disabled={isDataLocked}
+                            className={isDataLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
                         </div>
@@ -784,6 +852,8 @@ export default function StudentDash() {
                             value={profileData.secondaryEmail}
                             onChange={(e) => setProfileData({ ...profileData, secondaryEmail: e.target.value })}
                             placeholder="secondary@example.com"
+                            disabled={isDataLocked}
+                            className={isDataLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
                         <div>
@@ -794,6 +864,8 @@ export default function StudentDash() {
                             value={profileData.primaryPhone}
                             onChange={(e) => setProfileData({ ...profileData, primaryPhone: e.target.value })}
                             placeholder="+91 1234567890"
+                            disabled={isDataLocked}
+                            className={isDataLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
                         </div>
@@ -805,6 +877,8 @@ export default function StudentDash() {
                             value={profileData.secondaryPhone}
                             onChange={(e) => setProfileData({ ...profileData, secondaryPhone: e.target.value })}
                             placeholder="+91 0987654321"
+                            disabled={isDataLocked}
+                            className={isDataLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
                         <div>
@@ -814,6 +888,8 @@ export default function StudentDash() {
                             type="date"
                             value={profileData.dateOfBirth}
                             onChange={(e) => setProfileData({ ...profileData, dateOfBirth: e.target.value })}
+                            disabled={isDataLocked}
+                            className={isDataLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
                         </div>
@@ -823,7 +899,8 @@ export default function StudentDash() {
                             id="gender"
                             value={profileData.gender}
                             onChange={(e) => setProfileData({ ...profileData, gender: e.target.value })}
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ${isDataLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                            disabled={isDataLocked}
                             required
                           >
                             <option value="">Select Gender</option>
@@ -839,6 +916,8 @@ export default function StudentDash() {
                             value={profileData.nationality}
                             onChange={(e) => setProfileData({ ...profileData, nationality: e.target.value })}
                             placeholder="e.g., Indian"
+                            disabled={isDataLocked}
+                            className={isDataLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
                         </div>
@@ -850,6 +929,8 @@ export default function StudentDash() {
                             onChange={(e) => setProfileData({ ...profileData, address: e.target.value })}
                             placeholder="Enter your complete address"
                             rows={3}
+                            disabled={isDataLocked}
+                            className={isDataLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
                         </div>
@@ -917,6 +998,13 @@ export default function StudentDash() {
                 <CardHeader>
                   <CardTitle>Academic Details</CardTitle>
                   <CardDescription>Update your educational qualifications</CardDescription>
+                  {isDataLocked && (
+                    <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <p className="text-sm text-amber-800">
+                        <strong>⚠️ Note:</strong> Academic information cannot be changed once saved. Only moderators can update these fields. You can still update skills, internships, and resume.
+                      </p>
+                    </div>
+                  )}
                 </CardHeader>
                 <CardContent>
                   <form className="space-y-6">
@@ -931,6 +1019,8 @@ export default function StudentDash() {
                             value={profileData.tenthInstitution}
                             onChange={(e) => setProfileData({ ...profileData, tenthInstitution: e.target.value })}
                             placeholder="e.g., ABC High School"
+                            disabled={isDataLocked}
+                            className={isDataLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
                         </div>
@@ -943,6 +1033,8 @@ export default function StudentDash() {
                             value={profileData.tenthPercentage}
                             onChange={(e) => setProfileData({ ...profileData, tenthPercentage: e.target.value })}
                             placeholder="e.g., 85.5"
+                            disabled={isDataLocked}
+                            className={isDataLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
                         </div>
@@ -953,6 +1045,8 @@ export default function StudentDash() {
                             value={profileData.tenthBoard}
                             onChange={(e) => setProfileData({ ...profileData, tenthBoard: e.target.value })}
                             placeholder="e.g., CBSE, ICSE"
+                            disabled={isDataLocked}
+                            className={isDataLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
                         </div>
@@ -964,6 +1058,8 @@ export default function StudentDash() {
                             value={profileData.tenthYear}
                             onChange={(e) => setProfileData({ ...profileData, tenthYear: e.target.value })}
                             placeholder="e.g., 2018"
+                            disabled={isDataLocked}
+                            className={isDataLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
                         </div>
@@ -981,6 +1077,8 @@ export default function StudentDash() {
                             value={profileData.twelfthInstitution}
                             onChange={(e) => setProfileData({ ...profileData, twelfthInstitution: e.target.value })}
                             placeholder="e.g., XYZ Junior College"
+                            disabled={isDataLocked}
+                            className={isDataLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
                         </div>
@@ -993,6 +1091,8 @@ export default function StudentDash() {
                             value={profileData.twelfthPercentage}
                             onChange={(e) => setProfileData({ ...profileData, twelfthPercentage: e.target.value })}
                             placeholder="e.g., 90.0"
+                            disabled={isDataLocked}
+                            className={isDataLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
                         </div>
@@ -1003,6 +1103,8 @@ export default function StudentDash() {
                             value={profileData.twelfthBoard}
                             onChange={(e) => setProfileData({ ...profileData, twelfthBoard: e.target.value })}
                             placeholder="e.g., CBSE, State Board"
+                            disabled={isDataLocked}
+                            className={isDataLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
                         </div>
@@ -1014,6 +1116,8 @@ export default function StudentDash() {
                             value={profileData.twelfthYear}
                             onChange={(e) => setProfileData({ ...profileData, twelfthYear: e.target.value })}
                             placeholder="e.g., 2020"
+                            disabled={isDataLocked}
+                            className={isDataLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
                         </div>
@@ -1031,6 +1135,8 @@ export default function StudentDash() {
                             value={profileData.currentInstitution}
                             onChange={(e) => setProfileData({ ...profileData, currentInstitution: e.target.value })}
                             placeholder="e.g., VTU, Anna University"
+                            disabled={isDataLocked}
+                            className={isDataLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
                         </div>
@@ -1041,6 +1147,8 @@ export default function StudentDash() {
                             value={profileData.degree}
                             onChange={(e) => setProfileData({ ...profileData, degree: e.target.value })}
                             placeholder="e.g., B.Tech, B.E."
+                            disabled={isDataLocked}
+                            className={isDataLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
                         </div>
@@ -1051,6 +1159,8 @@ export default function StudentDash() {
                             value={profileData.branch}
                             onChange={(e) => setProfileData({ ...profileData, branch: e.target.value })}
                             placeholder="e.g., Computer Science"
+                            disabled={isDataLocked}
+                            className={isDataLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
                         </div>
@@ -1062,6 +1172,8 @@ export default function StudentDash() {
                             value={profileData.semester}
                             onChange={(e) => setProfileData({ ...profileData, semester: e.target.value })}
                             placeholder="e.g., 6"
+                            disabled={isDataLocked}
+                            className={isDataLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
                         </div>
@@ -1086,6 +1198,8 @@ export default function StudentDash() {
                             value={profileData.backlogs}
                             onChange={(e) => setProfileData({ ...profileData, backlogs: e.target.value })}
                             placeholder="0"
+                            disabled={isDataLocked}
+                            className={isDataLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
                         </div>
@@ -1117,7 +1231,8 @@ export default function StudentDash() {
                                     value={sem.sgpa}
                                     onChange={(e) => updateSemesterGPA(index, 'sgpa', e.target.value)}
                                     placeholder="SGPA"
-                                    className="w-24"
+                                    className={isDataLocked ? 'w-24 bg-gray-100 cursor-not-allowed' : 'w-24'}
+                                    disabled={isDataLocked}
                                   />
                                 </td>
                                 <td className="border p-2">
@@ -1129,7 +1244,8 @@ export default function StudentDash() {
                                     value={sem.cgpa}
                                     onChange={(e) => updateSemesterGPA(index, 'cgpa', e.target.value)}
                                     placeholder="CGPA"
-                                    className="w-24"
+                                    className={isDataLocked ? 'w-24 bg-gray-100 cursor-not-allowed' : 'w-24'}
+                                    disabled={isDataLocked}
                                   />
                                 </td>
                               </tr>
@@ -1142,98 +1258,44 @@ export default function StudentDash() {
                       </div>
                     </div>
 
-                    {/* Arrear History */}
+                    {/* Arrear Details */}
                     <div>
-                      <h3 className="text-lg font-semibold mb-4 text-gray-700">Arrear History</h3>
+                      <h3 className="text-lg font-semibold mb-4 text-gray-700">Arrear Details</h3>
                       
-                      {/* Add Arrear Form */}
-                      <div className="border rounded-lg p-4 bg-gray-50 mb-4">
-                        <h4 className="text-sm font-semibold mb-3">Add Arrear</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                          <div>
-                            <Label className="text-xs">Subject Name *</Label>
-                            <Input
-                              value={newArrear.subjectName}
-                              onChange={(e) => setNewArrear({ ...newArrear, subjectName: e.target.value })}
-                              placeholder="e.g., Data Structures"
-                              className="text-sm"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Subject Code</Label>
-                            <Input
-                              value={newArrear.subjectCode}
-                              onChange={(e) => setNewArrear({ ...newArrear, subjectCode: e.target.value })}
-                              placeholder="e.g., CS301"
-                              className="text-sm"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Failed in Semester *</Label>
-                            <Input
-                              type="number"
-                              value={newArrear.semester}
-                              onChange={(e) => setNewArrear({ ...newArrear, semester: e.target.value })}
-                              placeholder="e.g., 3"
-                              className="text-sm"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Status</Label>
-                            <select
-                              value={newArrear.status}
-                              onChange={(e) => setNewArrear({ ...newArrear, status: e.target.value })}
-                              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                            >
-                              <option value="pending">Pending</option>
-                              <option value="cleared">Cleared</option>
-                            </select>
-                          </div>
-                          {newArrear.status === 'cleared' && (
-                            <div>
-                              <Label className="text-xs">Cleared in Semester</Label>
-                              <Input
-                                type="number"
-                                value={newArrear.clearedInSemester}
-                                onChange={(e) => setNewArrear({ ...newArrear, clearedInSemester: e.target.value })}
-                                placeholder="e.g., 4"
-                                className="text-sm"
-                              />
-                            </div>
-                          )}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="currentArrears">Current Arrears (Number) *</Label>
+                          <Input
+                            id="currentArrears"
+                            type="number"
+                            min="0"
+                            value={currentArrears}
+                            onChange={(e) => setCurrentArrears(e.target.value)}
+                            placeholder="e.g., 2"
+                            className={isDataLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
+                            disabled={isDataLocked}
+                            required
+                          />
+                          <p className="text-xs text-gray-500 mt-1">Enter the number of current pending arrears</p>
                         </div>
-                        <Button onClick={addArrear} type="button" size="sm" className="mt-3">
-                          <Plus className="h-3 w-3 mr-1" /> Add Arrear
-                        </Button>
-                      </div>
 
-                      {/* Arrear List */}
-                      {arrearHistory.length === 0 ? (
-                        <p className="text-sm text-green-600">✓ No arrears recorded</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {arrearHistory.map((arrear) => (
-                            <div key={arrear.id} className="border rounded p-3 flex justify-between items-start">
-                              <div className="flex-1">
-                                <h5 className="font-semibold text-sm">{arrear.subjectName} {arrear.subjectCode && `(${arrear.subjectCode})`}</h5>
-                                <p className="text-xs text-gray-600">Failed in Semester {arrear.semester}</p>
-                                <span className={`text-xs px-2 py-1 rounded mt-1 inline-block ${
-                                  arrear.status === 'cleared' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                                }`}>
-                                  {arrear.status === 'cleared' ? `✓ Cleared in Sem ${arrear.clearedInSemester}` : '⏳ Pending'}
-                                </span>
-                              </div>
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => removeArrear(arrear.id)}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          ))}
+                        <div>
+                          <Label htmlFor="arrearHistory">History of Arrears *</Label>
+                          <Textarea
+                            id="arrearHistory"
+                            value={arrearHistory}
+                            onChange={(e) => setArrearHistory(e.target.value)}
+                            placeholder="e.g., Semester 3: Data Structures (Cleared in Sem 4), Semester 5: DBMS (Pending)"
+                            className={isDataLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
+                            disabled={isDataLocked}
+                            rows={4}
+                            required
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Describe all arrears - both cleared and pending. Enter "None" if no arrear history.
+                          </p>
                         </div>
-                      )}
+                      </div>
                     </div>
 
                     <div className="flex justify-end">

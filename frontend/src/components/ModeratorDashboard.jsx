@@ -7,8 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
-import { Briefcase, LogOut, Plus, Trash2, Users, UserCheck, UserX, Lock, FileCheck, CheckCircle, XCircle, Clock, Edit, Eye, Menu, X } from 'lucide-react';
+import { Briefcase, LogOut, Plus, Trash2, Users, UserCheck, UserX, Lock, FileCheck, CheckCircle, XCircle, Clock, Edit, Eye, Menu, X, Mail } from 'lucide-react';
 import ChangePassword from './ChangePassword';
+import InviteStudents from './InviteStudents';
 
 export default function ModeratorDashboard() {
   const { user, logout } = useAuth();
@@ -40,36 +41,12 @@ export default function ModeratorDashboard() {
   // Update department when user data is available
   useEffect(() => {
     if (moderatorDepartment) {
-      console.log('Setting department from user:', moderatorDepartment);
       setNewStudentForm(prev => ({
         ...prev,
         department: moderatorDepartment
       }));
     }
   }, [moderatorDepartment]);
-
-  // Debug logging
-  useEffect(() => {
-    console.log('ModeratorDashboard mounted');
-    console.log('User:', user);
-    console.log('User department:', user?.department);
-    console.log('User dept:', user?.dept);
-    console.log('All user keys:', user ? Object.keys(user) : 'no user');
-    console.log('User values:', user);
-    console.log('User collegeId:', user?.collegeId);
-    console.log('User token:', localStorage.getItem('token'));
-    console.log('newStudentForm:', newStudentForm);
-    console.log('moderatorDepartment:', moderatorDepartment);
-    
-    // Also check localStorage directly
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      console.log('Stored user from localStorage:', parsedUser);
-      console.log('Stored user department:', parsedUser.department);
-      console.log('Stored user keys:', Object.keys(parsedUser));
-    }
-  }, [user, newStudentForm, moderatorDepartment]);
 
   useEffect(() => {
     fetchJobs();
@@ -357,6 +334,20 @@ export default function ModeratorDashboard() {
               </button>
               <button
                 onClick={() => {
+                  setActiveTab('invitations');
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
+                  activeTab === 'invitations'
+                    ? 'bg-indigo-50 text-indigo-600 font-medium'
+                    : 'text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <Mail className="inline-block mr-2 h-4 w-4" />
+                Invite Students
+              </button>
+              <button
+                onClick={() => {
                   setActiveTab('applications');
                   setIsMobileMenuOpen(false);
                 }}
@@ -455,6 +446,16 @@ export default function ModeratorDashboard() {
                 My Students ({user?.department})
               </button>
               <button
+                onClick={() => setActiveTab('invitations')}
+                className={`${
+                  activeTab === 'invitations'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
+              >
+                Invite Students
+              </button>
+              <button
                 onClick={() => setActiveTab('applications')}
                 className={`${
                   activeTab === 'applications'
@@ -499,7 +500,7 @@ export default function ModeratorDashboard() {
                   // Students must be approved and active to be eligible
                   return student.isApproved && student.isActive;
                 });
-                const appliedStudents = 0; // TODO: Fetch from applications API
+                const appliedStudents = 0;
                 const notApplied = eligibleStudents.length - appliedStudents;
                 
                 return (
@@ -583,7 +584,6 @@ export default function ModeratorDashboard() {
               </div>
               <Button onClick={() => {
                 const dept = moderatorDepartment || user?.department || '';
-                console.log('Opening add student modal, user department:', dept);
                 setNewStudentForm({
                   username: '',
                   email: '',
@@ -661,6 +661,11 @@ export default function ModeratorDashboard() {
               )}
             </div>
           </div>
+        )}
+
+        {/* Invitations Tab */}
+        {activeTab === 'invitations' && (
+          <InviteStudents userDepartment={moderatorDepartment} />
         )}
 
         {/* Applications Tab */}

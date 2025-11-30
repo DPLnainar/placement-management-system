@@ -72,11 +72,7 @@ export default function RoleLogin() {
         password: formData.password,
       };
       
-      console.log('Attempting login with:', { username: loginData.username, role });
-      
       const response = await authAPI.login(loginData);
-      
-      console.log('Login response:', response.data);
       
       const resData = response.data.data || response.data;
       const userInfo = resData.user;
@@ -90,10 +86,8 @@ export default function RoleLogin() {
       const userRole = (userInfo.role || '').toLowerCase();
       const expectedRole = (role || '').toLowerCase();
       
-      console.log('Role validation:', { userRole, expectedRole });
-      
       if (userRole !== expectedRole) {
-        setError(`These credentials are for a ${userInfo.role} account. Please use the correct login page.`);
+        setError(`Incorrect username or password`);
         setLoading(false);
         return;
       }
@@ -111,25 +105,10 @@ export default function RoleLogin() {
         collegeCode: userInfo.college?.code || '',
       };
       
-      console.log('Storing user data:', userData);
-      
       login(userData, tokenInfo);
       
-      // Redirect to role-specific port
-      const rolePortMap = {
-        'admin': 3000,
-        'moderator': 3001,
-        'student': 3002
-      };
-      
-      const targetPort = rolePortMap[userInfo.role.toLowerCase()] || 3000;
-      const currentPort = window.location.port || '3000';
-      
-      if (currentPort !== targetPort.toString()) {
-        window.location.href = `http://localhost:${targetPort}/dashboard`;
-      } else {
-        navigate('/dashboard');
-      }
+      // Navigate to dashboard (single port application)
+      navigate('/dashboard');
     } catch (err) {
       console.error('Login error:', err);
       const errorMsg = err.response?.data?.message || err.message || 'Login failed';

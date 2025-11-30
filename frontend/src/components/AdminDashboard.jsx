@@ -6,7 +6,7 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Briefcase, Users, LogOut, Plus, Trash2, UserCheck, UserX, Lock, Edit, Menu, X, LayoutDashboard, UserCog, GraduationCap, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Briefcase, Users, LogOut, Plus, Trash2, UserCheck, UserX, Lock, Edit, Menu, X, LayoutDashboard, UserCog, GraduationCap, CheckCircle, XCircle, Clock, Upload, Download } from 'lucide-react';
 import ChangePassword from './ChangePassword';
 
 export default function AdminDashboard() {
@@ -21,6 +21,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showEditJobModal, setShowEditJobModal] = useState(false);
   const [showEditUserModal, setShowEditUserModal] = useState(false);
@@ -34,6 +35,9 @@ export default function AdminDashboard() {
     password: '',
     department: '',
   });
+  const [bulkUploadData, setBulkUploadData] = useState('');
+  const [bulkUploadResults, setBulkUploadResults] = useState(null);
+  const [bulkUploading, setBulkUploading] = useState(false);
 
   useEffect(() => {
     // Check if user has valid token
@@ -138,7 +142,6 @@ export default function AdminDashboard() {
 
   const handleToggleUserStatus = async (userId, currentStatus) => {
     try {
-      console.log('Toggling status for user:', userId, 'Current status:', currentStatus);
       await userAPI.updateStatus(userId, !currentStatus);
       await fetchDashboardData();
       alert('User status updated successfully!');
@@ -156,9 +159,7 @@ export default function AdminDashboard() {
 
   const handleApproveUser = async (userId, isApproved) => {
     try {
-      console.log('Approving user:', userId, 'Approved:', isApproved);
       const response = await userAPI.approve(userId, isApproved);
-      console.log('Approve response:', response);
       await fetchDashboardData();
       alert(isApproved ? 'User approved successfully!' : 'User approval revoked');
     } catch (error) {
@@ -178,7 +179,6 @@ export default function AdminDashboard() {
   const handleDeleteUser = async (userId) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
-        console.log('Deleting user:', userId);
         await userAPI.delete(userId);
         await fetchDashboardData();
         alert('User deleted successfully!');
@@ -217,6 +217,71 @@ export default function AdminDashboard() {
     } catch (error) {
       alert(error.response?.data?.message || error.response?.data?.detail || `Error adding ${userType}`);
     }
+  };
+
+  const handleBulkUpload = async () => {
+    try {
+      setBulkUploading(true);
+      setBulkUploadResults(null);
+
+      // Parse CSV data
+      const lines = bulkUploadData.trim().split('\n');
+      const users = [];
+      const results = { successful: 0, failed: 0, skipped: 0, errors: [] };
+
+      for (let i = 1; i < lines.length; i++) { // Skip header
+        const [username, email, fullName, password, department] = lines[i].split(',').map(s => s.trim());
+        
+        if (!username || !email || !fullName || !password || !department) {
+          results.skipped++;
+          results.errors.push(`Line ${i + 1}: Missing required fields`);
+          continue;
+        }
+
+        try {
+          await userAPI.create({
+            username,
+            email,
+            fullName,
+            password,
+            department,
+            role: 'student',
+            collegeId: user.collegeId,
+          });
+          results.successful++;
+        } catch (error) {
+          results.failed++;
+          const errorMsg = error.response?.data?.message || error.message || 'Unknown error';
+          results.errors.push(`${username}: ${errorMsg}`);
+        }
+      }
+
+      setBulkUploadResults(results);
+      fetchDashboardData();
+
+      if (results.successful > 0) {
+        alert(`Bulk upload complete!\nSuccessful: ${results.successful}\nFailed: ${results.failed}\nSkipped: ${results.skipped}`);
+      }
+
+      if (results.failed === 0 && results.skipped === 0) {
+        setBulkUploadData('');
+      }
+    } catch (error) {
+      alert('Error processing bulk upload: ' + (error.message || 'Unknown error'));
+    } finally {
+      setBulkUploading(false);
+    }
+  };
+
+  const downloadTemplate = () => {
+    const template = 'username,email,fullName,password,department\njohndoe,john@example.com,John Doe,password123,CSE\njanedoe,jane@example.com,Jane Doe,password456,ECE\n';
+    const blob = new Blob([template], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'bulk_students_template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleEditUserClick = (user) => {
@@ -654,14 +719,22 @@ export default function AdminDashboard() {
                     <h3 className="text-lg font-semibold">Students</h3>
                     <p className="text-sm text-gray-600">Total: {students.length} students</p>
                   </div>
-                  <Button
-                    onClick={() => {
-                      setUserType('student');
-                      setShowAddUserModal(true);
-                    }}
-                  >
-                    <Plus className="mr-2 h-4 w-4" /> Add Student
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowBulkUploadModal(true)}
+                    >
+                      <Upload className="mr-2 h-4 w-4" /> Bulk Upload
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setUserType('student');
+                        setShowAddUserModal(true);
+                      }}
+                    >
+                      <Plus className="mr-2 h-4 w-4" /> Add Student
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Department-wise Student Count */}
@@ -1128,6 +1201,115 @@ export default function AdminDashboard() {
                   </Button>
                 </div>
               </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Bulk Upload Modal */}
+      {showBulkUploadModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <CardHeader>
+              <CardTitle>Bulk Upload Students</CardTitle>
+              <CardDescription>
+                Upload multiple students at once using CSV format
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex justify-between items-center">
+                <Label>CSV Data</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={downloadTemplate}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download Template
+                </Button>
+              </div>
+              
+              <textarea
+                value={bulkUploadData}
+                onChange={(e) => setBulkUploadData(e.target.value)}
+                placeholder="username,email,fullName,password,department&#10;johndoe,john@example.com,John Doe,password123,CSE&#10;janedoe,jane@example.com,Jane Doe,password456,ECE"
+                className="w-full h-64 p-3 border rounded-md font-mono text-sm"
+                disabled={bulkUploading}
+              />
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="font-semibold text-sm text-blue-900 mb-2">CSV Format Instructions:</h4>
+                <ul className="text-xs text-blue-800 space-y-1">
+                  <li>• First line must be: <code className="bg-blue-100 px-1 rounded">username,email,fullName,password,department</code></li>
+                  <li>• Each subsequent line represents one student</li>
+                  <li>• All fields are required (username, email, fullName, password, department)</li>
+                  <li>• Department codes: CSE, ECE, EEE, MECH, CIVIL, IT, ISE, AI/ML, AIDS, DS, CS, MBA</li>
+                  <li>• No spaces around commas</li>
+                  <li>• Example: <code className="bg-blue-100 px-1 rounded">johndoe,john@example.com,John Doe,pass123,CSE</code></li>
+                </ul>
+              </div>
+
+              {bulkUploadResults && (
+                <div className="border rounded-lg p-4 bg-gray-50">
+                  <h4 className="font-semibold mb-3">Upload Results:</h4>
+                  <div className="grid grid-cols-3 gap-4 mb-3">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">{bulkUploadResults.successful}</div>
+                      <div className="text-xs text-gray-600">Successful</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-red-600">{bulkUploadResults.failed}</div>
+                      <div className="text-xs text-gray-600">Failed</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-yellow-600">{bulkUploadResults.skipped}</div>
+                      <div className="text-xs text-gray-600">Skipped</div>
+                    </div>
+                  </div>
+                  
+                  {bulkUploadResults.errors.length > 0 && (
+                    <div className="mt-3">
+                      <h5 className="text-sm font-semibold text-red-700 mb-2">Errors:</h5>
+                      <div className="max-h-32 overflow-y-auto bg-white border rounded p-2">
+                        {bulkUploadResults.errors.map((error, idx) => (
+                          <div key={idx} className="text-xs text-red-600 mb-1">• {error}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowBulkUploadModal(false);
+                    setBulkUploadData('');
+                    setBulkUploadResults(null);
+                  }}
+                  className="flex-1"
+                  disabled={bulkUploading}
+                >
+                  Close
+                </Button>
+                <Button
+                  onClick={handleBulkUpload}
+                  disabled={bulkUploading || !bulkUploadData.trim()}
+                  className="flex-1"
+                >
+                  {bulkUploading ? (
+                    <>Processing...</>
+                  ) : (
+                    <>
+                      <Upload className="mr-2 h-4 w-4" />
+                      Upload Students
+                    </>
+                  )}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>

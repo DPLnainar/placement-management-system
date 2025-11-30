@@ -3,6 +3,10 @@ const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/database');
 
+// Import middleware
+const logger = require('./middleware/logger');
+const { sanitizeInput } = require('./middleware/validation');
+
 // Import routes
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
@@ -10,6 +14,10 @@ const jobRoutes = require('./routes/jobRoutes');
 const applicationRoutes = require('./routes/applicationRoutes');
 const studentRoutes = require('./routes/studentRoutes');
 const superAdminRoutes = require('./routes/superAdminRoutes');
+const eligibilityRoutes = require('./routes/eligibilityRoutes');
+const placementDriveRoutes = require('./routes/placementDriveRoutes');
+const invitationRoutes = require('./routes/invitationRoutes');
+const publicRoutes = require('./routes/publicRoutes');
 
 /**
  * College Placement Management System
@@ -54,36 +62,24 @@ const app = express();
 // MIDDLEWARE
 // ==========================================
 
-// Enable CORS for multiple frontend ports
-const allowedOrigins = [
-  'http://localhost:3000',  // Admin
-  'http://localhost:3001',  // Moderator
-  'http://localhost:3002'   // Student
-];
-
+// Enable CORS for frontend (single port application)
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 // Body parser
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Request logging (development only)
-if (process.env.NODE_ENV === 'development') {
-  app.use((req, res, next) => {
-    console.log(`${req.method} ${req.path}`);
-    next();
-  });
+// Security: Sanitize all inputs
+app.use(sanitizeInput);
+
+// Request logging (development mode)
+if (process.env.NODE_ENV !== 'production') {
+  app.use(logger);
 }
 
 // ==========================================
@@ -111,6 +107,10 @@ app.use('/api/jobs', jobRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/superadmin', superAdminRoutes);
+app.use('/api/eligibility', eligibilityRoutes);
+app.use('/api/placement-drives', placementDriveRoutes);
+app.use('/api/invitations', invitationRoutes);
+app.use('/api/public', publicRoutes);
 
 // ==========================================
 // ERROR HANDLING
@@ -126,12 +126,50 @@ app.use((req, res) => {
 
 // Global error handler
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  console.error('\n❌ ERROR:', err.message);
+  
+  if (process.env.NODE_ENV !== 'production') {
+    console.error('Stack:', err.stack);
+  }
+
+  // MongoDB duplicate key error
+  if (err.code === 11000) {
+    const field = Object.keys(err.keyPattern)[0];
+    return res.status(400).json({
+      success: false,
+      message: `${field} already exists`
+    });
+  }
+  
+  // MongoDB validation error
+  if (err.name === 'ValidationError') {
+    const errors = Object.values(err.errors).map(e => e.message);
+    return res.status(400).json({
+      success: false,
+      message: 'Validation error',
+      errors
+    });
+  }
+  
+  // JWT errors
+  if (err.name === 'JsonWebTokenError') {
+    return res.status(401).json({
+      success: false,
+      message: 'Invalid token'
+    });
+  }
+  
+  if (err.name === 'TokenExpiredError') {
+    return res.status(401).json({
+      success: false,
+      message: 'Token expired'
+    });
+  }
 
   res.status(err.statusCode || 500).json({
     success: false,
     message: err.message || 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
   });
 });
 

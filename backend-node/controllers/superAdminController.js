@@ -28,7 +28,7 @@ exports.createCollegeWithAdmin = async (req, res) => {
       session.endSession();
       return res.status(403).json({
         success: false,
-        message: 'Forbidden. Only Super Admin can create colleges.'
+        message: 'Access denied. Insufficient permissions.'
       });
     }
 
@@ -258,7 +258,7 @@ exports.getAllPlacementData = async (req, res) => {
     // Other roles (moderator, student) - restricted access
     return res.status(403).json({
       success: false,
-      message: 'Access denied. This endpoint is for Super Admin and College Admin only.'
+      message: 'Access denied. Insufficient permissions.'
     });
 
   } catch (error) {

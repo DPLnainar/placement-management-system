@@ -1,6 +1,6 @@
 const express = require('express');
 const { authenticate, requireRole, requireSameCollege } = require('../middleware/auth');
-const { login, getProfile, changePassword, forgotPassword, resetPassword } = require('../controllers/authController');
+const { login, getProfile, changePassword, forgotPassword, resetPassword, registerInvited } = require('../controllers/authController');
 
 const router = express.Router();
 
@@ -8,6 +8,7 @@ const router = express.Router();
  * Authentication Routes
  * 
  * POST /api/auth/login - Login without college selection (auto-links to assigned college)
+ * POST /api/auth/register-invited - Complete registration using invitation token
  * POST /api/auth/forgot-password - Request password reset
  * POST /api/auth/reset-password - Reset password with token
  * GET /api/auth/profile - Get current user's profile
@@ -16,6 +17,7 @@ const router = express.Router();
 
 // Public routes
 router.post('/login', login);
+router.post('/register-invited', registerInvited);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 

@@ -1,12 +1,14 @@
 const Application = require('../models/Application');
 const Job = require('../models/Job');
 const User = require('../models/User');
+const StudentData = require('../models/StudentData');
 
 /**
  * Create Application
  * 
  * STUDENT ONLY
  * Students can apply to jobs in their college
+ * Eligible students are automatically approved without moderator intervention
  */
 exports.createApplication = async (req, res) => {
   try {
@@ -56,26 +58,89 @@ exports.createApplication = async (req, res) => {
       });
     }
 
+    // Get student data to check profile completion
+    const studentData = await StudentData.findOne({ userId: studentId });
+    
+    if (!studentData) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please complete your profile before applying to jobs',
+        profileIncomplete: true
+      });
+    }
+
+    // Check if essential profile fields are completed
+    const requiredFields = {
+      personal: ['phoneNumber', 'dateOfBirth', 'gender', 'currentAddress'],
+      academic: ['cgpa', 'tenthPercentage', 'twelfthPercentage', 'branch', 'yearOfStudy', 'rollNumber']
+    };
+
+    const missingFields = [];
+
+    // Check personal details
+    requiredFields.personal.forEach(field => {
+      if (!studentData[field] || studentData[field] === null || studentData[field] === '') {
+        missingFields.push(field);
+      }
+    });
+
+    // Check academic details
+    requiredFields.academic.forEach(field => {
+      if (!studentData[field] || studentData[field] === null || studentData[field] === '') {
+        missingFields.push(field);
+      }
+    });
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please complete your profile before applying to jobs. Missing fields: ' + 
+                 missingFields.map(f => f.replace(/([A-Z])/g, ' $1').toLowerCase()).join(', '),
+        profileIncomplete: true,
+        missingFields: missingFields
+      });
+    }
+    
+    // Check eligibility - auto-approve eligible students
+    let applicationStatus = 'under_review'; // Default: auto-approved
+    let eligibilityCheck = { isEligible: true, issues: [] };
+    
+    if (studentData && job.checkEligibility) {
+      eligibilityCheck = job.checkEligibility(studentData);
+    }
+
     // Create application
     const application = new Application({
       jobId,
       studentId,
       collegeId,
-      status: 'pending'
+      status: applicationStatus, // Auto-approved for eligible students
+      eligibilityCheck: {
+        isEligible: eligibilityCheck.isEligible,
+        eligibilityIssues: eligibilityCheck.issues || [],
+        checkedDate: new Date()
+      }
     });
 
     await application.save();
 
     res.status(201).json({
       success: true,
-      message: 'Application submitted successfully',
+      message: eligibilityCheck.isEligible 
+        ? 'Application submitted and automatically approved - you are eligible!' 
+        : 'Application submitted successfully',
       data: {
         application: {
           id: application._id,
           jobId: application.jobId,
           studentId: application.studentId,
           status: application.status,
-          appliedAt: application.appliedAt
+          isEligible: eligibilityCheck.isEligible,
+          eligibilityIssues: eligibilityCheck.issues,
+          appliedAt: application.appliedAt,
+          message: eligibilityCheck.isEligible 
+            ? 'Your application has been automatically approved. Good luck!' 
+            : 'Your application is under review.'
         }
       }
     });

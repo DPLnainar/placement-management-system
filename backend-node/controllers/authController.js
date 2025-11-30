@@ -64,7 +64,7 @@ exports.login = async (req, res) => {
     if (!user) {
       return res.status(401).json({ 
         success: false, 
-        message: 'Invalid credentials' 
+        message: 'Username or email not found' 
       });
     }
 
@@ -75,7 +75,7 @@ exports.login = async (req, res) => {
       if (!isPasswordMatch) {
         return res.status(401).json({ 
           success: false, 
-          message: 'Invalid credentials' 
+          message: 'Incorrect password' 
         });
       }
 
@@ -137,7 +137,7 @@ exports.login = async (req, res) => {
     if (!isPasswordValid) {
       return res.status(401).json({ 
         success: false, 
-        message: 'Invalid credentials' 
+        message: 'Incorrect password' 
       });
     }
 
@@ -469,6 +469,147 @@ exports.resetPassword = async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: 'Error resetting password' 
+    });
+  }
+};
+
+/**
+ * Register Invited Student
+ * Public endpoint for students to complete registration using invitation token
+ */
+exports.registerInvited = async (req, res) => {
+  try {
+    const { token, username, password } = req.body;
+
+    // Validate input
+    if (!token || !username || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide token, username, and password'
+      });
+    }
+
+    // Find and verify invitation
+    const Invitation = require('../models/Invitation');
+    const invitation = await Invitation.findOne({ token });
+
+    if (!invitation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Invalid invitation link'
+      });
+    }
+
+    // Check if already used
+    if (invitation.status === 'registered') {
+      return res.status(400).json({
+        success: false,
+        message: 'This invitation has already been used'
+      });
+    }
+
+    // Check expiration
+    await invitation.checkExpiration();
+    if (!invitation.isValid()) {
+      return res.status(400).json({
+        success: false,
+        message: invitation.status === 'expired'
+          ? 'This invitation has expired. Please contact your administrator.'
+          : 'This invitation is no longer valid'
+      });
+    }
+
+    // Check if username already exists
+    const existingUsername = await User.findOne({ username: username.toLowerCase() });
+    if (existingUsername) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username already exists. Please choose a different username.'
+      });
+    }
+
+    // Create user account
+    const user = await User.create({
+      username: username.toLowerCase(),
+      email: invitation.email,
+      password,
+      fullName: invitation.fullName,
+      role: 'student',
+      collegeId: invitation.college,
+      department: invitation.department,
+      status: 'active',
+      isApproved: true
+    });
+
+    // Create student data record
+    const StudentData = require('../models/StudentData');
+    await StudentData.create({
+      userId: user._id,
+      rollNumber: invitation.rollNumber,
+      department: invitation.department,
+      branch: invitation.department,
+      primaryEmail: invitation.email,
+      fullName: invitation.fullName
+    });
+
+    // Update invitation status
+    invitation.status = 'registered';
+    invitation.registeredAt = new Date();
+    invitation.registeredUser = user._id;
+    await invitation.save();
+
+    // Generate token for auto-login
+    const authToken = generateToken(user);
+
+    // Populate college info
+    await user.populate('collegeId', 'name code location');
+
+    // Prepare user response
+    const userResponse = user.toObject();
+    delete userResponse.password;
+
+    const userData = {
+      id: userResponse._id,
+      username: userResponse.username,
+      email: userResponse.email,
+      fullName: userResponse.fullName,
+      role: userResponse.role,
+      status: userResponse.status,
+      department: userResponse.department,
+      college: userResponse.collegeId ? {
+        id: userResponse.collegeId._id,
+        name: userResponse.collegeId.name,
+        code: userResponse.collegeId.code,
+        location: userResponse.collegeId.location
+      } : null,
+      collegeId: userResponse.collegeId?._id
+    };
+
+    res.status(201).json({
+      success: true,
+      message: 'Registration completed successfully! You can now access your dashboard.',
+      data: {
+        token: authToken,
+        user: userData
+      }
+    });
+
+  } catch (error) {
+    console.error('Register invited error:', error);
+    
+    // Handle duplicate key errors
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern)[0];
+      return res.status(400).json({
+        success: false,
+        message: `${field} already exists`
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Error completing registration',
+      error: error.message
     });
   }
 };

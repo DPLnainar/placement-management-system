@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'http://localhost:8000/api';
 
 // Create axios instance
 const api = axios.create({
@@ -35,8 +35,11 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Handle authentication errors
-    if (error.response?.status === 401) {
+    // Handle authentication errors - but exclude login/register endpoints
+    const isLoginEndpoint = error.config?.url?.includes('/auth/login') || 
+                           error.config?.url?.includes('/auth/register');
+    
+    if (error.response?.status === 401 && !isLoginEndpoint) {
       console.warn('Authentication failed - redirecting to login');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
@@ -73,11 +76,22 @@ export const collegeAPI = {
 // Auth API
 export const authAPI = {
   register: (data) => api.post('/auth/register', data),
+  registerInvited: (data) => api.post('/auth/register-invited', data),
   login: (data) => api.post('/auth/login', data),
   getCurrentUser: () => api.get('/auth/me'),
   forgotPassword: (data) => api.post('/auth/forgot-password', data),
   resetPassword: (data) => api.post('/auth/reset-password', data),
   changePassword: (data) => api.post('/auth/change-password', data),
+};
+
+// Invitation API
+export const invitationAPI = {
+  create: (data) => api.post('/invitations', data),
+  createBulk: (data) => api.post('/invitations/bulk', data),
+  getAll: (status = null) => api.get('/invitations', { params: { status } }),
+  verify: (token) => api.get(`/public/verify/${token}`),
+  resend: (id) => api.post(`/invitations/${id}/resend`),
+  cancel: (id) => api.delete(`/invitations/${id}`),
 };
 
 // Job API
