@@ -26,6 +26,7 @@ export default function InviteStudents({ userDepartment }) {
   // Bulk invite
   const [bulkData, setBulkData] = useState('');
   const [bulkResults, setBulkResults] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
 
   useEffect(() => {
     if (userDepartment) {
@@ -85,6 +86,38 @@ export default function InviteStudents({ userDepartment }) {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.csv') && !file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+      setMessage({ type: 'error', text: 'Please upload a CSV or Excel file' });
+      return;
+    }
+
+    setSelectedFile(file);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target.result;
+      setBulkData(text);
+      setMessage({ type: 'success', text: `File "${file.name}" loaded successfully!` });
+    };
+    reader.onerror = () => {
+      setMessage({ type: 'error', text: 'Error reading file' });
+      setSelectedFile(null);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleClearFile = () => {
+    setBulkData('');
+    setSelectedFile(null);
+    const fileInput = document.getElementById('bulkFileInput');
+    if (fileInput) fileInput.value = '';
+    setMessage({ type: '', text: '' });
   };
 
   const handleBulkInvite = async () => {
@@ -156,13 +189,19 @@ export default function InviteStudents({ userDepartment }) {
   };
 
   const downloadTemplate = () => {
-    const template = 'email,fullName,rollNumber,department\nstudent@example.com,John Doe,CS001,Computer Science\n';
+    const template = `email,fullName,rollNumber,department
+ngkganeshk@gmail.com,Ganesh Kumar,CS001,CSE
+student2@example.com,Priya Sharma,CS002,CSE
+student3@example.com,Rahul Kumar,EC001,ECE
+student4@example.com,Anjali Verma,ME001,MECH`;
     const blob = new Blob([template], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = 'bulk_invite_template.csv';
     a.click();
+    URL.revokeObjectURL(url);
+    setMessage({ type: 'success', text: 'Template downloaded! Replace example data with your students.' });
   };
 
   return (
@@ -289,9 +328,10 @@ export default function InviteStudents({ userDepartment }) {
           {/* Bulk Invite Tab */}
           {activeTab === 'bulk' && (
             <div className="space-y-4">
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <Label>Paste CSV Data</Label>
+              {/* File Upload Section */}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <Label>Upload CSV/Excel File</Label>
                   <Button
                     type="button"
                     variant="outline"
@@ -301,6 +341,60 @@ export default function InviteStudents({ userDepartment }) {
                     Download Template
                   </Button>
                 </div>
+                
+                <div className="flex gap-2">
+                  <input
+                    type="file"
+                    id="bulkFileInput"
+                    accept=".csv,.xlsx,.xls"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    disabled={submitting}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => document.getElementById('bulkFileInput').click()}
+                    disabled={submitting}
+                    className="flex-1"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Choose CSV/Excel File
+                  </Button>
+                  
+                  {selectedFile && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleClearFile}
+                      disabled={submitting}
+                      className="text-red-600 border-red-300 hover:bg-red-50"
+                    >
+                      <X className="w-4 h-4 mr-2" />
+                      Clear
+                    </Button>
+                  )}
+                </div>
+
+                {selectedFile && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <span className="text-sm text-green-900 font-medium">
+                      File: {selectedFile.name}
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 border-t border-gray-300"></div>
+                  <span className="text-sm text-gray-500 font-medium">OR</span>
+                  <div className="flex-1 border-t border-gray-300"></div>
+                </div>
+              </div>
+
+              {/* Paste Data Section */}
+              <div>
+                <Label>Paste CSV Data</Label>
                 <textarea
                   value={bulkData}
                   onChange={(e) => setBulkData(e.target.value)}

@@ -206,7 +206,7 @@ exports.updateStudentProfile = async (req, res) => {
 
     // Get existing student data to check what's already set
     const existingData = await StudentData.findOne({ userId: userId });
-    
+
     if (!existingData) {
       return res.status(404).json({
         success: false,
@@ -219,7 +219,7 @@ exports.updateStudentProfile = async (req, res) => {
       fullName,
       phoneNumber,
       email,
-      
+
       // Academic Details (locked for students after first save)
       cgpa,
       tenthPercentage,
@@ -230,7 +230,7 @@ exports.updateStudentProfile = async (req, res) => {
       semesterRecords,
       totalBacklogs,
       currentBacklogs,
-      
+
       // Updatable by students (even after first save)
       skills,
       extracurricularActivities,
@@ -245,12 +245,12 @@ exports.updateStudentProfile = async (req, res) => {
     // Check if student is trying to update locked fields
     if (!isModerator && isOwnProfile) {
       const lockedFieldsAttempted = [];
-      
+
       // Check personal information
       if (fullName && existingData.userId) lockedFieldsAttempted.push('fullName');
       if (phoneNumber && existingData.userId) lockedFieldsAttempted.push('phoneNumber');
       if (email && existingData.userId) lockedFieldsAttempted.push('email');
-      
+
       // Check academic details
       if (cgpa !== undefined && existingData.cgpa !== null && existingData.cgpa !== undefined) {
         lockedFieldsAttempted.push('CGPA');
@@ -267,7 +267,7 @@ exports.updateStudentProfile = async (req, res) => {
       if (semesterRecords && existingData.semesterRecords && existingData.semesterRecords.length > 0) {
         lockedFieldsAttempted.push('semester records');
       }
-      
+
       if (lockedFieldsAttempted.length > 0) {
         return res.status(403).json({
           success: false,
@@ -279,7 +279,7 @@ exports.updateStudentProfile = async (req, res) => {
 
     // Build update object based on role
     const studentDataUpdate = {};
-    
+
     if (isModerator) {
       // Moderators can update everything
       if (cgpa !== undefined) studentDataUpdate.cgpa = cgpa;
@@ -304,13 +304,15 @@ exports.updateStudentProfile = async (req, res) => {
         studentDataUpdate.twelfthPercentage = twelfthPercentage;
       }
     }
-    
+
     // Fields students can always update
     if (skills !== undefined) studentDataUpdate.skills = skills;
     if (extracurricularActivities !== undefined) studentDataUpdate.extracurricularActivities = extracurricularActivities;
     if (internships !== undefined) studentDataUpdate.internships = internships;
     if (projects !== undefined) studentDataUpdate.projects = projects;
     if (certifications !== undefined) studentDataUpdate.certifications = certifications;
+    if (achievements !== undefined) studentDataUpdate.achievements = achievements;
+    if (resumeLink !== undefined) studentDataUpdate.resumeLink = resumeLink;
     if (achievements !== undefined) studentDataUpdate.achievements = achievements;
     if (resumeLink !== undefined) studentDataUpdate.resumeLink = resumeLink;
     if (placementPreferences !== undefined) studentDataUpdate.placementPreferences = placementPreferences;
@@ -328,7 +330,7 @@ exports.updateStudentProfile = async (req, res) => {
       const userUpdate = {};
       if (fullName) userUpdate.fullName = fullName;
       if (email) userUpdate.email = email;
-      
+
       if (Object.keys(userUpdate).length > 0) {
         await User.findByIdAndUpdate(userId, userUpdate);
       }
@@ -336,7 +338,7 @@ exports.updateStudentProfile = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: isModerator 
+      message: isModerator
         ? 'Student profile updated successfully by moderator'
         : 'Profile updated successfully. Note: Personal and academic details cannot be changed once set.'
     });

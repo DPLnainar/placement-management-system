@@ -18,7 +18,6 @@ const userSchema = new mongoose.Schema({
   username: {
     type: String,
     required: [true, 'Username is required'],
-    unique: true,
     trim: true,
     lowercase: true,
     minlength: [3, 'Username must be at least 3 characters']
@@ -53,7 +52,7 @@ const userSchema = new mongoose.Schema({
   collegeId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'College',
-    required: function() {
+    required: function () {
       return this.role !== 'superadmin';  // Not required for SuperAdmin
     }
   },
@@ -97,25 +96,25 @@ const userSchema = new mongoose.Schema({
   gender: { type: String, trim: true, default: '' },
   nationality: { type: String, trim: true, default: '' },
   address: { type: String, trim: true, default: '' },
-  
+
   // Passport Details
   passportNumber: { type: String, trim: true, default: '' },
   passportPlaceOfIssue: { type: String, trim: true, default: '' },
   passportIssueDate: { type: Date },
   passportExpiryDate: { type: Date },
-  
+
   // 10th Standard Details
   tenthInstitution: { type: String, trim: true, default: '' },
   tenthPercentage: { type: Number, default: 0 },
   tenthBoard: { type: String, trim: true, default: '' },
   tenthYear: { type: Number },
-  
+
   // 12th Standard Details
   twelfthInstitution: { type: String, trim: true, default: '' },
   twelfthPercentage: { type: Number, default: 0 },
   twelfthBoard: { type: String, trim: true, default: '' },
   twelfthYear: { type: Number },
-  
+
   // Current Education Details
   currentInstitution: { type: String, trim: true, default: '' },
   degree: { type: String, trim: true, default: '' },
@@ -123,14 +122,14 @@ const userSchema = new mongoose.Schema({
   semester: { type: Number, default: 0 },
   cgpa: { type: Number, default: 0 },
   backlogs: { type: Number, default: 0 },
-  
+
   // Semester-wise GPA
   semesterWiseGPA: [{
     semester: { type: Number },
     sgpa: { type: Number, default: 0 },
     cgpa: { type: Number, default: 0 }
   }],
-  
+
   // Arrear History
   arrearHistory: [{
     subject: { type: String, trim: true },
@@ -138,18 +137,18 @@ const userSchema = new mongoose.Schema({
     semester: { type: Number },
     status: { type: String, enum: ['cleared', 'pending'], default: 'pending' }
   }],
-  
+
   // Skills
   skills: [{
     name: { type: String, trim: true },
     category: { type: String, enum: ['technical', 'soft', 'tools', 'languages'], default: 'technical' }
   }],
-  
+
   // Professional Links
   github: { type: String, trim: true, default: '' },
   linkedin: { type: String, trim: true, default: '' },
   portfolio: { type: String, trim: true, default: '' },
-  
+
   // Internships
   internships: [{
     company: { type: String, trim: true },
@@ -157,23 +156,45 @@ const userSchema = new mongoose.Schema({
     duration: { type: String, trim: true },
     description: { type: String, trim: true }
   }],
-  
+
   // Extracurricular Activities
   extracurricular: [{
-    activity: { type: String, trim: true },
+    title: { type: String, trim: true },
+    role: { type: String, trim: true },
+    duration: { type: String, trim: true },
     description: { type: String, trim: true }
   }],
-  
+
+  // Academic Projects
+  projects: [{
+    title: { type: String, trim: true },
+    techStack: { type: String, trim: true },
+    date: { type: String, trim: true },
+    link: { type: String, trim: true },
+    description: { type: String, trim: true }
+  }],
+
+  // Semester-wise GPA
+  semesterWiseGPA: [{
+    semester: { type: Number },
+    sgpa: { type: String, trim: true, default: '' },
+    cgpa: { type: String, trim: true, default: '' }
+  }],
+
+  // Arrear Information
+  currentArrears: { type: String, trim: true, default: '' },
+  arrearHistory: { type: String, trim: true, default: '' },
+
   // Resume and Documents
   resumeLink: { type: String, trim: true, default: '' },
   resumeFile: { type: String, trim: true, default: '' }, // Cloudinary URL
   resumePublicId: { type: String, trim: true, default: '' }, // Cloudinary public ID for deletion
   resumeUploadedAt: { type: Date },
-  
+
   // Profile Photo
   profilePhoto: { type: String, trim: true, default: '' }, // Cloudinary URL
   profilePhotoPublicId: { type: String, trim: true, default: '' },
-  
+
   // Additional Documents
   documents: [{
     name: { type: String, trim: true },
@@ -182,7 +203,7 @@ const userSchema = new mongoose.Schema({
     publicId: { type: String, trim: true },
     uploadedAt: { type: Date, default: Date.now }
   }],
-  
+
   createdAt: {
     type: Date,
     default: Date.now
@@ -193,8 +214,12 @@ const userSchema = new mongoose.Schema({
   }
 });
 
+// Compound unique index for username + collegeId
+// This allows the same username to exist in different colleges
+userSchema.index({ username: 1, collegeId: 1 }, { unique: true });
+
 // Hash password before saving
-userSchema.pre('save', async function(next) {
+userSchema.pre('save', async function (next) {
   // Only hash the password if it has been modified (or is new)
   if (!this.isModified('password')) {
     return next();
@@ -210,23 +235,23 @@ userSchema.pre('save', async function(next) {
 });
 
 // Update the updatedAt timestamp before saving
-userSchema.pre('save', function(next) {
+userSchema.pre('save', function (next) {
   this.updatedAt = Date.now();
   next();
 });
 
 // Method to compare password for login
-userSchema.methods.comparePassword = async function(candidatePassword) {
+userSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
 // Method to check if user can assign other users (only admins can)
-userSchema.methods.canAssignUsers = function() {
+userSchema.methods.canAssignUsers = function () {
   return this.role === 'admin';
 };
 
 // Method to check if user belongs to a specific college
-userSchema.methods.belongsToCollege = function(collegeId) {
+userSchema.methods.belongsToCollege = function (collegeId) {
   return this.collegeId.toString() === collegeId.toString();
 };
 

@@ -11,8 +11,8 @@ const sendEmail = require('../utils/sendEmail');
  */
 const generateToken = (user) => {
   return jwt.sign(
-    { 
-      userId: user._id, 
+    {
+      userId: user._id,
       role: user.role,
       collegeId: user.collegeId
     },
@@ -45,26 +45,67 @@ exports.login = async (req, res) => {
 
     // Validate input
     if (!username || !password) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Please provide username and password' 
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide username and password'
       });
     }
 
     // Find user by username or email (include password for comparison)
-    const user = await User.findOne({
+    // Find user by username or email (include password for comparison)
+    // If collegeId is provided, use it to find the specific user
+    // If not, we'll check for duplicates later
+    const query = {
       $or: [
         { username: username.toLowerCase() },
         { email: username.toLowerCase() }
       ]
-    })
+    };
+
+    // Don't filter by collegeId in the query yet.
+    // We need to find SuperAdmins even if a college is selected (since they don't have a collegeId).
+    // We will filter in memory.
+
+    const users = await User.find(query)
       .select('+password')  // Include password for comparison
       .populate('collegeId', 'name code location status subscriptionStatus');
 
+    if (users.length === 0) {
+      return res.status(401).json({
+        success: false,
+        message: 'Username or email not found'
+      });
+    }
+
+    let user = null;
+
+    // STRATEGY:
+    // 1. First, check if any of the found users is a SuperAdmin. SuperAdmin always takes precedence.
+    const superAdminUser = users.find(u => u.role === 'superadmin');
+
+    if (superAdminUser) {
+      user = superAdminUser;
+    } else {
+      // 2. If not SuperAdmin, filter by the selected collegeId
+      if (req.body.collegeId) {
+        user = users.find(u => u.collegeId && (u.collegeId._id.toString() === req.body.collegeId || u.collegeId.toString() === req.body.collegeId));
+      } else {
+        // 3. If no college selected, and we have multiple users, it's ambiguous
+        if (users.length > 1) {
+          return res.status(401).json({
+            success: false,
+            message: 'Invalid username or password' // Generic error for security
+          });
+        }
+        // If only one user, use them (but we enforce college selection for regular users later)
+        user = users[0];
+      }
+    }
+
     if (!user) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Username or email not found' 
+      return res.status(401).json({
+        success: false,
+        message: 'Username or email not found'
       });
     }
 
@@ -73,17 +114,17 @@ exports.login = async (req, res) => {
       // Verify password
       const isPasswordMatch = await user.comparePassword(password);
       if (!isPasswordMatch) {
-        return res.status(401).json({ 
-          success: false, 
-          message: 'Incorrect password' 
+        return res.status(401).json({
+          success: false,
+          message: 'Incorrect password'
         });
       }
 
       // Check if account is active
       if (user.status !== 'active') {
-        return res.status(403).json({ 
-          success: false, 
-          message: 'Your account is currently inactive' 
+        return res.status(403).json({
+          success: false,
+          message: 'Your account is currently inactive'
         });
       }
 
@@ -108,36 +149,44 @@ exports.login = async (req, res) => {
     }
 
     // Regular user login - validate college
+    // CRITICAL: Ensure college was explicitly selected
+    if (!req.body.collegeId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please select your college to login'
+      });
+    }
+
     // Check if user's college exists and is active
     if (!user.collegeId) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'User is not assigned to any college. Please contact administrator.' 
+      return res.status(403).json({
+        success: false,
+        message: 'User is not assigned to any college. Please contact administrator.'
       });
     }
 
     if (user.collegeId.status !== 'active') {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Your college is currently inactive. Please contact support.' 
+      return res.status(403).json({
+        success: false,
+        message: 'Your college is currently inactive. Please contact support.'
       });
     }
 
     // Check if user account is active
     if (user.status !== 'active') {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Your account is not active. Please contact your administrator.' 
+      return res.status(403).json({
+        success: false,
+        message: 'Your account is not active. Please contact your administrator.'
       });
     }
 
     // Compare password
     const isPasswordValid = await user.comparePassword(password);
-    
+
     if (!isPasswordValid) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Incorrect password' 
+      return res.status(401).json({
+        success: false,
+        message: 'Incorrect password'
       });
     }
 
@@ -186,9 +235,9 @@ exports.login = async (req, res) => {
 
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error during login' 
+    res.status(500).json({
+      success: false,
+      message: 'Server error during login'
     });
   }
 };
@@ -206,9 +255,9 @@ exports.getProfile = async (req, res) => {
       .populate('assignedBy', 'username fullName role');
 
     if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'User not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
       });
     }
 
@@ -229,9 +278,9 @@ exports.getProfile = async (req, res) => {
 
   } catch (error) {
     console.error('Get profile error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error fetching profile' 
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching profile'
     });
   }
 };
@@ -245,16 +294,16 @@ exports.changePassword = async (req, res) => {
     const { currentPassword, newPassword } = req.body;
 
     if (!currentPassword || !newPassword) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Please provide current and new password' 
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide current and new password'
       });
     }
 
     if (newPassword.length < 6) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'New password must be at least 6 characters' 
+      return res.status(400).json({
+        success: false,
+        message: 'New password must be at least 6 characters'
       });
     }
 
@@ -263,11 +312,11 @@ exports.changePassword = async (req, res) => {
 
     // Verify current password
     const isPasswordValid = await user.comparePassword(currentPassword);
-    
+
     if (!isPasswordValid) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Current password is incorrect' 
+      return res.status(401).json({
+        success: false,
+        message: 'Current password is incorrect'
       });
     }
 
@@ -282,9 +331,9 @@ exports.changePassword = async (req, res) => {
 
   } catch (error) {
     console.error('Change password error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error changing password' 
+    res.status(500).json({
+      success: false,
+      message: 'Server error changing password'
     });
   }
 };
@@ -298,9 +347,9 @@ exports.forgotPassword = async (req, res) => {
     const { username, email } = req.body;
 
     if (!username || !email) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Please provide username and email' 
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide username and email'
       });
     }
 
@@ -311,16 +360,16 @@ exports.forgotPassword = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'No user found with that username and email combination' 
+      return res.status(404).json({
+        success: false,
+        message: 'No user found with that username and email combination'
       });
     }
 
     // Generate reset token
     const resetToken = crypto.randomBytes(32).toString('hex');
     const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
-    
+
     // Save hashed token and expiry to user
     user.resetPasswordToken = resetTokenHash;
     user.resetPasswordExpire = Date.now() + 60 * 60 * 1000; // 1 hour
@@ -375,8 +424,8 @@ Email: ${user.email}`;
     let emailSent = false;
     try {
       // Check if email is configured
-      if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD && 
-          process.env.EMAIL_USER !== 'your-email@gmail.com') {
+      if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD &&
+        process.env.EMAIL_USER !== 'your-email@gmail.com') {
         await sendEmail({
           to: user.email,
           subject: 'Password Reset Request - College Placement System',
@@ -387,16 +436,16 @@ Email: ${user.email}`;
         console.log('Password reset email sent to:', user.email);
       } else {
         console.log('Email not configured. Reset URL:', resetUrl);
-        return res.status(500).json({ 
-          success: false, 
-          message: 'Email service is not configured. Please contact administrator.' 
+        return res.status(500).json({
+          success: false,
+          message: 'Email service is not configured. Please contact administrator.'
         });
       }
     } catch (emailError) {
       console.error('Email sending failed:', emailError);
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Failed to send email. Please try again or contact administrator.' 
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to send email. Please try again or contact administrator.'
       });
     }
 
@@ -408,9 +457,9 @@ Email: ${user.email}`;
 
   } catch (error) {
     console.error('Forgot password error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error processing password reset request' 
+    res.status(500).json({
+      success: false,
+      message: 'Error processing password reset request'
     });
   }
 };
@@ -424,16 +473,16 @@ exports.resetPassword = async (req, res) => {
     const { token, password } = req.body;
 
     if (!token || !password) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Please provide token and new password' 
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide token and new password'
       });
     }
 
     if (password.length < 6) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Password must be at least 6 characters' 
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters'
       });
     }
 
@@ -447,9 +496,9 @@ exports.resetPassword = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid or expired reset token' 
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired reset token'
       });
     }
 
@@ -466,9 +515,9 @@ exports.resetPassword = async (req, res) => {
 
   } catch (error) {
     console.error('Reset password error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error resetting password' 
+    res.status(500).json({
+      success: false,
+      message: 'Error resetting password'
     });
   }
 };
@@ -477,6 +526,30 @@ exports.resetPassword = async (req, res) => {
  * Register Invited Student
  * Public endpoint for students to complete registration using invitation token
  */
+/**
+ * Get Public Colleges List
+ * Returns list of active colleges for login selection
+ */
+exports.getPublicColleges = async (req, res) => {
+  try {
+    const colleges = await College.find({})
+      .select('name code location')
+      .sort({ name: 1 });
+
+    res.json({
+      success: true,
+      count: colleges.length,
+      data: colleges
+    });
+  } catch (error) {
+    console.error('Get public colleges error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching colleges'
+    });
+  }
+};
+
 exports.registerInvited = async (req, res) => {
   try {
     const { token, username, password } = req.body;
@@ -596,7 +669,7 @@ exports.registerInvited = async (req, res) => {
 
   } catch (error) {
     console.error('Register invited error:', error);
-    
+
     // Handle duplicate key errors
     if (error.code === 11000) {
       const field = Object.keys(error.keyPattern)[0];

@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Building2, Users, Briefcase, Plus, Edit, Eye, Shield, LogOut, Trash2, Upload, Download, X, CheckCircle, AlertCircle, Mail } from 'lucide-react';
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'http://localhost:8000/api';
 
 /**
  * SUPER ADMIN DASHBOARD
@@ -55,7 +55,7 @@ const SuperAdminDashboard = () => {
   });
   const [formErrors, setFormErrors] = useState({});
   const [createdCredentials, setCreatedCredentials] = useState(null);
-  
+
   // Bulk upload states
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const [bulkUploadData, setBulkUploadData] = useState('');
@@ -171,7 +171,7 @@ const SuperAdminDashboard = () => {
       if (response.data.success) {
         // Show credentials
         setCreatedCredentials(response.data.data.credentials);
-        
+
         // Refresh data
         fetchDashboardStats();
         fetchColleges();
@@ -343,16 +343,16 @@ Harvard University,HARVARD,"Cambridge, MA",trial,Bob Wilson,admin@harvard.edu,ad
     }
 
     const headers = lines[0].split(',').map(h => h.trim().replace(/^["']|["']$/g, ''));
-    
+
     const requiredHeaders = ['collegeName', 'collegeCode', 'collegeAddress', 'subscriptionStatus', 'adminName', 'adminEmail', 'adminUsername', 'adminPassword'];
     const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
-    
+
     if (missingHeaders.length > 0) {
       throw new Error(`Missing required columns: ${missingHeaders.join(', ')}`);
     }
 
     const colleges = [];
-    
+
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line) continue;
@@ -360,7 +360,7 @@ Harvard University,HARVARD,"Cambridge, MA",trial,Bob Wilson,admin@harvard.edu,ad
       const values = [];
       let current = '';
       let inQuotes = false;
-      
+
       for (let char of line) {
         if (char === '"') {
           inQuotes = !inQuotes;
@@ -438,7 +438,7 @@ Harvard University,HARVARD,"Cambridge, MA",trial,Bob Wilson,admin@harvard.edu,ad
     try {
       setIsSendingEmail(true);
       const token = localStorage.getItem('token');
-      
+
       await axios.post(
         `${API_BASE_URL}/superadmin/send-bulk-upload-email`,
         { results },
@@ -457,10 +457,10 @@ Harvard University,HARVARD,"Cambridge, MA",trial,Bob Wilson,admin@harvard.edu,ad
   // Handle bulk upload
   const handleBulkUpload = async () => {
     setBulkUploadResults(null);
-    
+
     try {
       const colleges = parseCSV(bulkUploadData);
-      
+
       if (colleges.length === 0) {
         alert('No valid college data found in CSV');
         return;
@@ -482,7 +482,7 @@ Harvard University,HARVARD,"Cambridge, MA",trial,Bob Wilson,admin@harvard.edu,ad
         setUploadProgress({ current: i + 1, total: colleges.length });
 
         const validationErrors = validateCollege(college);
-        
+
         if (validationErrors.length > 0) {
           results.failed.push({
             line: college.lineNumber,
@@ -533,7 +533,7 @@ Harvard University,HARVARD,"Cambridge, MA",trial,Bob Wilson,admin@harvard.edu,ad
       }
 
       setBulkUploadResults(results);
-      
+
       if (results.successful.length > 0) {
         fetchDashboardStats();
         fetchColleges();
@@ -559,11 +559,11 @@ Harvard University,HARVARD,"Cambridge, MA",trial,Bob Wilson,admin@harvard.edu,ad
   // Copy all errors to clipboard
   const copyErrors = () => {
     if (!bulkUploadResults?.failed.length) return;
-    
+
     const errorText = bulkUploadResults.failed
       .map(item => `Line ${item.line} (${item.collegeName}): ${item.errors.join(', ')}`)
       .join('\n');
-    
+
     navigator.clipboard.writeText(errorText);
     alert('Errors copied to clipboard!');
   };
@@ -652,15 +652,15 @@ Harvard University,HARVARD,"Cambridge, MA",trial,Bob Wilson,admin@harvard.edu,ad
             </div>
             <div className="flex gap-2">
               {/* Bulk Upload Button */}
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="border-purple-600 text-purple-600 hover:bg-purple-50"
                 onClick={() => setIsBulkUploadOpen(true)}
               >
                 <Upload className="w-4 h-4 mr-2" />
                 Bulk Upload
               </Button>
-              
+
               {/* Add Single College Button */}
               <Dialog open={isAddCollegeOpen} onOpenChange={setIsAddCollegeOpen}>
                 <DialogTrigger asChild>
@@ -669,170 +669,170 @@ Harvard University,HARVARD,"Cambridge, MA",trial,Bob Wilson,admin@harvard.edu,ad
                     Add New College
                   </Button>
                 </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Create New College & Admin</DialogTitle>
-                  <DialogDescription>
-                    Add a new college and create its administrator account
-                  </DialogDescription>
-                </DialogHeader>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Create New College & Admin</DialogTitle>
+                    <DialogDescription>
+                      Add a new college and create its administrator account
+                    </DialogDescription>
+                  </DialogHeader>
 
-                {createdCredentials ? (
-                  <div className="space-y-4">
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                      <h3 className="text-lg font-semibold text-green-900 mb-2">
-                        ✅ College & Admin Created Successfully!
-                      </h3>
-                      <div className="bg-white border border-green-300 rounded p-4 mt-3">
-                        <p className="font-semibold mb-2">Admin Login Credentials:</p>
-                        <div className="space-y-1 font-mono text-sm">
-                          <p><span className="font-bold">Username:</span> {createdCredentials.username}</p>
-                          <p><span className="font-bold">Password:</span> {createdCredentials.password}</p>
-                        </div>
-                        <p className="text-red-600 text-sm mt-3">
-                          ⚠️ {createdCredentials.message}
-                        </p>
-                      </div>
-                    </div>
-                    <Button onClick={handleCloseDialog} className="w-full">
-                      Close
-                    </Button>
-                  </div>
-                ) : (
-                  <form onSubmit={handleCreateCollege} className="space-y-4">
-                    {/* College Information */}
+                  {createdCredentials ? (
                     <div className="space-y-4">
-                      <h3 className="font-semibold text-lg">College Information</h3>
-                      
-                      <div>
-                        <Label htmlFor="collegeName">College Name *</Label>
-                        <Input
-                          id="collegeName"
-                          name="collegeName"
-                          value={formData.collegeName}
-                          onChange={handleInputChange}
-                          placeholder="Massachusetts Institute of Technology"
-                        />
-                        {formErrors.collegeName && (
-                          <p className="text-red-500 text-sm mt-1">{formErrors.collegeName}</p>
-                        )}
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <h3 className="text-lg font-semibold text-green-900 mb-2">
+                          ✅ College & Admin Created Successfully!
+                        </h3>
+                        <div className="bg-white border border-green-300 rounded p-4 mt-3">
+                          <p className="font-semibold mb-2">Admin Login Credentials:</p>
+                          <div className="space-y-1 font-mono text-sm">
+                            <p><span className="font-bold">Username:</span> {createdCredentials.username}</p>
+                            <p><span className="font-bold">Password:</span> {createdCredentials.password}</p>
+                          </div>
+                          <p className="text-red-600 text-sm mt-3">
+                            ⚠️ {createdCredentials.message}
+                          </p>
+                        </div>
                       </div>
-
-                      <div>
-                        <Label htmlFor="collegeAddress">College Address *</Label>
-                        <Input
-                          id="collegeAddress"
-                          name="collegeAddress"
-                          value={formData.collegeAddress}
-                          onChange={handleInputChange}
-                          placeholder="Cambridge, MA"
-                        />
-                        {formErrors.collegeAddress && (
-                          <p className="text-red-500 text-sm mt-1">{formErrors.collegeAddress}</p>
-                        )}
-                      </div>
-
-                      <div>
-                        <Label htmlFor="collegeCode">College Code *</Label>
-                        <Input
-                          id="collegeCode"
-                          name="collegeCode"
-                          value={formData.collegeCode}
-                          onChange={handleInputChange}
-                          placeholder="MIT"
-                        />
-                        {formErrors.collegeCode && (
-                          <p className="text-red-500 text-sm mt-1">{formErrors.collegeCode}</p>
-                        )}
-                      </div>
-
-                      <div>
-                        <Label htmlFor="subscriptionStatus">Subscription Status</Label>
-                        <select
-                          id="subscriptionStatus"
-                          name="subscriptionStatus"
-                          value={formData.subscriptionStatus}
-                          onChange={handleInputChange}
-                          className="w-full border rounded-md p-2"
-                        >
-                          <option value="active">Active</option>
-                          <option value="trial">Trial</option>
-                          <option value="expired">Expired</option>
-                          <option value="suspended">Suspended</option>
-                        </select>
-                      </div>
+                      <Button onClick={handleCloseDialog} className="w-full">
+                        Close
+                      </Button>
                     </div>
+                  ) : (
+                    <form onSubmit={handleCreateCollege} className="space-y-4">
+                      {/* College Information */}
+                      <div className="space-y-4">
+                        <h3 className="font-semibold text-lg">College Information</h3>
 
-                    {/* Admin Information */}
-                    <div className="space-y-4 pt-4 border-t">
-                      <h3 className="font-semibold text-lg">College Admin Details</h3>
-                      
-                      <div>
-                        <Label htmlFor="adminName">Admin Full Name *</Label>
-                        <Input
-                          id="adminName"
-                          name="adminName"
-                          value={formData.adminName}
-                          onChange={handleInputChange}
-                          placeholder="John Smith"
-                        />
-                        {formErrors.adminName && (
-                          <p className="text-red-500 text-sm mt-1">{formErrors.adminName}</p>
-                        )}
+                        <div>
+                          <Label htmlFor="collegeName">College Name *</Label>
+                          <Input
+                            id="collegeName"
+                            name="collegeName"
+                            value={formData.collegeName}
+                            onChange={handleInputChange}
+                            placeholder="Massachusetts Institute of Technology"
+                          />
+                          {formErrors.collegeName && (
+                            <p className="text-red-500 text-sm mt-1">{formErrors.collegeName}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <Label htmlFor="collegeAddress">College Address *</Label>
+                          <Input
+                            id="collegeAddress"
+                            name="collegeAddress"
+                            value={formData.collegeAddress}
+                            onChange={handleInputChange}
+                            placeholder="Cambridge, MA"
+                          />
+                          {formErrors.collegeAddress && (
+                            <p className="text-red-500 text-sm mt-1">{formErrors.collegeAddress}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <Label htmlFor="collegeCode">College Code *</Label>
+                          <Input
+                            id="collegeCode"
+                            name="collegeCode"
+                            value={formData.collegeCode}
+                            onChange={handleInputChange}
+                            placeholder="MIT"
+                          />
+                          {formErrors.collegeCode && (
+                            <p className="text-red-500 text-sm mt-1">{formErrors.collegeCode}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <Label htmlFor="subscriptionStatus">Subscription Status</Label>
+                          <select
+                            id="subscriptionStatus"
+                            name="subscriptionStatus"
+                            value={formData.subscriptionStatus}
+                            onChange={handleInputChange}
+                            className="w-full border rounded-md p-2"
+                          >
+                            <option value="active">Active</option>
+                            <option value="trial">Trial</option>
+                            <option value="expired">Expired</option>
+                            <option value="suspended">Suspended</option>
+                          </select>
+                        </div>
                       </div>
 
-                      <div>
-                        <Label htmlFor="adminEmail">Admin Email *</Label>
-                        <Input
-                          id="adminEmail"
-                          name="adminEmail"
-                          type="email"
-                          value={formData.adminEmail}
-                          onChange={handleInputChange}
-                          placeholder="admin@mit.edu"
-                        />
-                        {formErrors.adminEmail && (
-                          <p className="text-red-500 text-sm mt-1">{formErrors.adminEmail}</p>
-                        )}
+                      {/* Admin Information */}
+                      <div className="space-y-4 pt-4 border-t">
+                        <h3 className="font-semibold text-lg">College Admin Details</h3>
+
+                        <div>
+                          <Label htmlFor="adminName">Admin Full Name *</Label>
+                          <Input
+                            id="adminName"
+                            name="adminName"
+                            value={formData.adminName}
+                            onChange={handleInputChange}
+                            placeholder="John Smith"
+                          />
+                          {formErrors.adminName && (
+                            <p className="text-red-500 text-sm mt-1">{formErrors.adminName}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <Label htmlFor="adminEmail">Admin Email *</Label>
+                          <Input
+                            id="adminEmail"
+                            name="adminEmail"
+                            type="email"
+                            value={formData.adminEmail}
+                            onChange={handleInputChange}
+                            placeholder="admin@mit.edu"
+                          />
+                          {formErrors.adminEmail && (
+                            <p className="text-red-500 text-sm mt-1">{formErrors.adminEmail}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <Label htmlFor="adminUsername">Admin Username *</Label>
+                          <Input
+                            id="adminUsername"
+                            name="adminUsername"
+                            value={formData.adminUsername}
+                            onChange={handleInputChange}
+                            placeholder="admin_mit"
+                          />
+                          {formErrors.adminUsername && (
+                            <p className="text-red-500 text-sm mt-1">{formErrors.adminUsername}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <Label htmlFor="adminPassword">Admin Password *</Label>
+                          <Input
+                            id="adminPassword"
+                            name="adminPassword"
+                            type="password"
+                            value={formData.adminPassword}
+                            onChange={handleInputChange}
+                            placeholder="Minimum 6 characters"
+                          />
+                          {formErrors.adminPassword && (
+                            <p className="text-red-500 text-sm mt-1">{formErrors.adminPassword}</p>
+                          )}
+                        </div>
                       </div>
 
-                      <div>
-                        <Label htmlFor="adminUsername">Admin Username *</Label>
-                        <Input
-                          id="adminUsername"
-                          name="adminUsername"
-                          value={formData.adminUsername}
-                          onChange={handleInputChange}
-                          placeholder="admin_mit"
-                        />
-                        {formErrors.adminUsername && (
-                          <p className="text-red-500 text-sm mt-1">{formErrors.adminUsername}</p>
-                        )}
-                      </div>
-
-                      <div>
-                        <Label htmlFor="adminPassword">Admin Password *</Label>
-                        <Input
-                          id="adminPassword"
-                          name="adminPassword"
-                          type="password"
-                          value={formData.adminPassword}
-                          onChange={handleInputChange}
-                          placeholder="Minimum 6 characters"
-                        />
-                        {formErrors.adminPassword && (
-                          <p className="text-red-500 text-sm mt-1">{formErrors.adminPassword}</p>
-                        )}
-                      </div>
-                    </div>
-
-                    <Button type="submit" className="w-full">
-                      Create College & Admin
-                    </Button>
-                  </form>
-                )}
-              </DialogContent>
-            </Dialog>
+                      <Button type="submit" className="w-full">
+                        Create College & Admin
+                      </Button>
+                    </form>
+                  )}
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         </CardHeader>
@@ -867,34 +867,33 @@ Harvard University,HARVARD,"Cambridge, MA",trial,Bob Wilson,admin@harvard.edu,ad
                     <td className="p-4 text-center">{college.stats.students}</td>
                     <td className="p-4 text-center">{college.stats.jobs}</td>
                     <td className="p-4">
-                      <span className={`px-2 py-1 rounded text-sm ${
-                        college.subscriptionStatus === 'active' ? 'bg-green-100 text-green-800' :
-                        college.subscriptionStatus === 'trial' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
+                      <span className={`px-2 py-1 rounded text-sm ${college.subscriptionStatus === 'active' ? 'bg-green-100 text-green-800' :
+                          college.subscriptionStatus === 'trial' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
+                        }`}>
                         {college.subscriptionStatus}
                       </span>
                     </td>
                     <td className="p-4">
                       <div className="flex gap-2">
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           size="sm"
                           onClick={() => handleViewCollege(college)}
                           title="View Details"
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           size="sm"
                           onClick={() => handleEditCollege(college)}
                           title="Edit College"
                         >
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           size="sm"
                           onClick={() => handleDeleteCollege(college.id)}
                           title="Delete College"
@@ -927,7 +926,7 @@ Harvard University,HARVARD,"Cambridge, MA",trial,Bob Wilson,admin@harvard.edu,ad
               View detailed information about this college
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedCollege && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -946,11 +945,10 @@ Harvard University,HARVARD,"Cambridge, MA",trial,Bob Wilson,admin@harvard.edu,ad
                 <div>
                   <Label className="text-sm font-semibold text-gray-600">Subscription Status</Label>
                   <p>
-                    <span className={`px-3 py-1 rounded text-sm ${
-                      selectedCollege.subscriptionStatus === 'active' ? 'bg-green-100 text-green-800' :
-                      selectedCollege.subscriptionStatus === 'trial' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
+                    <span className={`px-3 py-1 rounded text-sm ${selectedCollege.subscriptionStatus === 'active' ? 'bg-green-100 text-green-800' :
+                        selectedCollege.subscriptionStatus === 'trial' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                      }`}>
                       {selectedCollege.subscriptionStatus}
                     </span>
                   </p>
@@ -976,9 +974,8 @@ Harvard University,HARVARD,"Cambridge, MA",trial,Bob Wilson,admin@harvard.edu,ad
                     <div>
                       <p className="text-sm text-gray-600">Status</p>
                       <p className="font-medium">
-                        <span className={`px-2 py-1 rounded text-sm ${
-                          selectedCollege.admin?.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                        }`}>
+                        <span className={`px-2 py-1 rounded text-sm ${selectedCollege.admin?.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                          }`}>
                           {selectedCollege.admin?.status || 'N/A'}
                         </span>
                       </p>
@@ -1030,7 +1027,7 @@ Harvard University,HARVARD,"Cambridge, MA",trial,Bob Wilson,admin@harvard.edu,ad
               Update college information
             </DialogDescription>
           </DialogHeader>
-          
+
           <form onSubmit={handleUpdateCollege} className="space-y-4">
             <div>
               <Label htmlFor="editCollegeName">College Name *</Label>
@@ -1120,10 +1117,10 @@ Harvard University,HARVARD,"Cambridge, MA",trial,Bob Wilson,admin@harvard.edu,ad
                 <li>For addresses with commas, wrap in quotes (e.g., "Cambridge, MA")</li>
                 <li className="text-purple-700 font-semibold mt-2">✉️ A summary email with all credentials will be sent to your inbox!</li>
               </ul>
-              <Button 
-                onClick={downloadTemplate} 
-                variant="outline" 
-                size="sm" 
+              <Button
+                onClick={downloadTemplate}
+                variant="outline"
+                size="sm"
                 className="mt-3"
               >
                 <Download className="w-4 h-4 mr-2" />
@@ -1134,7 +1131,7 @@ Harvard University,HARVARD,"Cambridge, MA",trial,Bob Wilson,admin@harvard.edu,ad
             {/* File Upload Section */}
             <div className="space-y-3">
               <Label>Upload CSV File or Paste Data Below:</Label>
-              
+
               <div className="flex gap-2">
                 <input
                   type="file"
@@ -1154,7 +1151,7 @@ Harvard University,HARVARD,"Cambridge, MA",trial,Bob Wilson,admin@harvard.edu,ad
                   <Upload className="w-4 h-4 mr-2" />
                   Choose CSV File
                 </Button>
-                
+
                 {selectedFileName && (
                   <Button
                     type="button"
@@ -1213,7 +1210,7 @@ MIT,MIT,"Cambridge, MA",active,John Smith,admin@mit.edu,admin_mit,SecurePass123`
                   </span>
                 </div>
                 <div className="w-full bg-blue-200 rounded-full h-2.5">
-                  <div 
+                  <div
                     className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
                     style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
                   ></div>
@@ -1322,8 +1319,8 @@ MIT,MIT,"Cambridge, MA",active,John Smith,admin@mit.edu,admin_mit,SecurePass123`
 
             {/* Action Buttons */}
             <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
                   setIsBulkUploadOpen(false);
                   setBulkUploadData('');
@@ -1335,7 +1332,7 @@ MIT,MIT,"Cambridge, MA",active,John Smith,admin@mit.edu,admin_mit,SecurePass123`
                 {bulkUploadResults ? 'Close' : 'Cancel'}
               </Button>
               {!bulkUploadResults && (
-                <Button 
+                <Button
                   onClick={handleBulkUpload}
                   disabled={!bulkUploadData.trim() || isUploading}
                   className="bg-purple-600 hover:bg-purple-700"

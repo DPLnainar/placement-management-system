@@ -28,11 +28,14 @@ const resumeStorage = new CloudinaryStorage({
   params: {
     folder: 'placement-portal/resumes',
     allowed_formats: ['pdf', 'doc', 'docx'],
-    resource_type: 'raw', // For non-image files
+    resource_type: (req, file) => {
+      return file.mimetype === 'application/pdf' ? 'image' : 'raw';
+    },
     public_id: (req, file) => {
       const userId = req.user?.id || 'unknown';
       const timestamp = Date.now();
-      return `resume_${userId}_${timestamp}`;
+      const ext = file.originalname.split('.').pop();
+      return `resume_${userId}_${timestamp}.${ext}`;
     }
   }
 });
@@ -100,7 +103,7 @@ const resumeFileFilter = (req, file, cb) => {
     'application/msword',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
   ];
-  
+
   if (allowedMimes.includes(file.mimetype)) {
     cb(null, true);
   } else {
@@ -113,7 +116,7 @@ const resumeFileFilter = (req, file, cb) => {
  */
 const imageFileFilter = (req, file, cb) => {
   const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-  
+
   if (allowedMimes.includes(file.mimetype)) {
     cb(null, true);
   } else {

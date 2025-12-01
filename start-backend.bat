@@ -1,5 +1,5 @@
 @echo off
-cd /d "%~dp0backend"
-call .venv\Scripts\activate
-python -m uvicorn server:app --reload --host 127.0.0.1 --port 8000
-pause
+echo Starting Backend Server on Port 8000...
+cd backend-node
+set PORT=8000
+npm start

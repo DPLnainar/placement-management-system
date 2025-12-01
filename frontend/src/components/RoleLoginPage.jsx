@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useParams } from 'react-router-dom';
-import { authAPI } from '../services/api';
+import { authAPI, publicAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { LogIn, Eye, EyeOff, GraduationCap, Users, Shield, ArrowLeft } from 'lucide-react';
+import { LogIn, Eye, EyeOff, GraduationCap, Users, Shield, ArrowLeft, Building2 } from 'lucide-react';
 
 export default function RoleLogin() {
   const { role } = useParams();
@@ -15,6 +15,8 @@ export default function RoleLogin() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [colleges, setColleges] = useState([]);
+  const [selectedCollege, setSelectedCollege] = useState('');
 
   const [formData, setFormData] = useState({
     username: '',
@@ -33,6 +35,19 @@ export default function RoleLogin() {
       navigate('/dashboard');
     }
   }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
+    fetchColleges();
+  }, []);
+
+  const fetchColleges = async () => {
+    try {
+      const response = await publicAPI.getColleges();
+      setColleges(response.data.data || []);
+    } catch (error) {
+      console.error('Error fetching colleges:', error);
+    }
+  };
 
   const roleConfig = {
     student: {
@@ -70,14 +85,15 @@ export default function RoleLogin() {
       const loginData = {
         username: formData.username,
         password: formData.password,
+        collegeId: selectedCollege || undefined
       };
-      
+
       const response = await authAPI.login(loginData);
-      
+
       const resData = response.data.data || response.data;
       const userInfo = resData.user;
       const tokenInfo = resData.token;
-      
+
       if (!userInfo || !tokenInfo) {
         throw new Error('Invalid login response from server');
       }
@@ -86,13 +102,13 @@ export default function RoleLogin() {
       // Allow superadmin to login through admin page
       const userRole = (userInfo.role || '').toLowerCase();
       const expectedRole = (role || '').toLowerCase();
-      
+
       if (userRole !== expectedRole && !(userRole === 'superadmin' && expectedRole === 'admin')) {
         setError(`Incorrect username or password`);
         setLoading(false);
         return;
       }
-      
+
       const userData = {
         id: userInfo.id || userInfo._id,
         username: userInfo.username,
@@ -105,9 +121,9 @@ export default function RoleLogin() {
         collegeName: userInfo.college?.name || '',
         collegeCode: userInfo.college?.code || '',
       };
-      
+
       login(userData, tokenInfo);
-      
+
       // Navigate to dashboard (single port application)
       navigate('/dashboard');
     } catch (err) {
@@ -148,6 +164,29 @@ export default function RoleLogin() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+
+            {/* College Selection - First Step */}
+            <div className="space-y-2">
+              <Label htmlFor="college">Select College</Label>
+              <div className="relative">
+                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                <select
+                  id="college"
+                  value={selectedCollege}
+                  onChange={(e) => setSelectedCollege(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pl-10 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  required={role !== 'admin'}
+                >
+                  <option value="">Select your college...</option>
+                  {colleges.map((college) => (
+                    <option key={college._id || college.id} value={college._id || college.id}>
+                      {college.name} ({college.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="username">Username</Label>
               <Input
@@ -161,6 +200,8 @@ export default function RoleLogin() {
                 autoFocus
               />
             </div>
+
+
 
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
@@ -201,8 +242,8 @@ export default function RoleLogin() {
               </div>
             )}
 
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               className={`w-full bg-gradient-to-r ${config.color}`}
               disabled={loading || !formData.username || !formData.password}
             >

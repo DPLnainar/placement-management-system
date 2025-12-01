@@ -17,7 +17,18 @@ const uploadController = require('../controllers/uploadController');
 // Resume upload
 router.post('/resume',
   authenticate,
-  uploadResume.single('resume'),
+  (req, res, next) => {
+    uploadResume.single('resume')(req, res, (err) => {
+      if (err) {
+        console.error('Multer Error:', err);
+        return res.status(400).json({
+          success: false,
+          message: err.message || 'File upload error'
+        });
+      }
+      next();
+    });
+  },
   uploadController.uploadResume
 );
 
@@ -62,7 +73,7 @@ router.use((error, req, res, next) => {
         message: 'File size too large. Maximum allowed size varies by file type.'
       });
     }
-    
+
     if (error.message) {
       return res.status(400).json({
         success: false,
@@ -70,7 +81,7 @@ router.use((error, req, res, next) => {
       });
     }
   }
-  
+
   next(error);
 });
 

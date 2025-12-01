@@ -476,10 +476,133 @@ exports.sendBulkUploadEmail = async (req, res) => {
   }
 };
 
+/**
+ * UPDATE COLLEGE
+ * 
+ * ⚠️ SUPER ADMIN ONLY ⚠️
+ * 
+ * Updates college details including status
+ */
+exports.updateCollege = async (req, res) => {
+  try {
+    // SECURITY CHECK: Only Super Admin
+    if (req.user.role !== 'superadmin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Insufficient permissions.'
+      });
+    }
+
+    const { id } = req.params;
+    const { collegeName, collegeAddress, collegeCode, subscriptionStatus } = req.body;
+
+    const updateData = {};
+    if (collegeName) updateData.name = collegeName.trim();
+    if (collegeAddress) updateData.location = collegeAddress.trim();
+    if (collegeCode) updateData.code = collegeCode.toUpperCase().trim();
+    if (subscriptionStatus) updateData.subscriptionStatus = subscriptionStatus;
+
+    const college = await College.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    if (!college) {
+      return res.status(404).json({
+        success: false,
+        message: 'College not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'College updated successfully',
+      data: college
+    });
+
+  } catch (error) {
+    console.error('Update college error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating college',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * DELETE COLLEGE
+ * 
+ * ⚠️ SUPER ADMIN ONLY ⚠️
+ * 
+ * Deletes a college and its associated data
+ */
+exports.deleteCollege = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    // SECURITY CHECK: Only Super Admin
+    if (req.user.role !== 'superadmin') {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Insufficient permissions.'
+      });
+    }
+
+    const { id } = req.params;
+
+    const college = await College.findById(id);
+
+    if (!college) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
+        success: false,
+        message: 'College not found'
+      });
+    }
+
+    // Delete all users associated with this college
+    await User.deleteMany({ collegeId: id }).session(session);
+
+    // Delete all jobs associated with this college
+    const Job = require('../models/Job');
+    await Job.deleteMany({ collegeId: id }).session(session);
+
+    // Delete the college itself
+    await College.findByIdAndDelete(id).session(session);
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.status(200).json({
+      success: true,
+      message: 'College and all associated data deleted successfully'
+    });
+
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error('Delete college error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting college',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   createCollegeWithAdmin: exports.createCollegeWithAdmin,
   getAllPlacementData: exports.getAllPlacementData,
   getAllColleges: exports.getAllColleges,
   getDashboardStats: exports.getDashboardStats,
-  sendBulkUploadEmail: exports.sendBulkUploadEmail
+  getDashboardStats: exports.getDashboardStats,
+  sendBulkUploadEmail: exports.sendBulkUploadEmail,
+  updateCollege: exports.updateCollege,
+  deleteCollege: exports.deleteCollege
 };

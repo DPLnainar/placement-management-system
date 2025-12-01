@@ -105,7 +105,7 @@ app.use('/api/', generalLimiter);
 
 // Health check
 app.get('/', (req, res) => {
-  res.json({ 
+  res.json({
     success: true,
     message: 'College Placement Management API',
     version: '1.0.0',
@@ -147,16 +147,16 @@ app.use('/api/export', exportRoutes);
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({ 
-    success: false, 
-    message: 'Route not found' 
+  res.status(404).json({
+    success: false,
+    message: 'Route not found'
   });
 });
 
 // Global error handler
 app.use((err, req, res, next) => {
   console.error('\n❌ ERROR:', err.message);
-  
+
   if (process.env.NODE_ENV !== 'production') {
     console.error('Stack:', err.stack);
   }
@@ -169,7 +169,7 @@ app.use((err, req, res, next) => {
       message: `${field} already exists`
     });
   }
-  
+
   // MongoDB validation error
   if (err.name === 'ValidationError') {
     const errors = Object.values(err.errors).map(e => e.message);
@@ -179,7 +179,7 @@ app.use((err, req, res, next) => {
       errors
     });
   }
-  
+
   // JWT errors
   if (err.name === 'JsonWebTokenError') {
     return res.status(401).json({
@@ -187,7 +187,7 @@ app.use((err, req, res, next) => {
       message: 'Invalid token'
     });
   }
-  
+
   if (err.name === 'TokenExpiredError') {
     return res.status(401).json({
       success: false,
@@ -206,7 +206,7 @@ app.use((err, req, res, next) => {
 // SERVER STARTUP
 // ==========================================
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8000;
 
 const startServer = async () => {
   try {
@@ -244,10 +244,10 @@ const startServer = async () => {
       console.log('   ✓ JWT authentication with role and college in token');
       console.log('   ✓ Middleware enforces college boundaries');
       console.log('   ✓ Forgot password with email reset link');
-      
+
       // Check email configuration
-      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD || 
-          process.env.EMAIL_USER === 'your-email@gmail.com') {
+      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD ||
+        process.env.EMAIL_USER === 'your-email@gmail.com') {
         console.log('\n⚠️  EMAIL NOT CONFIGURED:');
         console.log('   To enable password reset emails:');
         console.log('   1. Edit backend-node/.env file');
@@ -257,12 +257,12 @@ const startServer = async () => {
       } else {
         console.log('\n✅ Email configured: ' + process.env.EMAIL_USER);
       }
-      
+
       console.log('\n🔧 Developer Commands:');
       console.log('   npm run seed  - Create sample admin users');
       console.log('   npm run dev   - Start with nodemon (auto-restart)');
       console.log('='.repeat(60) + '\n');
-      
+
       // Start job scheduler for auto-closing expired jobs
       const { startScheduler } = require('./utils/jobScheduler');
       startScheduler();
@@ -275,7 +275,7 @@ const startServer = async () => {
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
-  console.error('Unhandled Rejection:', err);
+  console.error('Unhandled Rejection:', JSON.stringify(err, Object.getOwnPropertyNames(err), 2));
   process.exit(1);
 });
 

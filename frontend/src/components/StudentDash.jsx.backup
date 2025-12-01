@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { jobAPI, applicationAPI, userAPI, uploadAPI } from '../services/api';
+import { jobAPI, applicationAPI, userAPI } from '../services/api';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
-import { Briefcase, LogOut, MapPin, Calendar, User, Save, Upload, Plus, Trash2, FileText, Download, Menu, X, Printer, ExternalLink } from 'lucide-react';
+import { Briefcase, LogOut, MapPin, Calendar, User, Save, Upload, Plus, Trash2, FileText, Download, Menu, X, Printer } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { ResumeTemplate } from './ResumeTemplate';
 
@@ -254,35 +254,13 @@ export default function StudentDash() {
           })));
         }
 
-        // Populate projects
-        if (currentUser.projects && Array.isArray(currentUser.projects) && currentUser.projects.length > 0) {
-          setProjects(currentUser.projects.map((project, idx) => ({
-            ...project,
-            id: project._id || idx
-          })));
-        }
-
         // Check profile completion
         checkProfileCompletion(currentUser);
-
-        // Set resume file state if exists
-        if (currentUser.resumeFile) {
-          setResumeFile({
-            name: 'Current Resume (Uploaded)',
-            url: currentUser.resumeFile
-          });
-        }
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
       // Don't show alert for profile fetch errors, just log it
     }
-  };
-
-  const handleSemesterGPAChange = (index, field, value) => {
-    const updated = [...semesterWiseGPA];
-    updated[index] = { ...updated[index], [field]: value };
-    setSemesterWiseGPA(updated);
   };
 
   const handleSaveProfile = async (e) => {
@@ -347,7 +325,6 @@ export default function StudentDash() {
         // Internships and extracurricular
         internships: internships,
         extracurricular: extracurricular,
-        projects: projects,
 
         // Resume
         resumeLink: profileData.resumeLink,
@@ -362,22 +339,17 @@ export default function StudentDash() {
         return;
       }
 
-      // Set data as locked after first successful save based on active tab
-      if (profileTab === 'personal') {
-        setIsPersonalLocked(true);
-      } else if (profileTab === 'academic') {
-        setIsAcademicLocked(true);
-      }
+      // Set data as locked after first successful save
+      setIsDataLocked(true);
 
       alert('Profile saved successfully!');
     } catch (error) {
       console.error('Error saving profile:', error);
-      console.error('Error response:', error.response?.data);
       alert(error.response?.data?.message || 'Error saving profile. Please try again.');
     }
   };
 
-  const handleFileUpload = async (e) => {
+  const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) { // 5MB limit
@@ -388,23 +360,8 @@ export default function StudentDash() {
         alert('Only PDF files are allowed');
         return;
       }
-
-      try {
-        const formData = new FormData();
-        formData.append('resume', file);
-
-        const response = await uploadAPI.uploadResume(formData);
-
-        if (response.data.success) {
-          setResumeFile(file);
-          alert('Resume uploaded successfully!');
-          // Refresh profile to get updated URL if needed
-          fetchProfile();
-        }
-      } catch (error) {
-        console.error('Error uploading resume:', error);
-        alert(error.response?.data?.message || 'Error uploading resume');
-      }
+      setResumeFile(file);
+      alert('Resume file selected: ' + file.name);
     }
   };
 
@@ -1516,13 +1473,6 @@ export default function StudentDash() {
                         </div>
                       )}
                     </div>
-
-                    <div className="flex justify-end mt-6">
-                      <Button onClick={handleSaveProfile} className="flex items-center gap-2">
-                        <Save className="h-4 w-4" />
-                        Save Skills
-                      </Button>
-                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -1623,421 +1573,263 @@ export default function StudentDash() {
               </Card>
             )}
 
-
             {/* Projects Tab */}
-            {
-              profileTab === 'projects' && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Academic Projects</CardTitle>
-                    <CardDescription>Add your academic and personal projects</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-6">
-                      {/* Add Project Form */}
-                      <div className="border rounded-lg p-4 bg-gray-50">
-                        <h3 className="text-sm font-semibold mb-3">Add New Project</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                          <div>
-                            <Label>Project Title *</Label>
-                            <Input
-                              value={newProject.title}
-                              onChange={(e) => setNewProject({ ...newProject, title: e.target.value })}
-                              placeholder="e.g., E-commerce Website"
-                            />
-                          </div>
-                          <div>
-                            <Label>Tech Stack</Label>
-                            <Input
-                              value={newProject.techStack}
-                              onChange={(e) => setNewProject({ ...newProject, techStack: e.target.value })}
-                              placeholder="e.g., React, Node.js, MongoDB"
-                            />
-                          </div>
-                          <div>
-                            <Label>Date / Duration</Label>
-                            <Input
-                              value={newProject.date}
-                              onChange={(e) => setNewProject({ ...newProject, date: e.target.value })}
-                              placeholder="e.g., Jan 2024 - Mar 2024"
-                            />
-                          </div>
-                          <div>
-                            <Label>Project Link</Label>
-                            <Input
-                              value={newProject.link}
-                              onChange={(e) => setNewProject({ ...newProject, link: e.target.value })}
-                              placeholder="e.g., GitHub or Live URL"
-                            />
-                          </div>
-                          <div className="md:col-span-2">
-                            <Label>Description *</Label>
-                            <Textarea
-                              value={newProject.description}
-                              onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
-                              placeholder="Describe the project features and your role"
-                              rows={3}
-                            />
-                          </div>
-                        </div>
-                        <Button onClick={addProject} type="button">
-                          <Plus className="h-4 w-4 mr-1" /> Add Project
-                        </Button>
-                      </div>
-
-                      {/* Projects List */}
-                      <div>
-                        <h3 className="text-sm font-semibold mb-3">Your Projects</h3>
-                        {projects.length === 0 ? (
-                          <p className="text-sm text-gray-500">No projects added yet.</p>
-                        ) : (
-                          <div className="space-y-4">
-                            {projects.map((project) => (
-                              <Card key={project.id} className="border-l-4 border-l-blue-500">
-                                <CardContent className="pt-4">
-                                  <div className="flex justify-between items-start">
-                                    <div className="flex-1">
-                                      <h4 className="font-semibold text-lg">{project.title}</h4>
-                                      <p className="text-sm text-gray-600">{project.techStack}</p>
-                                      <p className="text-sm text-gray-500">{project.date}</p>
-                                      {project.link && (
-                                        <a href={project.link} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:underline">
-                                          View Project
-                                        </a>
-                                      )}
-                                      {project.description && (
-                                        <p className="text-sm mt-2 text-gray-700">{project.description}</p>
-                                      )}
-                                    </div>
-                                    <Button
-                                      variant="destructive"
-                                      size="sm"
-                                      onClick={() => removeProject(project.id)}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex justify-end mt-6">
-                        <Button onClick={handleSaveProfile} className="flex items-center gap-2">
-                          <Save className="h-4 w-4" />
-                          Save Projects
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            }
-
-            {/* Internships Tab */}
-            {
-              profileTab === 'internships' && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Internships & Experience</CardTitle>
-                    <CardDescription>Add your internship and work experience details</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-6">
-                      {/* Add Internship Form */}
-                      <div className="border rounded-lg p-4 bg-gray-50">
-                        <h3 className="text-sm font-semibold mb-3">Add New Internship</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                          <div>
-                            <Label>Company Name *</Label>
-                            <Input
-                              value={newInternship.company}
-                              onChange={(e) => setNewInternship({ ...newInternship, company: e.target.value })}
-                              placeholder="e.g., Google, Microsoft"
-                            />
-                          </div>
-                          <div>
-                            <Label>Role / Position *</Label>
-                            <Input
-                              value={newInternship.role}
-                              onChange={(e) => setNewInternship({ ...newInternship, role: e.target.value })}
-                              placeholder="e.g., Software Engineering Intern"
-                            />
-                          </div>
-                          <div>
-                            <Label>Duration</Label>
-                            <Input
-                              value={newInternship.duration}
-                              onChange={(e) => setNewInternship({ ...newInternship, duration: e.target.value })}
-                              placeholder="e.g., May 2024 - July 2024"
-                            />
-                          </div>
-                          <div>
-                            <Label>Location</Label>
-                            <Input
-                              value={newInternship.location}
-                              onChange={(e) => setNewInternship({ ...newInternship, location: e.target.value })}
-                              placeholder="e.g., Bangalore, Remote"
-                            />
-                          </div>
-                          <div className="md:col-span-2">
-                            <Label>Description</Label>
-                            <Textarea
-                              value={newInternship.description}
-                              onChange={(e) => setNewInternship({ ...newInternship, description: e.target.value })}
-                              placeholder="Describe your responsibilities and achievements"
-                              rows={3}
-                            />
-                          </div>
-                        </div>
-                        <Button onClick={addInternship} type="button">
-                          <Plus className="h-4 w-4 mr-1" /> Add Internship
-                        </Button>
-                      </div>
-
-                      {/* Internships List */}
-                      <div>
-                        <h3 className="text-sm font-semibold mb-3">Your Internships</h3>
-                        {internships.length === 0 ? (
-                          <p className="text-sm text-gray-500">No internships added yet.</p>
-                        ) : (
-                          <div className="space-y-4">
-                            {internships.map((intern) => (
-                              <Card key={intern.id} className="border-l-4 border-l-purple-500">
-                                <CardContent className="pt-4">
-                                  <div className="flex justify-between items-start">
-                                    <div className="flex-1">
-                                      <h4 className="font-semibold text-lg">{intern.company}</h4>
-                                      <p className="text-sm font-medium text-gray-800">{intern.role}</p>
-                                      <div className="flex gap-4 text-sm text-gray-500 mt-1">
-                                        {intern.duration && <span>{intern.duration}</span>}
-                                        {intern.location && <span>📍 {intern.location}</span>}
-                                      </div>
-                                      {intern.description && (
-                                        <p className="text-sm mt-2 text-gray-700">{intern.description}</p>
-                                      )}
-                                    </div>
-                                    <Button
-                                      variant="destructive"
-                                      size="sm"
-                                      onClick={() => removeInternship(intern.id)}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex justify-end mt-6">
-                        <Button onClick={handleSaveProfile} className="flex items-center gap-2">
-                          <Save className="h-4 w-4" />
-                          Save Internships
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            }
-
-            {/* Resume Tab */}
-            {
-              profileTab === 'resume' && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Resume Management</CardTitle>
-                    <CardDescription>Upload your resume or generate one automatically</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-6">
-                      {/* Upload Resume */}
-                      <div>
-                        <h3 className="text-lg font-semibold mb-4 text-gray-700">Upload Resume (PDF)</h3>
-                        <div className="border-2 border-dashed rounded-lg p-6 text-center">
-                          <Upload className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                          <p className="text-sm text-gray-600 mb-2">
-                            Upload your resume in PDF format (Max 5MB)
-                          </p>
-                          <input
-                            type="file"
-                            accept=".pdf"
-                            onChange={handleFileUpload}
-                            className="hidden"
-                            id="resume-upload"
-                          />
-                          <label htmlFor="resume-upload">
-                            <Button type="button" variant="outline" className="cursor-pointer" onClick={() => document.getElementById('resume-upload').click()}>
-                              <Upload className="h-4 w-4 mr-2" />
-                              Choose File
-                            </Button>
-                          </label>
-                          {resumeFile && (
-                            <div className="flex items-center justify-center gap-2 mt-2">
-                              <p className="text-sm text-green-600">
-                                ✓ {resumeFile.name} selected
-                              </p>
-                              {resumeFile.url && (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 px-2 text-blue-600 hover:text-blue-800"
-                                  onClick={() => window.open(resumeFile.url, '_blank')}
-                                >
-                                  <ExternalLink className="h-3 w-3 mr-1" />
-                                  View
-                                </Button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Or Resume Link */}
-                      <div>
-                        <h3 className="text-lg font-semibold mb-4 text-gray-700">Or Provide Resume Link</h3>
+            {profileTab === 'projects' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Academic Projects</CardTitle>
+                  <CardDescription>Add your academic and personal projects</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {/* Add Project Form */}
+                    <div className="border rounded-lg p-4 bg-gray-50">
+                      <h3 className="text-sm font-semibold mb-3">Add New Project</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
-                          <Label htmlFor="resumeLink">Resume URL</Label>
+                          <Label>Project Title *</Label>
                           <Input
-                            id="resumeLink"
-                            type="url"
-                            value={profileData.resumeLink}
-                            onChange={(e) => setProfileData({ ...profileData, resumeLink: e.target.value })}
-                            placeholder="https://drive.google.com/..."
+                            value={newProject.title}
+                            onChange={(e) => setNewProject({ ...newProject, title: e.target.value })}
+                            placeholder="e.g., E-commerce Website"
                           />
-                          <p className="text-xs text-gray-500 mt-1">
-                            Upload to Google Drive, Dropbox, or any cloud storage and paste the public link
-                          </p>
                         </div>
-                        <div className="flex justify-end mt-2">
-                          <Button onClick={handleSaveProfile} className="flex items-center gap-2">
-                            <Save className="h-4 w-4" />
-                            Save Resume Link
-                          </Button>
+                        <div>
+                          <Label>Tech Stack</Label>
+                          <Input
+                            value={newProject.techStack}
+                            onChange={(e) => setNewProject({ ...newProject, techStack: e.target.value })}
+                            placeholder="e.g., React, Node.js, MongoDB"
+                          />
+                        </div>
+                        <div>
+                          <Label>Date / Duration</Label>
+                          <Input
+                            value={newProject.date}
+                            onChange={(e) => setNewProject({ ...newProject, date: e.target.value })}
+                            placeholder="e.g., Jan 2024 - Mar 2024"
+                          />
+                        </div>
+                        <div>
+                          <Label>Project Link</Label>
+                          <Input
+                            value={newProject.link}
+                            onChange={(e) => setNewProject({ ...newProject, link: e.target.value })}
+                            placeholder="e.g., GitHub or Live URL"
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <Label>Description *</Label>
+                          <Textarea
+                            value={newProject.description}
+                            onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
+                            placeholder="Describe the project features and your role"
+                            rows={3}
+                          />
                         </div>
                       </div>
-
-                      {/* Resume Builder */}
-                      <div className="border rounded-lg p-6 bg-gradient-to-r from-indigo-50 to-purple-50">
-                        <div className="flex items-start gap-4">
-                          <FileText className="h-12 w-12 text-indigo-600" />
-                          <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-gray-800 mb-2">Generate Resume Automatically</h3>
-                            <p className="text-sm text-gray-600 mb-4">
-                              Create a professional resume based on your profile data. Our AI will format your information into an ATS-friendly resume template.
-                            </p>
-                            <div className="flex gap-3">
-                              <Button onClick={() => setActiveTab('resume-builder')} className="bg-indigo-600 hover:bg-indigo-700">
-                                Go to Resume Builder
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            }
-          </div >
-        )}
-
-        {/* Resume Builder Tab */}
-        {
-          activeTab === 'resume-builder' && (
-            <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900">Resume Builder</h2>
-                  <p className="text-gray-600">Preview and download your professional resume</p>
-                </div>
-                <Button onClick={handlePrint} className="flex items-center gap-2">
-                  <Printer className="h-4 w-4" />
-                  Download PDF
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Sidebar / Tips */}
-                <div className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Resume Tips</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4 text-sm text-gray-600">
-                      <p>• Keep your resume concise (1 page is ideal).</p>
-                      <p>• Use bullet points for readability.</p>
-                      <p>• Highlight achievements over responsibilities.</p>
-                      <p>• Ensure your contact details are up to date.</p>
-                      <p>• Add projects to showcase your practical skills.</p>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Missing Information?</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-gray-600 mb-4">
-                        If your resume looks empty, go back to your profile and add more details.
-                      </p>
-                      <Button variant="outline" onClick={() => setActiveTab('profile')} className="w-full">
-                        Edit Profile
+                      <Button onClick={addProject} type="button">
+                        <Plus className="h-4 w-4 mr-1" /> Add Project
                       </Button>
-                    </CardContent>
-                  </Card>
-                </div>
+                    </div>
 
-                {/* Resume Preview */}
-                <div className="lg:col-span-2">
-                  <div className="border rounded-lg shadow-lg overflow-hidden bg-gray-50 p-4 overflow-x-auto">
-                    <ResumeTemplate
-                      ref={resumeRef}
-                      data={{
-                        personal: {
-                          name: user?.fullName,
-                          email: profileData.primaryEmail,
-                          phone: profileData.primaryPhone,
-                          linkedin: profileData.linkedin,
-                          github: profileData.github,
-                          portfolio: profileData.portfolio,
-                          address: profileData.address
-                        },
-                        education: [
+                    {/* Projects List */}
+                    <div>
+                      <h3 className="text-sm font-semibold mb-3">Your Projects</h3>
+                      {projects.length === 0 ? (
+                        <p className="text-sm text-gray-500">No projects added yet.</p>
+                      ) : (
+                        <div className="space-y-4">
+                          {projects.map((project) => (
+                            <Card key={project.id} className="border-l-4 border-l-blue-500">
+                              <CardContent className="pt-4">
+                                <div className="flex justify-between items-start">
+                                  <div className="flex-1">
+                                    <h4 className="font-semibold text-lg">{project.title}</h4>
+                                    <p className="text-sm text-gray-600">{project.techStack}</p>
+                                    <p className="text-sm text-gray-500">{project.date}</p>
+                                    {project.link && (
+                                      <a href={project.link} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:underline">
+                                        View Project
+                                      </a>
+                                    )}
+                                    {project.description && (
+                                      <p className="text-sm mt-2 text-gray-700">{project.description}</p>
+                                    )}
+                                  </div>
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => removeProject(project.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                                <CardContent>
+                                  <div className="space-y-6">
+                                    {/* Upload Resume */}
+                                    <div>
+                                      <h3 className="text-lg font-semibold mb-4 text-gray-700">Upload Resume (PDF)</h3>
+                                      <div className="border-2 border-dashed rounded-lg p-6 text-center">
+                                        <Upload className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                                        <p className="text-sm text-gray-600 mb-2">
+                                          Upload your resume in PDF format (Max 5MB)
+                                        </p>
+                                        <input
+                                          type="file"
+                                          accept=".pdf"
+                                          onChange={handleFileUpload}
+                                          className="hidden"
+                                          id="resume-upload"
+                                        />
+                                        <label htmlFor="resume-upload">
+                                          <Button type="button" variant="outline" className="cursor-pointer" onClick={() => document.getElementById('resume-upload').click()}>
+                                            <Upload className="h-4 w-4 mr-2" />
+                                            Choose File
+                                          </Button>
+                                        </label>
+                                        {resumeFile && (
+                                          <p className="text-sm text-green-600 mt-2">
+                                            ✓ {resumeFile.name} selected
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Or Resume Link */}
+                                    <div>
+                                      <h3 className="text-lg font-semibold mb-4 text-gray-700">Or Provide Resume Link</h3>
+                                      <div>
+                                        <Label htmlFor="resumeLink">Resume URL</Label>
+                                        <Input
+                                          id="resumeLink"
+                                          type="url"
+                                          value={profileData.resumeLink}
+                                          onChange={(e) => setProfileData({ ...profileData, resumeLink: e.target.value })}
+                                          placeholder="https://drive.google.com/..."
+                                        />
+                                        <p className="text-xs text-gray-500 mt-1">
+                                          Upload to Google Drive, Dropbox, or any cloud storage and paste the public link
+                                        </p>
+                                      </div>
+                                    </div>
+
+                                    {/* Resume Builder */}
+                                    <div className="border rounded-lg p-6 bg-gradient-to-r from-indigo-50 to-purple-50">
+                                      <div className="flex items-start gap-4">
+                                        <FileText className="h-12 w-12 text-indigo-600" />
+                                        <div className="flex-1">
+                                          <h3 className="text-lg font-semibold text-gray-800 mb-2">Generate Resume Automatically</h3>
+                                          <p className="text-sm text-gray-600 mb-4">
+                                            Create a professional resume based on your profile data. Our AI will format your information into an ATS-friendly resume template.
+                                          </p>
+                                          <div className="flex gap-3">
+                                            <Button onClick={() => setActiveTab('resume-builder')} className="bg-indigo-600 hover:bg-indigo-700">
+                                              Go to Resume Builder
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </CardContent>
+                            </Card>
+                          )}
+
+
+                          {/* Resume Builder Tab */}
                           {
-                            institution: profileData.currentInstitution || user?.collegeName,
-                            degree: profileData.degree,
-                            branch: profileData.branch,
-                            year: profileData.semester ? `Semester ${profileData.semester}` : '',
-                            cgpa: profileData.cgpa,
-                            location: profileData.address
-                          },
-                          {
-                            institution: profileData.twelfthInstitution || profileData.twelfthBoard,
-                            degree: 'Class XII',
-                            year: profileData.twelfthYear,
-                            cgpa: profileData.twelfthPercentage ? `${profileData.twelfthPercentage}%` : ''
+                            activeTab === 'resume-builder' && (
+                              <div className="space-y-6">
+                                <div className="flex justify-between items-center">
+                                  <div>
+                                    <h2 className="text-2xl font-bold text-gray-900">Resume Builder</h2>
+                                    <p className="text-gray-600">Preview and download your professional resume</p>
+                                  </div>
+                                  <Button onClick={handlePrint} className="flex items-center gap-2">
+                                    <Printer className="h-4 w-4" />
+                                    Download PDF
+                                  </Button>
+                                </div>
+
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                  {/* Sidebar / Tips */}
+                                  <div className="space-y-6">
+                                    <Card>
+                                      <CardHeader>
+                                        <CardTitle>Resume Tips</CardTitle>
+                                      </CardHeader>
+                                      <CardContent className="space-y-4 text-sm text-gray-600">
+                                        <p>• Keep your resume concise (1 page is ideal).</p>
+                                        <p>• Use bullet points for readability.</p>
+                                        <p>• Highlight achievements over responsibilities.</p>
+                                        <p>• Ensure your contact details are up to date.</p>
+                                        <p>• Add projects to showcase your practical skills.</p>
+                                      </CardContent>
+                                    </Card>
+
+                                    <Card>
+                                      <CardHeader>
+                                        <CardTitle>Missing Information?</CardTitle>
+                                      </CardHeader>
+                                      <CardContent>
+                                        <p className="text-sm text-gray-600 mb-4">
+                                          If your resume looks empty, go back to your profile and add more details.
+                                        </p>
+                                        <Button variant="outline" onClick={() => setActiveTab('profile')} className="w-full">
+                                          Edit Profile
+                                        </Button>
+                                      </CardContent>
+                                    </Card>
+                                  </div>
+
+                                  {/* Resume Preview */}
+                                  <div className="lg:col-span-2">
+                                    <div className="border rounded-lg shadow-lg overflow-hidden bg-gray-50 p-4 overflow-x-auto">
+                                      <ResumeTemplate
+                                        ref={resumeRef}
+                                        data={{
+                                          personal: {
+                                            name: user?.fullName,
+                                            email: profileData.primaryEmail,
+                                            phone: profileData.primaryPhone,
+                                            linkedin: profileData.linkedin,
+                                            github: profileData.github,
+                                            portfolio: profileData.portfolio,
+                                            address: profileData.address
+                                          },
+                                          education: [
+                                            {
+                                              institution: profileData.currentInstitution || user?.collegeName,
+                                              degree: profileData.degree,
+                                              branch: profileData.branch,
+                                              year: profileData.semester ? `Semester ${profileData.semester}` : '',
+                                              cgpa: profileData.cgpa,
+                                              location: profileData.address // Or college location if available
+                                            },
+                                            // Add 12th and 10th if needed
+                                            {
+                                              institution: profileData.twelfthInstitution || profileData.twelfthBoard,
+                                              degree: 'Class XII',
+                                              year: profileData.twelfthYear,
+                                              cgpa: profileData.twelfthPercentage ? `${profileData.twelfthPercentage}%` : ''
+                                            }
+                                          ].filter(e => e.institution), // Filter out empty entries
+                                          skills: skills,
+                                          experience: internships,
+                                          projects: projects,
+                                          achievements: extracurricular
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )
                           }
-                        ].filter(e => e.institution),
-                        skills: skills,
-                        experience: internships,
-                        projects: projects,
-                        achievements: extracurricular
-                      }}
-                    />
-                  </div>
-                </div>
+                        </div>
               </div>
-            </div>
-          )
-        }
-      </div >
-    </div >
-  );
+                  </div>
+                  );
 }
+

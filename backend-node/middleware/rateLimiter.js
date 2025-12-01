@@ -16,10 +16,10 @@ const generalLimiter = rateLimit({
   }
 });
 
-// Strict limiter for authentication endpoints - 5 requests per 15 minutes
+// Strict limiter for authentication endpoints - 50 requests per 15 minutes (increased for development)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5,
+  max: process.env.NODE_ENV === 'production' ? 5 : 50, // 50 for dev, 5 for production
   message: {
     success: false,
     message: 'Too many login attempts, please try again after 15 minutes'

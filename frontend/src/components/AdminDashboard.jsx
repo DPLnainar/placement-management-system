@@ -44,13 +44,13 @@ export default function AdminDashboard() {
     // Check if user has valid token
     const token = localStorage.getItem('token');
     const userStr = localStorage.getItem('user');
-    
+
     if (!token || !userStr) {
       console.error('No token or user found - redirecting to login');
       navigate('/');
       return;
     }
-    
+
     try {
       const userData = JSON.parse(userStr);
       if (!userData.collegeId) {
@@ -65,7 +65,7 @@ export default function AdminDashboard() {
       navigate('/');
       return;
     }
-    
+
     fetchDashboardData();
   }, []);
 
@@ -148,11 +148,11 @@ export default function AdminDashboard() {
       alert('User status updated successfully!');
     } catch (error) {
       console.error('Error updating user status:', error);
-      
+
       if (error.isAuthError) {
         return;
       }
-      
+
       const errorMsg = error.response?.data?.message || error.message || 'Error updating user status. Please try again.';
       alert(errorMsg);
     }
@@ -165,12 +165,12 @@ export default function AdminDashboard() {
       alert(isApproved ? 'User approved successfully!' : 'User approval revoked');
     } catch (error) {
       console.error('Error updating approval status:', error);
-      
+
       // Don't show error if it's an auth error (will redirect)
       if (error.isAuthError) {
         return;
       }
-      
+
       // Get user-friendly error message
       const errorMsg = error.response?.data?.message || error.message || 'Error updating approval status. Please try again.';
       alert(errorMsg);
@@ -185,11 +185,11 @@ export default function AdminDashboard() {
         alert('User deleted successfully!');
       } catch (error) {
         console.error('Error deleting user:', error);
-        
+
         if (error.isAuthError) {
           return;
         }
-        
+
         const errorMsg = error.response?.data?.message || error.message || 'Error deleting user. Please try again.';
         alert(errorMsg);
       }
@@ -228,7 +228,7 @@ export default function AdminDashboard() {
 
       // Validate and parse CSV data
       const lines = bulkUploadData.trim().split('\n').filter(line => line.trim());
-      
+
       if (lines.length < 2) {
         alert('Error: CSV must contain at least a header row and one data row');
         setBulkUploading(false);
@@ -254,7 +254,7 @@ export default function AdminDashboard() {
       for (let i = 1; i < lines.length; i++) {
         const lineNumber = i + 1;
         const line = lines[i].trim();
-        
+
         // Skip empty lines
         if (!line) {
           results.skipped++;
@@ -264,7 +264,7 @@ export default function AdminDashboard() {
 
         // Parse CSV line (handle commas in quoted fields)
         const fields = line.match(/(?:[^,"]+|"[^"]*")+/g);
-        
+
         if (!fields || fields.length < 5) {
           results.skipped++;
           results.errors.push(`Line ${lineNumber}: Insufficient fields (expected 5, got ${fields?.length || 0})`);
@@ -272,7 +272,7 @@ export default function AdminDashboard() {
         }
 
         const [username, email, fullName, password, department] = fields.map(s => s.trim().replace(/^"|"$/g, ''));
-        
+
         // Validate required fields
         if (!username || !email || !fullName || !password || !department) {
           results.skipped++;
@@ -336,7 +336,7 @@ export default function AdminDashboard() {
         } catch (error) {
           results.failed++;
           const errorMsg = error.response?.data?.message || error.message || 'Unknown error';
-          
+
           // Provide more specific error messages
           let friendlyError = errorMsg;
           if (errorMsg.includes('duplicate') || errorMsg.includes('already exists')) {
@@ -344,7 +344,7 @@ export default function AdminDashboard() {
           } else if (errorMsg.includes('validation')) {
             friendlyError = 'Validation failed';
           }
-          
+
           results.errors.push(`Line ${lineNumber} (${username}): ${friendlyError}`);
           results.details.push({ line: lineNumber, username, status: 'failed', error: friendlyError });
         }
@@ -357,7 +357,7 @@ export default function AdminDashboard() {
 
       setBulkUploadResults(results);
       setUploadProgress({ current: totalRecords, total: totalRecords });
-      
+
       // Refresh dashboard data if any users were created
       if (results.successful > 0) {
         await fetchDashboardData();
@@ -428,7 +428,9 @@ export default function AdminDashboard() {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-              <p className="text-sm text-gray-600">Welcome, {user?.fullName}</p>
+              <p className="text-sm text-gray-600">
+                Welcome, {user?.fullName} • {user?.collegeName ? `${user.collegeName}` : ''}
+              </p>
             </div>
             <div className="flex gap-2">
               {/* Desktop buttons */}
@@ -449,7 +451,7 @@ export default function AdminDashboard() {
               </button>
             </div>
           </div>
-          
+
           {/* Mobile menu dropdown */}
           {isMobileMenuOpen && (
             <div className="lg:hidden mt-4 py-4 border-t border-gray-200 space-y-2">
@@ -458,11 +460,10 @@ export default function AdminDashboard() {
                   setActiveTab('overview');
                   setIsMobileMenuOpen(false);
                 }}
-                className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
-                  activeTab === 'overview'
+                className={`w-full text-left px-4 py-3 rounded-md transition-colors ${activeTab === 'overview'
                     ? 'bg-indigo-50 text-indigo-600 font-medium'
                     : 'text-gray-700 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 <LayoutDashboard className="inline-block mr-2 h-4 w-4" />
                 Overview
@@ -472,11 +473,10 @@ export default function AdminDashboard() {
                   setActiveTab('jobs');
                   setIsMobileMenuOpen(false);
                 }}
-                className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
-                  activeTab === 'jobs'
+                className={`w-full text-left px-4 py-3 rounded-md transition-colors ${activeTab === 'jobs'
                     ? 'bg-indigo-50 text-indigo-600 font-medium'
                     : 'text-gray-700 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 <Briefcase className="inline-block mr-2 h-4 w-4" />
                 Jobs
@@ -486,11 +486,10 @@ export default function AdminDashboard() {
                   setActiveTab('moderators');
                   setIsMobileMenuOpen(false);
                 }}
-                className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
-                  activeTab === 'moderators'
+                className={`w-full text-left px-4 py-3 rounded-md transition-colors ${activeTab === 'moderators'
                     ? 'bg-indigo-50 text-indigo-600 font-medium'
                     : 'text-gray-700 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 <UserCog className="inline-block mr-2 h-4 w-4" />
                 Moderators
@@ -500,11 +499,10 @@ export default function AdminDashboard() {
                   setActiveTab('students');
                   setIsMobileMenuOpen(false);
                 }}
-                className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
-                  activeTab === 'students'
+                className={`w-full text-left px-4 py-3 rounded-md transition-colors ${activeTab === 'students'
                     ? 'bg-indigo-50 text-indigo-600 font-medium'
                     : 'text-gray-700 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 <GraduationCap className="inline-block mr-2 h-4 w-4" />
                 Students
@@ -578,11 +576,10 @@ export default function AdminDashboard() {
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`${
-                    activeTab === tab
+                  className={`${activeTab === tab
                       ? 'border-indigo-500 text-indigo-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm capitalize`}
+                    } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm capitalize`}
                 >
                   {tab}
                 </button>
@@ -621,87 +618,87 @@ export default function AdminDashboard() {
                       return student.isApproved && student.isActive;
                     });
                     // Count applications for this job
-                    const appliedStudents = applications.filter(app => 
+                    const appliedStudents = applications.filter(app =>
                       (app.jobId === job._id || app.jobId === job.id || app.job?._id === job._id || app.job?._id === job.id)
                     ).length;
                     const notApplied = eligibleStudents.length - appliedStudents;
-                    
+
                     return (
-                    <Card key={job._id || job.id}>
-                      <CardHeader>
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <CardTitle>{job.company || job.companyName}</CardTitle>
-                            <CardDescription>
-                              {job.location} • {job.title || job.jobCategory}
-                            </CardDescription>
+                      <Card key={job._id || job.id}>
+                        <CardHeader>
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <CardTitle>{job.company || job.companyName}</CardTitle>
+                              <CardDescription>
+                                {job.location} • {job.title || job.jobCategory}
+                              </CardDescription>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEditJob(job)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleDeleteJob(job._id || job.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleEditJob(job)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => handleDeleteJob(job._id || job.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          <div>
-                            <p className="text-sm text-gray-600">
-                              {job.jobType && <span className="capitalize">{job.jobType}</span>}
-                              {job.salary && <span> • {job.salary}</span>}
-                            </p>
-                            <p className="text-sm text-gray-500 mt-1">
-                              Status: <span className="font-semibold capitalize">{job.status}</span>
-                            </p>
-                            {job.deadline && (
-                              <p className="text-sm text-gray-500">
-                                Deadline: {new Date(job.deadline).toLocaleDateString()}
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            <div>
+                              <p className="text-sm text-gray-600">
+                                {job.jobType && <span className="capitalize">{job.jobType}</span>}
+                                {job.salary && <span> • {job.salary}</span>}
                               </p>
-                            )}
-                          </div>
-                          
-                          {/* Application Statistics */}
-                          <div className="pt-3 border-t">
-                            <h4 className="text-sm font-semibold mb-2">Student Statistics</h4>
-                            <div className="grid grid-cols-3 gap-3">
-                              <div className="bg-green-50 p-3 rounded-lg">
-                                <div className="flex items-center justify-between">
-                                  <CheckCircle className="h-5 w-5 text-green-600" />
-                                  <span className="text-2xl font-bold text-green-700">{eligibleStudents.length}</span>
+                              <p className="text-sm text-gray-500 mt-1">
+                                Status: <span className="font-semibold capitalize">{job.status}</span>
+                              </p>
+                              {job.deadline && (
+                                <p className="text-sm text-gray-500">
+                                  Deadline: {new Date(job.deadline).toLocaleDateString()}
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Application Statistics */}
+                            <div className="pt-3 border-t">
+                              <h4 className="text-sm font-semibold mb-2">Student Statistics</h4>
+                              <div className="grid grid-cols-3 gap-3">
+                                <div className="bg-green-50 p-3 rounded-lg">
+                                  <div className="flex items-center justify-between">
+                                    <CheckCircle className="h-5 w-5 text-green-600" />
+                                    <span className="text-2xl font-bold text-green-700">{eligibleStudents.length}</span>
+                                  </div>
+                                  <p className="text-xs text-green-600 mt-1">Eligible</p>
                                 </div>
-                                <p className="text-xs text-green-600 mt-1">Eligible</p>
-                              </div>
-                              <div className="bg-blue-50 p-3 rounded-lg">
-                                <div className="flex items-center justify-between">
-                                  <Clock className="h-5 w-5 text-blue-600" />
-                                  <span className="text-2xl font-bold text-blue-700">{appliedStudents}</span>
+                                <div className="bg-blue-50 p-3 rounded-lg">
+                                  <div className="flex items-center justify-between">
+                                    <Clock className="h-5 w-5 text-blue-600" />
+                                    <span className="text-2xl font-bold text-blue-700">{appliedStudents}</span>
+                                  </div>
+                                  <p className="text-xs text-blue-600 mt-1">Applied</p>
                                 </div>
-                                <p className="text-xs text-blue-600 mt-1">Applied</p>
-                              </div>
-                              <div className="bg-orange-50 p-3 rounded-lg">
-                                <div className="flex items-center justify-between">
-                                  <XCircle className="h-5 w-5 text-orange-600" />
-                                  <span className="text-2xl font-bold text-orange-700">{notApplied}</span>
+                                <div className="bg-orange-50 p-3 rounded-lg">
+                                  <div className="flex items-center justify-between">
+                                    <XCircle className="h-5 w-5 text-orange-600" />
+                                    <span className="text-2xl font-bold text-orange-700">{notApplied}</span>
+                                  </div>
+                                  <p className="text-xs text-orange-600 mt-1">Not Applied</p>
                                 </div>
-                                <p className="text-xs text-orange-600 mt-1">Not Applied</p>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
+                        </CardContent>
+                      </Card>
+                    );
                   })}
                   {jobs.length === 0 && (
                     <p className="text-center text-gray-500 py-8">No jobs posted yet</p>
@@ -734,20 +731,18 @@ export default function AdminDashboard() {
                             <p className="text-sm text-gray-500">{moderator.department}</p>
                             <div className="flex gap-3 mt-2">
                               <span
-                                className={`text-xs px-2 py-1 rounded ${
-                                  moderator.isApproved
+                                className={`text-xs px-2 py-1 rounded ${moderator.isApproved
                                     ? 'bg-green-100 text-green-700'
                                     : 'bg-yellow-100 text-yellow-700'
-                                }`}
+                                  }`}
                               >
                                 {moderator.isApproved ? '✓ Approved' : '⏳ Pending Approval'}
                               </span>
                               <span
-                                className={`text-xs px-2 py-1 rounded ${
-                                  moderator.isActive
+                                className={`text-xs px-2 py-1 rounded ${moderator.isActive
                                     ? 'bg-blue-100 text-blue-700'
                                     : 'bg-gray-100 text-gray-700'
-                                }`}
+                                  }`}
                               >
                                 {moderator.isActive ? 'Active' : 'Inactive'}
                               </span>
@@ -889,11 +884,10 @@ export default function AdminDashboard() {
                                       <p className="text-xs text-gray-500 mt-1">@{student.username}</p>
                                       <div className="flex gap-3 mt-2">
                                         <span
-                                          className={`text-xs px-2 py-1 rounded ${
-                                            student.status === 'active'
+                                          className={`text-xs px-2 py-1 rounded ${student.status === 'active'
                                               ? 'bg-green-100 text-green-700'
                                               : 'bg-red-100 text-red-700'
-                                          }`}
+                                            }`}
                                         >
                                           {student.status === 'active' ? '✓ Active' : '✗ Inactive'}
                                         </span>
@@ -1331,7 +1325,7 @@ export default function AdminDashboard() {
                   Download Template
                 </Button>
               </div>
-              
+
               <textarea
                 value={bulkUploadData}
                 onChange={(e) => setBulkUploadData(e.target.value)}
@@ -1339,7 +1333,7 @@ export default function AdminDashboard() {
                 className="w-full h-64 p-3 border rounded-md font-mono text-sm"
                 disabled={bulkUploading}
               />
-              
+
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h4 className="font-semibold text-sm text-blue-900 mb-2">CSV Format Instructions:</h4>
                 <ul className="text-xs text-blue-800 space-y-1">
@@ -1360,7 +1354,7 @@ export default function AdminDashboard() {
                   <h4 className="font-semibold text-sm text-purple-900 mb-2">Upload Progress:</h4>
                   <div className="flex items-center gap-3">
                     <div className="flex-1 bg-gray-200 rounded-full h-2.5">
-                      <div 
+                      <div
                         className="bg-purple-600 h-2.5 rounded-full transition-all duration-300"
                         style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
                       ></div>
@@ -1394,7 +1388,7 @@ export default function AdminDashboard() {
                       <div className="text-xs text-gray-600 font-medium">Skipped</div>
                     </div>
                   </div>
-                  
+
                   {bulkUploadResults.errors.length > 0 && (
                     <div className="mt-3">
                       <div className="flex items-center justify-between mb-2">

@@ -1,15 +1,17 @@
 const express = require('express');
 const router = express.Router();
-const { 
-  authenticate, 
-  requireRole 
+const {
+  authenticate,
+  requireRole
 } = require('../middleware/auth');
 const {
   createCollegeWithAdmin,
   getAllPlacementData,
   getAllColleges,
   getDashboardStats,
-  sendBulkUploadEmail
+  sendBulkUploadEmail,
+  updateCollege,
+  deleteCollege
 } = require('../controllers/superAdminController');
 
 /**
@@ -50,6 +52,18 @@ router.post('/colleges', createCollegeWithAdmin);
  * Get all colleges with their admins and statistics
  */
 router.get('/colleges', getAllColleges);
+
+/**
+ * PUT /api/superadmin/colleges/:id
+ * Update college details
+ */
+router.put('/colleges/:id', updateCollege);
+
+/**
+ * DELETE /api/superadmin/colleges/:id
+ * Delete college and associated data
+ */
+router.delete('/colleges/:id', deleteCollege);
 
 /**
  * GET /api/superadmin/placement-data

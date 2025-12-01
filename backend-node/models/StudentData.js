@@ -215,8 +215,8 @@ const studentDataSchema = new mongoose.Schema({
     title: { type: String, required: true },
     description: { type: String },
     date: { type: Date },
-    category: { 
-      type: String, 
+    category: {
+      type: String,
       enum: ['academic', 'sports', 'cultural', 'technical', 'hackathon', 'competition', 'research', 'other'],
       default: 'other'
     },
@@ -327,6 +327,12 @@ const studentDataSchema = new mongoose.Schema({
   },
   resumeFileName: {
     type: String,
+    default: null
+  },
+  // External resume link (e.g., Google Drive)
+  resumeLink: {
+    type: String,
+    trim: true,
     default: null
   },
   // Additional Information
@@ -489,17 +495,17 @@ studentDataSchema.index({ collegeId: 1, documentsVerified: 1 });
 studentDataSchema.index({ collegeId: 1, placementStatus: 1 });
 
 // Update the updatedAt timestamp before saving
-studentDataSchema.pre('save', function(next) {
+studentDataSchema.pre('save', function (next) {
   this.updatedAt = Date.now();
-  
+
   // Auto-calculate profile completion percentage
   this.profileCompletionPercentage = this.calculateProfileCompletion();
-  
+
   next();
 });
 
 // Calculate profile completion percentage
-studentDataSchema.methods.calculateProfileCompletion = function() {
+studentDataSchema.methods.calculateProfileCompletion = function () {
   let score = 0;
   const weights = {
     basicInfo: 15,        // phone, dob, gender, address
@@ -512,39 +518,39 @@ studentDataSchema.methods.calculateProfileCompletion = function() {
     achievements: 5,      // at least 1 achievement
     resume: 5             // resume uploaded
   };
-  
+
   // Basic Info (15%)
   if (this.phoneNumber && this.dateOfBirth && this.gender && this.currentAddress) {
     score += weights.basicInfo;
   } else if (this.phoneNumber || this.dateOfBirth) {
     score += weights.basicInfo * 0.5;
   }
-  
+
   // Education (20%)
-  const hasEducation = this.education?.tenth?.percentage && 
-                       this.education?.twelfth?.percentage && 
-                       this.education?.graduation?.cgpa;
+  const hasEducation = this.education?.tenth?.percentage &&
+    this.education?.twelfth?.percentage &&
+    this.education?.graduation?.cgpa;
   if (hasEducation) {
     score += weights.education;
   } else if (this.education?.graduation?.cgpa) {
     score += weights.education * 0.5;
   }
-  
+
   // Academics (10%)
   if (this.cgpa) {
     score += weights.academics;
   }
-  
+
   // Skills (15%)
-  const skillsCount = (this.technicalSkills?.programming?.length || 0) + 
-                      (this.technicalSkills?.frameworks?.length || 0) + 
-                      (this.languages?.length || 0);
+  const skillsCount = (this.technicalSkills?.programming?.length || 0) +
+    (this.technicalSkills?.frameworks?.length || 0) +
+    (this.languages?.length || 0);
   if (skillsCount >= 5) {
     score += weights.skills;
   } else if (skillsCount > 0) {
     score += weights.skills * (skillsCount / 5);
   }
-  
+
   // Projects (15%)
   const projectsCount = this.projects?.length || 0;
   if (projectsCount >= 2) {
@@ -552,50 +558,50 @@ studentDataSchema.methods.calculateProfileCompletion = function() {
   } else if (projectsCount === 1) {
     score += weights.projects * 0.5;
   }
-  
+
   // Experience (10%)
   const experienceCount = (this.internships?.length || 0) + (this.workExperience?.length || 0);
   if (experienceCount > 0) {
     score += weights.experience;
   }
-  
+
   // Certifications (5%)
   if (this.certifications?.length > 0) {
     score += weights.certifications;
   }
-  
+
   // Achievements (5%)
   if (this.achievements?.length > 0) {
     score += weights.achievements;
   }
-  
+
   // Resume (5%)
-  if (this.resumeUrl) {
+  if (this.resumeUrl || this.resumeLink) {
     score += weights.resume;
   }
-  
+
   return Math.round(score);
 };
 
 // Get profile strength summary
-studentDataSchema.methods.getProfileStrength = function() {
+studentDataSchema.methods.getProfileStrength = function () {
   const completion = this.profileCompletionPercentage || this.calculateProfileCompletion();
-  
+
   let strength = 'weak';
   let suggestions = [];
-  
+
   if (completion >= 90) strength = 'excellent';
   else if (completion >= 75) strength = 'strong';
   else if (completion >= 50) strength = 'moderate';
-  
+
   // Generate suggestions
   if (!this.phoneNumber) suggestions.push('Add phone number');
-  if (!this.resumeUrl) suggestions.push('Upload resume');
+  if (!this.resumeUrl && !this.resumeLink) suggestions.push('Upload resume');
   if (!this.education?.graduation?.cgpa) suggestions.push('Add graduation details');
   if (!this.technicalSkills?.programming?.length) suggestions.push('Add programming skills');
   if (!this.projects?.length) suggestions.push('Add projects');
   if (!this.internships?.length && !this.workExperience?.length) suggestions.push('Add experience');
-  
+
   return {
     percentage: completion,
     strength: strength,
@@ -604,9 +610,9 @@ studentDataSchema.methods.getProfileStrength = function() {
 };
 
 // Get total experience in months
-studentDataSchema.methods.getTotalExperience = function() {
+studentDataSchema.methods.getTotalExperience = function () {
   let totalMonths = 0;
-  
+
   // Calculate internship experience
   if (this.internships) {
     this.internships.forEach(internship => {
@@ -617,7 +623,7 @@ studentDataSchema.methods.getTotalExperience = function() {
       }
     });
   }
-  
+
   // Calculate work experience
   if (this.workExperience) {
     this.workExperience.forEach(work => {
@@ -628,36 +634,36 @@ studentDataSchema.methods.getTotalExperience = function() {
       }
     });
   }
-  
+
   return totalMonths;
 };
 
 // Get all unique technologies/skills
-studentDataSchema.methods.getAllSkills = function() {
+studentDataSchema.methods.getAllSkills = function () {
   const skillsSet = new Set();
-  
+
   // Technical skills
   this.technicalSkills?.programming?.forEach(s => skillsSet.add(s.name || s));
   this.technicalSkills?.frameworks?.forEach(s => skillsSet.add(s.name || s));
   this.technicalSkills?.tools?.forEach(s => skillsSet.add(s.name || s));
   this.technicalSkills?.databases?.forEach(s => skillsSet.add(s.name || s));
   this.technicalSkills?.cloud?.forEach(s => skillsSet.add(s.name || s));
-  
+
   // From projects
   this.projects?.forEach(project => {
     project.technologies?.forEach(tech => skillsSet.add(tech));
   });
-  
+
   // From internships
   this.internships?.forEach(internship => {
     internship.technologies?.forEach(tech => skillsSet.add(tech));
   });
-  
+
   // From work experience
   this.workExperience?.forEach(work => {
     work.technologies?.forEach(tech => skillsSet.add(tech));
   });
-  
+
   return Array.from(skillsSet);
 };
 

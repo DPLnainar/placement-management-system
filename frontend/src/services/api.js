@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'http://localhost:8000/api';
 
 // Create axios instance
 const api = axios.create({
@@ -36,22 +36,22 @@ api.interceptors.response.use(
     }
 
     // Handle authentication errors - but exclude login/register endpoints
-    const isLoginEndpoint = error.config?.url?.includes('/auth/login') || 
-                           error.config?.url?.includes('/auth/register');
-    
+    const isLoginEndpoint = error.config?.url?.includes('/auth/login') ||
+      error.config?.url?.includes('/auth/register');
+
     if (error.response?.status === 401 && !isLoginEndpoint) {
       console.warn('Authentication failed - redirecting to login');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      
+
       // Create a custom error to prevent JSON parse issues
       const authError = new Error('Session expired. Please login again.');
       authError.isAuthError = true;
-      
+
       setTimeout(() => {
         window.location.href = '/';
       }, 100);
-      
+
       return Promise.reject(authError);
     }
 
@@ -94,6 +94,11 @@ export const invitationAPI = {
   cancel: (id) => api.delete(`/invitations/${id}`),
 };
 
+// Public API
+export const publicAPI = {
+  getColleges: () => api.get('/public/colleges'),
+};
+
 // Job API
 export const jobAPI = {
   getAll: (status = null) => api.get('/jobs', { params: { status } }),
@@ -120,6 +125,81 @@ export const applicationAPI = {
   getAll: (jobId = null) => api.get('/applications', { params: { jobId } }),
   getById: (id) => api.get(`/applications/${id}`),
   updateStatus: (id, status) => api.put(`/applications/${id}/status`, null, { params: { status } }),
+};
+
+// Eligibility API
+export const eligibilityAPI = {
+  checkEligibility: (jobId) => api.get(`/eligibility/check/${jobId}`),
+  getEligibleJobs: (params = {}) => api.get('/eligibility/eligible-jobs', { params }),
+  getJobRecommendations: (limit = 10) => api.get('/eligibility/recommendations', { params: { limit } }),
+  bulkCheck: (data) => api.post('/eligibility/bulk-check', data),
+};
+
+// Student Preferences API
+export const preferencesAPI = {
+  getFilters: () => {
+    const saved = localStorage.getItem('studentFilters');
+    return Promise.resolve({ data: saved ? JSON.parse(saved) : {} });
+  },
+  saveFilters: (data) => {
+    localStorage.setItem('studentFilters', JSON.stringify(data));
+    return Promise.resolve({ data });
+  },
+  getNotificationSettings: () => {
+    const saved = localStorage.getItem('notificationSettings');
+    return Promise.resolve({ data: saved ? JSON.parse(saved) : { email: true, push: false } });
+  },
+  updateNotificationSettings: (data) => {
+    localStorage.setItem('notificationSettings', JSON.stringify(data));
+    return Promise.resolve({ data });
+  },
+};
+
+// Notifications API (mock for now)
+export const notificationAPI = {
+  getAll: (params = {}) => {
+    const notifications = JSON.parse(localStorage.getItem('notifications') || '[]');
+    return Promise.resolve({ data: notifications });
+  },
+  markAsRead: (id) => {
+    const notifications = JSON.parse(localStorage.getItem('notifications') || '[]');
+    const updated = notifications.map(n => n.id === id ? { ...n, read: true } : n);
+    localStorage.setItem('notifications', JSON.stringify(updated));
+    return Promise.resolve({ data: { success: true } });
+  },
+  markAllAsRead: () => {
+    const notifications = JSON.parse(localStorage.getItem('notifications') || '[]');
+    const updated = notifications.map(n => ({ ...n, read: true }));
+    localStorage.setItem('notifications', JSON.stringify(updated));
+    return Promise.resolve({ data: { success: true } });
+  },
+  delete: (id) => {
+    const notifications = JSON.parse(localStorage.getItem('notifications') || '[]');
+    const updated = notifications.filter(n => n.id !== id);
+    localStorage.setItem('notifications', JSON.stringify(updated));
+    return Promise.resolve({ data: { success: true } });
+  },
+};
+
+// Upload API
+export const uploadAPI = {
+  uploadResume: (formData) => api.post('/upload/resume', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  }),
+  uploadPhoto: (formData) => api.post('/upload/photo', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  }),
+  uploadDocument: (formData) => api.post('/upload/document', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  }),
+  getUserFiles: () => api.get('/upload/files'),
+  deleteResume: () => api.delete('/upload/resume'),
 };
 
 export default api;

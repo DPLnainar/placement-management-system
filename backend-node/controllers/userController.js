@@ -39,9 +39,9 @@ exports.createUser = async (req, res) => {
 
     // Validate required fields
     if (!username || !email || !password || !fullName || !role) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Please provide all required fields: username, email, password, fullName, role' 
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide all required fields: username, email, password, fullName, role'
       });
     }
 
@@ -49,31 +49,31 @@ exports.createUser = async (req, res) => {
     if (req.user.role === 'moderator') {
       // Moderators can ONLY create students
       if (role !== 'student') {
-        return res.status(403).json({ 
-          success: false, 
-          message: 'Access denied. Insufficient permissions.' 
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. Insufficient permissions.'
         });
       }
-      
+
       // Moderators can only assign to their own department
       if (department && department !== req.user.department) {
-        return res.status(403).json({ 
-          success: false, 
-          message: 'Access denied. Insufficient permissions.' 
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. Insufficient permissions.'
         });
       }
     } else if (req.user.role === 'admin') {
       // Admins can create moderators and students
       if (!['moderator', 'student'].includes(role)) {
-        return res.status(403).json({ 
-          success: false, 
-          message: 'Access denied. Insufficient permissions.' 
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. Insufficient permissions.'
         });
       }
     } else {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Insufficient permissions to create users' 
+      return res.status(403).json({
+        success: false,
+        message: 'Insufficient permissions to create users'
       });
     }
 
@@ -86,9 +86,9 @@ exports.createUser = async (req, res) => {
     });
 
     if (existingUser) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Username or email already exists' 
+      return res.status(400).json({
+        success: false,
+        message: 'Username or email already exists'
       });
     }
 
@@ -98,15 +98,15 @@ exports.createUser = async (req, res) => {
     // Verify college exists
     const college = await College.findById(collegeId);
     if (!college) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'College not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'College not found'
       });
     }
 
     // Determine department
     let userDepartment = department || '';
-    
+
     // If moderator is creating student, automatically set to moderator's department
     if (req.user.role === 'moderator' && role === 'student') {
       userDepartment = req.user.department;
@@ -152,18 +152,18 @@ exports.createUser = async (req, res) => {
 
   } catch (error) {
     console.error('Create user error:', error);
-    
+
     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({ 
-        success: false, 
-        message: messages.join(', ') 
+      return res.status(400).json({
+        success: false,
+        message: messages.join(', ')
       });
     }
 
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error creating user' 
+    res.status(500).json({
+      success: false,
+      message: 'Server error creating user'
     });
   }
 };
@@ -180,10 +180,10 @@ exports.createUser = async (req, res) => {
 exports.getCollegeUsers = async (req, res) => {
   try {
     const { role, status } = req.query;
-    
+
     // Build query filter
-    const filter = { 
-      collegeId: req.user.collegeId._id || req.user.collegeId 
+    const filter = {
+      collegeId: req.user.collegeId._id || req.user.collegeId
     };
 
     // Optional filters
@@ -227,9 +227,9 @@ exports.getCollegeUsers = async (req, res) => {
 
   } catch (error) {
     console.error('Get college users error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error fetching users' 
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching users'
     });
   }
 };
@@ -262,9 +262,9 @@ exports.getUserById = async (req, res) => {
       .populate('assignedBy', 'username fullName role');
 
     if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'User not found or does not belong to your college' 
+      return res.status(404).json({
+        success: false,
+        message: 'User not found or does not belong to your college'
       });
     }
 
@@ -276,9 +276,9 @@ exports.getUserById = async (req, res) => {
 
   } catch (error) {
     console.error('Get user by ID error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error fetching user' 
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching user'
     });
   }
 };
@@ -302,11 +302,11 @@ exports.updateUser = async (req, res) => {
 
     // Get collegeId from authenticated user
     const adminCollegeId = req.user.collegeId?._id || req.user.collegeId;
-    
+
     if (!adminCollegeId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'College ID not found' 
+      return res.status(400).json({
+        success: false,
+        message: 'College ID not found'
       });
     }
 
@@ -336,8 +336,8 @@ exports.updateUser = async (req, res) => {
     const user = await User.findOne(filter);
 
     if (!user) {
-      return res.status(404).json({ 
-        success: false, 
+      return res.status(404).json({
+        success: false,
         message: req.user.role === 'moderator'
           ? 'Student not found in your department or access denied'
           : 'User not found or does not belong to your college'
@@ -348,9 +348,9 @@ exports.updateUser = async (req, res) => {
     if (updateData.username && updateData.username !== user.username) {
       const existingUser = await User.findOne({ username: updateData.username });
       if (existingUser) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Username already taken' 
+        return res.status(400).json({
+          success: false,
+          message: 'Username already taken'
         });
       }
     }
@@ -359,9 +359,9 @@ exports.updateUser = async (req, res) => {
     if (updateData.email && updateData.email !== user.email) {
       const existingEmail = await User.findOne({ email: updateData.email });
       if (existingEmail) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Email already in use' 
+        return res.status(400).json({
+          success: false,
+          message: 'Email already in use'
         });
       }
     }
@@ -375,9 +375,9 @@ exports.updateUser = async (req, res) => {
       'tenthInstitution', 'tenthPercentage', 'tenthBoard', 'tenthYear',
       'twelfthInstitution', 'twelfthPercentage', 'twelfthBoard', 'twelfthYear',
       'currentInstitution', 'degree', 'branch', 'semester', 'cgpa', 'backlogs',
-      'semesterWiseGPA', 'arrearHistory', 'skills',
+      'semesterWiseGPA', 'currentArrears', 'arrearHistory', 'skills',
       'github', 'linkedin', 'portfolio',
-      'internships', 'extracurricular',
+      'internships', 'extracurricular', 'projects',
       'resumeLink', 'resumeFile'
     ];
 
@@ -402,8 +402,8 @@ exports.updateUser = async (req, res) => {
 
   } catch (error) {
     console.error('Update user error:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: 'Server error while updating user',
       error: error.message
     });
@@ -427,19 +427,19 @@ exports.updateUserStatus = async (req, res) => {
     console.log('Request user:', req.user);
 
     if (!['active', 'inactive', 'pending'].includes(status)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid status. Must be: active, inactive, or pending' 
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status. Must be: active, inactive, or pending'
       });
     }
 
     // Get collegeId from authenticated user
     const adminCollegeId = req.user.collegeId?._id || req.user.collegeId;
-    
+
     if (!adminCollegeId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'College ID not found' 
+      return res.status(400).json({
+        success: false,
+        message: 'College ID not found'
       });
     }
 
@@ -459,8 +459,8 @@ exports.updateUserStatus = async (req, res) => {
     const user = await User.findOne(filter);
 
     if (!user) {
-      return res.status(404).json({ 
-        success: false, 
+      return res.status(404).json({
+        success: false,
         message: req.user.role === 'moderator'
           ? 'Student not found in your department or access denied'
           : 'User not found or does not belong to your college'
@@ -469,9 +469,9 @@ exports.updateUserStatus = async (req, res) => {
 
     // Prevent admin from deactivating themselves
     if (user._id.toString() === req.user._id.toString()) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'You cannot change your own status' 
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot change your own status'
       });
     }
 
@@ -490,9 +490,9 @@ exports.updateUserStatus = async (req, res) => {
 
   } catch (error) {
     console.error('Update user status error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error updating user status' 
+    res.status(500).json({
+      success: false,
+      message: 'Server error updating user status'
     });
   }
 };
@@ -514,11 +514,11 @@ exports.updateUserApproval = async (req, res) => {
 
     // Get collegeId from authenticated user
     const adminCollegeId = req.user.collegeId?._id || req.user.collegeId;
-    
+
     if (!adminCollegeId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Admin college ID not found' 
+      return res.status(400).json({
+        success: false,
+        message: 'Admin college ID not found'
       });
     }
 
@@ -529,17 +529,17 @@ exports.updateUserApproval = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'User not found or does not belong to your college' 
+      return res.status(404).json({
+        success: false,
+        message: 'User not found or does not belong to your college'
       });
     }
 
     // Prevent admin from changing their own approval
     if (user._id.toString() === req.user._id.toString()) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'You cannot change your own approval status' 
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot change your own approval status'
       });
     }
 
@@ -558,9 +558,9 @@ exports.updateUserApproval = async (req, res) => {
 
   } catch (error) {
     console.error('Update user approval error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error updating user approval: ' + error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Server error updating user approval: ' + error.message
     });
   }
 };
@@ -584,25 +584,25 @@ exports.deleteUser = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'User not found or does not belong to your college' 
+      return res.status(404).json({
+        success: false,
+        message: 'User not found or does not belong to your college'
       });
     }
 
     // Prevent admin from deleting themselves
     if (user._id.toString() === req.user._id.toString()) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'You cannot delete your own account' 
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot delete your own account'
       });
     }
 
     // Prevent deleting other admins
     if (user.role === 'admin') {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Cannot delete admin users' 
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot delete admin users'
       });
     }
 
@@ -615,9 +615,9 @@ exports.deleteUser = async (req, res) => {
 
   } catch (error) {
     console.error('Delete user error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error deleting user' 
+    res.status(500).json({
+      success: false,
+      message: 'Server error deleting user'
     });
   }
 };

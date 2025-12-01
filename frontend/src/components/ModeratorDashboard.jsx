@@ -35,7 +35,7 @@ export default function ModeratorDashboard() {
   });
 
   // Get department from user object or localStorage
-  const moderatorDepartment = user?.department || 
+  const moderatorDepartment = user?.department ||
     (localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).department : null);
 
   // Update department when user data is available
@@ -171,7 +171,7 @@ export default function ModeratorDashboard() {
         email: editingStudent.email,
         username: editingStudent.username,
         department: editingStudent.department,
-        
+
         // Contact Information
         primaryEmail: editingStudent.primaryEmail,
         secondaryEmail: editingStudent.secondaryEmail,
@@ -179,30 +179,30 @@ export default function ModeratorDashboard() {
         secondaryPhone: editingStudent.secondaryPhone,
         phone: editingStudent.phone,
         address: editingStudent.address,
-        
+
         // Personal Information
         dateOfBirth: editingStudent.dateOfBirth,
         gender: editingStudent.gender,
         nationality: editingStudent.nationality,
-        
+
         // Passport Details
         passportNumber: editingStudent.passportNumber,
         passportPlaceOfIssue: editingStudent.passportPlaceOfIssue,
         passportIssueDate: editingStudent.passportIssueDate,
         passportExpiryDate: editingStudent.passportExpiryDate,
-        
+
         // 10th Standard
         tenthInstitution: editingStudent.tenthInstitution,
         tenthPercentage: editingStudent.tenthPercentage,
         tenthBoard: editingStudent.tenthBoard,
         tenthYear: editingStudent.tenthYear,
-        
+
         // 12th Standard
         twelfthInstitution: editingStudent.twelfthInstitution,
         twelfthPercentage: editingStudent.twelfthPercentage,
         twelfthBoard: editingStudent.twelfthBoard,
         twelfthYear: editingStudent.twelfthYear,
-        
+
         // Current Education
         currentInstitution: editingStudent.currentInstitution,
         degree: editingStudent.degree,
@@ -210,19 +210,19 @@ export default function ModeratorDashboard() {
         semester: editingStudent.semester,
         cgpa: editingStudent.cgpa,
         backlogs: editingStudent.backlogs,
-        
+
         // Arrays
         semesterWiseGPA: editingStudent.semesterWiseGPA,
         arrearHistory: editingStudent.arrearHistory,
         skills: editingStudent.skills,
         internships: editingStudent.internships,
         extracurricular: editingStudent.extracurricular,
-        
+
         // Professional Links
         github: editingStudent.github,
         linkedin: editingStudent.linkedin,
         portfolio: editingStudent.portfolio,
-        
+
         // Resume
         resumeLink: editingStudent.resumeLink,
       });
@@ -278,7 +278,7 @@ export default function ModeratorDashboard() {
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Moderator Dashboard</h1>
               <p className="text-sm text-gray-600">
-                Welcome, {user?.fullName} • {user?.department}
+                Welcome, {user?.fullName} • {user?.collegeName ? `${user.collegeName} • ` : ''}{user?.department}
               </p>
             </div>
             <div className="flex gap-2">
@@ -300,7 +300,7 @@ export default function ModeratorDashboard() {
               </button>
             </div>
           </div>
-          
+
           {/* Mobile menu dropdown */}
           {isMobileMenuOpen && (
             <div className="lg:hidden mt-4 py-4 border-t border-gray-200 space-y-2">
@@ -309,11 +309,10 @@ export default function ModeratorDashboard() {
                   setActiveTab('jobs');
                   setIsMobileMenuOpen(false);
                 }}
-                className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
-                  activeTab === 'jobs'
+                className={`w-full text-left px-4 py-3 rounded-md transition-colors ${activeTab === 'jobs'
                     ? 'bg-indigo-50 text-indigo-600 font-medium'
                     : 'text-gray-700 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 <Briefcase className="inline-block mr-2 h-4 w-4" />
                 Job Postings
@@ -323,11 +322,10 @@ export default function ModeratorDashboard() {
                   setActiveTab('students');
                   setIsMobileMenuOpen(false);
                 }}
-                className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
-                  activeTab === 'students'
+                className={`w-full text-left px-4 py-3 rounded-md transition-colors ${activeTab === 'students'
                     ? 'bg-indigo-50 text-indigo-600 font-medium'
                     : 'text-gray-700 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 <Users className="inline-block mr-2 h-4 w-4" />
                 My Students ({user?.department})
@@ -337,11 +335,10 @@ export default function ModeratorDashboard() {
                   setActiveTab('invitations');
                   setIsMobileMenuOpen(false);
                 }}
-                className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
-                  activeTab === 'invitations'
+                className={`w-full text-left px-4 py-3 rounded-md transition-colors ${activeTab === 'invitations'
                     ? 'bg-indigo-50 text-indigo-600 font-medium'
                     : 'text-gray-700 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 <Mail className="inline-block mr-2 h-4 w-4" />
                 Invite Students
@@ -351,11 +348,10 @@ export default function ModeratorDashboard() {
                   setActiveTab('applications');
                   setIsMobileMenuOpen(false);
                 }}
-                className={`w-full text-left px-4 py-3 rounded-md transition-colors ${
-                  activeTab === 'applications'
+                className={`w-full text-left px-4 py-3 rounded-md transition-colors ${activeTab === 'applications'
                     ? 'bg-indigo-50 text-indigo-600 font-medium'
                     : 'text-gray-700 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 <FileCheck className="inline-block mr-2 h-4 w-4" />
                 Applications ({stats.applications})
@@ -427,41 +423,37 @@ export default function ModeratorDashboard() {
             <nav className="-mb-px flex space-x-8">
               <button
                 onClick={() => setActiveTab('jobs')}
-                className={`${
-                  activeTab === 'jobs'
+                className={`${activeTab === 'jobs'
                     ? 'border-indigo-500 text-indigo-600'
                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
+                  } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
               >
                 Job Postings
               </button>
               <button
                 onClick={() => setActiveTab('students')}
-                className={`${
-                  activeTab === 'students'
+                className={`${activeTab === 'students'
                     ? 'border-indigo-500 text-indigo-600'
                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
+                  } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
               >
                 My Students ({user?.department})
               </button>
               <button
                 onClick={() => setActiveTab('invitations')}
-                className={`${
-                  activeTab === 'invitations'
+                className={`${activeTab === 'invitations'
                     ? 'border-indigo-500 text-indigo-600'
                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
+                  } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
               >
                 Invite Students
               </button>
               <button
                 onClick={() => setActiveTab('applications')}
-                className={`${
-                  activeTab === 'applications'
+                className={`${activeTab === 'applications'
                     ? 'border-indigo-500 text-indigo-600'
                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
+                  } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
               >
                 Applications ({stats.applications})
               </button>
@@ -478,98 +470,97 @@ export default function ModeratorDashboard() {
                 <CardTitle>Quick Actions</CardTitle>
                 <CardDescription>Manage job postings for your college</CardDescription>
               </CardHeader>
-          <CardContent>
-            <Button onClick={() => navigate('/create-job')}>
-              <Plus className="mr-2 h-4 w-4" /> Create New Job Posting
-            </Button>
-          </CardContent>
-        </Card>
+              <CardContent>
+                <Button onClick={() => navigate('/create-job')}>
+                  <Plus className="mr-2 h-4 w-4" /> Create New Job Posting
+                </Button>
+              </CardContent>
+            </Card>
 
-        {/* Jobs List */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Job Postings</CardTitle>
-            <CardDescription>All job postings for your college</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {jobs.map((job) => {
-                // Calculate eligible students based on job requirements
-                const jobRequirements = job.requirements || {};
-                const eligibleStudents = students.filter(student => {
-                  // Students must be approved and active to be eligible
-                  return student.isApproved && student.isActive;
-                });
-                const appliedStudents = 0;
-                const notApplied = eligibleStudents.length - appliedStudents;
-                
-                return (
-                <Card key={job._id || job.id}>
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <CardTitle>{job.company || job.companyName}</CardTitle>
-                        <CardDescription>
-                          {job.location} • {job.title || job.jobCategory}
-                        </CardDescription>
-                      </div>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDeleteJob(job._id || job.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-gray-600 mb-2">{job.description || job.jobDescription}</p>
-                    {job.salary && <p className="text-sm text-gray-600">Salary: {job.salary}</p>}
-                    {job.jobType && <p className="text-sm text-gray-600">Type: <span className="capitalize">{job.jobType}</span></p>}
-                    {job.requirements && <p className="text-sm text-gray-500 mt-2">Requirements: {typeof job.requirements === 'string' ? job.requirements : JSON.stringify(job.requirements)}</p>}
-                    
-                    {/* Student Statistics */}
-                    <div className="flex gap-3 mt-3 flex-wrap">
-                      <div className="flex items-center gap-2 px-3 py-1 bg-green-50 rounded-md">
-                        <UserCheck className="h-4 w-4 text-green-600" />
-                        <span className="text-sm font-medium text-green-700">
-                          {eligibleStudents.length} Eligible
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 rounded-md">
-                        <Users className="h-4 w-4 text-blue-600" />
-                        <span className="text-sm font-medium text-blue-700">
-                          {appliedStudents} Applied
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 px-3 py-1 bg-orange-50 rounded-md">
-                        <UserX className="h-4 w-4 text-orange-600" />
-                        <span className="text-sm font-medium text-orange-700">
-                          {notApplied} Not Applied
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <p className="text-sm text-gray-500 mt-3">
-                      Status:{' '}
-                      <span
-                        className={`font-semibold ${
-                          job.status === 'active' ? 'text-green-600' : 'text-gray-600'
-                        }`}
-                      >
-                        {job.status}
-                      </span>
-                    </p>
-                  </CardContent>
-                </Card>
-                );
-              })}
-              {jobs.length === 0 && (
-                <p className="text-center text-gray-500 py-8">No jobs posted yet</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+            {/* Jobs List */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Job Postings</CardTitle>
+                <CardDescription>All job postings for your college</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {jobs.map((job) => {
+                    // Calculate eligible students based on job requirements
+                    const jobRequirements = job.requirements || {};
+                    const eligibleStudents = students.filter(student => {
+                      // Students must be approved and active to be eligible
+                      return student.isApproved && student.isActive;
+                    });
+                    const appliedStudents = 0;
+                    const notApplied = eligibleStudents.length - appliedStudents;
+
+                    return (
+                      <Card key={job._id || job.id}>
+                        <CardHeader>
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <CardTitle>{job.company || job.companyName}</CardTitle>
+                              <CardDescription>
+                                {job.location} • {job.title || job.jobCategory}
+                              </CardDescription>
+                            </div>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDeleteJob(job._id || job.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-gray-600 mb-2">{job.description || job.jobDescription}</p>
+                          {job.salary && <p className="text-sm text-gray-600">Salary: {job.salary}</p>}
+                          {job.jobType && <p className="text-sm text-gray-600">Type: <span className="capitalize">{job.jobType}</span></p>}
+                          {job.requirements && <p className="text-sm text-gray-500 mt-2">Requirements: {typeof job.requirements === 'string' ? job.requirements : JSON.stringify(job.requirements)}</p>}
+
+                          {/* Student Statistics */}
+                          <div className="flex gap-3 mt-3 flex-wrap">
+                            <div className="flex items-center gap-2 px-3 py-1 bg-green-50 rounded-md">
+                              <UserCheck className="h-4 w-4 text-green-600" />
+                              <span className="text-sm font-medium text-green-700">
+                                {eligibleStudents.length} Eligible
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 rounded-md">
+                              <Users className="h-4 w-4 text-blue-600" />
+                              <span className="text-sm font-medium text-blue-700">
+                                {appliedStudents} Applied
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 px-3 py-1 bg-orange-50 rounded-md">
+                              <UserX className="h-4 w-4 text-orange-600" />
+                              <span className="text-sm font-medium text-orange-700">
+                                {notApplied} Not Applied
+                              </span>
+                            </div>
+                          </div>
+
+                          <p className="text-sm text-gray-500 mt-3">
+                            Status:{' '}
+                            <span
+                              className={`font-semibold ${job.status === 'active' ? 'text-green-600' : 'text-gray-600'
+                                }`}
+                            >
+                              {job.status}
+                            </span>
+                          </p>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                  {jobs.length === 0 && (
+                    <p className="text-center text-gray-500 py-8">No jobs posted yet</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </>
         )}
 
@@ -611,9 +602,8 @@ export default function ModeratorDashboard() {
                         <p className="text-xs text-gray-400 mt-1">
                           Status:{' '}
                           <span
-                            className={`font-semibold ${
-                              student.isActive ? 'text-green-600' : 'text-red-600'
-                            }`}
+                            className={`font-semibold ${student.isActive ? 'text-green-600' : 'text-red-600'
+                              }`}
                           >
                             {student.isActive ? 'Active' : 'Inactive'}
                           </span>
@@ -684,27 +674,26 @@ export default function ModeratorDashboard() {
                 <div className="space-y-4">
                   {applications.map((application) => (
                     <Card key={application.id || application._id} className="border-l-4" style={{
-                      borderLeftColor: 
+                      borderLeftColor:
                         application.status === 'accepted' ? '#10b981' :
-                        application.status === 'rejected' ? '#ef4444' :
-                        application.status === 'withdrawn' ? '#6b7280' :
-                        '#f59e0b'
+                          application.status === 'rejected' ? '#ef4444' :
+                            application.status === 'withdrawn' ? '#6b7280' :
+                              '#f59e0b'
                     }}>
                       <CardContent className="pt-6">
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-2">
                               <h4 className="font-semibold text-lg">{application.student?.fullName || 'Unknown Student'}</h4>
-                              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                application.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                application.status === 'accepted' ? 'bg-green-100 text-green-800' :
-                                application.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>
+                              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${application.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                  application.status === 'accepted' ? 'bg-green-100 text-green-800' :
+                                    application.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                                      'bg-gray-100 text-gray-800'
+                                }`}>
                                 {application.status?.toUpperCase()}
                               </span>
                             </div>
-                            
+
                             <div className="space-y-1 text-sm text-gray-600">
                               <p><span className="font-medium">Job:</span> {application.job?.title || 'Unknown'} at {application.job?.company || 'Unknown Company'}</p>
                               <p><span className="font-medium">Student Email:</span> {application.student?.email || 'N/A'}</p>
@@ -712,7 +701,7 @@ export default function ModeratorDashboard() {
                               <p><span className="font-medium">Applied:</span> {application.appliedAt ? new Date(application.appliedAt).toLocaleString() : 'N/A'}</p>
                             </div>
                           </div>
-                          
+
                           {application.status === 'pending' && (
                             <div className="flex gap-2 ml-4">
                               <Button
@@ -732,7 +721,7 @@ export default function ModeratorDashboard() {
                               </Button>
                             </div>
                           )}
-                          
+
                           {application.status !== 'pending' && (
                             <div className="ml-4">
                               <Button
@@ -748,7 +737,7 @@ export default function ModeratorDashboard() {
                       </CardContent>
                     </Card>
                   ))}
-                  
+
                   {applications.length === 0 && (
                     <Card>
                       <CardContent className="pt-6">
@@ -1354,7 +1343,7 @@ export default function ModeratorDashboard() {
               {/* Academic Information */}
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-lg font-semibold mb-4 text-gray-800 border-b pb-2">Academic Information</h4>
-                
+
                 {/* 10th Standard */}
                 <div className="mb-4">
                   <p className="font-semibold text-gray-700 mb-2">10th Standard</p>
@@ -1589,9 +1578,8 @@ export default function ModeratorDashboard() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   <div>
                     <p className="text-gray-500 text-xs">Status</p>
-                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-                      viewingStudent.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                    }`}>
+                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${viewingStudent.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                      }`}>
                       {viewingStudent.status || 'N/A'}
                     </span>
                   </div>
