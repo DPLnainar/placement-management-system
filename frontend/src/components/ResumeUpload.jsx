@@ -3,7 +3,32 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Upload, FileText, Download, Trash2, CheckCircle } from 'lucide-react';
+import { Upload, FileText, Download, Trash2, CheckCircle, Eye } from 'lucide-react';
+
+// Helper function to get inline viewable URL for Cloudinary files
+const getInlineViewUrl = (url) => {
+  if (!url) return url;
+  
+  // If it's a Cloudinary URL with raw resource type, use Google Docs Viewer
+  if (url.includes('cloudinary.com') && url.includes('/raw/upload/')) {
+    return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+  }
+  
+  // For Cloudinary image type PDFs, add fl_attachment:false
+  if (url.includes('cloudinary.com') && url.includes('/image/upload/') && url.includes('.pdf')) {
+    return url.replace('/image/upload/', '/image/upload/fl_attachment:false/');
+  }
+  
+  // For Google Drive links, ensure they use preview format
+  if (url.includes('drive.google.com') && url.includes('/file/d/')) {
+    const fileId = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/)?.[1];
+    if (fileId) {
+      return `https://drive.google.com/file/d/${fileId}/preview`;
+    }
+  }
+  
+  return url;
+};
 
 export default function ResumeUpload({ resumeData, onUpdate }) {
   const [uploading, setUploading] = useState(false);
@@ -125,9 +150,9 @@ export default function ResumeUpload({ resumeData, onUpdate }) {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => window.open(resume.url, '_blank')}
+                        onClick={() => window.open(getInlineViewUrl(resume.url), '_blank')}
                       >
-                        <Download className="w-4 h-4 mr-2" />
+                        <Eye className="w-4 h-4 mr-2" />
                         View Resume
                       </Button>
                       <Label htmlFor="resume-update" className="cursor-pointer">

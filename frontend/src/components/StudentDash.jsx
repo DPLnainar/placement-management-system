@@ -10,6 +10,33 @@ import { Briefcase, LogOut, MapPin, Calendar, User, Save, Upload, Plus, Trash2, 
 import { useReactToPrint } from 'react-to-print';
 import { ResumeTemplate } from './ResumeTemplate';
 
+// Helper function to get inline viewable URL for Cloudinary files
+const getInlineViewUrl = (url) => {
+  if (!url) return url;
+  
+  // If it's a Cloudinary URL with raw resource type, use Google Docs Viewer
+  // This allows viewing PDFs inline in the browser
+  if (url.includes('cloudinary.com') && url.includes('/raw/upload/')) {
+    // Use Google Docs Viewer to display the PDF inline
+    return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+  }
+  
+  // For Cloudinary image type PDFs, add fl_attachment:false
+  if (url.includes('cloudinary.com') && url.includes('/image/upload/') && url.includes('.pdf')) {
+    return url.replace('/image/upload/', '/image/upload/fl_attachment:false/');
+  }
+  
+  // For Google Drive links, ensure they use preview format
+  if (url.includes('drive.google.com') && url.includes('/file/d/')) {
+    const fileId = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/)?.[1];
+    if (fileId) {
+      return `https://drive.google.com/file/d/${fileId}/preview`;
+    }
+  }
+  
+  return url;
+};
+
 export default function StudentDash() {
   const { user, logout } = useAuth();
   const [jobs, setJobs] = useState([]);
@@ -1888,7 +1915,7 @@ export default function StudentDash() {
                                   variant="ghost"
                                   size="sm"
                                   className="h-6 px-2 text-blue-600 hover:text-blue-800"
-                                  onClick={() => window.open(resumeFile.url, '_blank')}
+                                  onClick={() => window.open(getInlineViewUrl(resumeFile.url), '_blank')}
                                 >
                                   <ExternalLink className="h-3 w-3 mr-1" />
                                   View

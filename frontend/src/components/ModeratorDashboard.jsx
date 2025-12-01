@@ -1562,7 +1562,28 @@ export default function ModeratorDashboard() {
                   <div>
                     <p className="text-gray-500 text-xs">Resume</p>
                     {viewingStudent.resumeLink ? (
-                      <a href={viewingStudent.resumeLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-medium">
+                      <a 
+                        href="#" 
+                        onClick={(e) => {
+                          e.preventDefault();
+                          let url = viewingStudent.resumeLink;
+                          // Transform Cloudinary URLs for inline viewing using Google Docs Viewer
+                          if (url.includes('cloudinary.com') && url.includes('/raw/upload/')) {
+                            url = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+                          } else if (url.includes('cloudinary.com') && url.includes('/image/upload/') && url.includes('.pdf')) {
+                            url = url.replace('/image/upload/', '/image/upload/fl_attachment:false/');
+                          }
+                          // Transform Google Drive links
+                          if (url.includes('drive.google.com') && url.includes('/file/d/')) {
+                            const fileId = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/)?.[1];
+                            if (fileId) {
+                              url = `https://drive.google.com/file/d/${fileId}/preview`;
+                            }
+                          }
+                          window.open(url, '_blank');
+                        }}
+                        className="text-blue-600 hover:underline font-medium"
+                      >
                         View Resume
                       </a>
                     ) : (
