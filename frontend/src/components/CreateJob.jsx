@@ -171,7 +171,7 @@ export default function CreateJob() {
         company: formData.companyName,
         description: formData.jobDescription,
         packageDetails: {
-          ctc: formData.ctc,
+          ctc: formData.ctc ? parseFloat(formData.ctc) : null,
         },
         location: formData.location,
         jobType: formData.jobType,
