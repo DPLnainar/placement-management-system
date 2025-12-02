@@ -18,6 +18,7 @@ function AddJob() {
     description: "",
     ctc: "",
     location: "",
+    openToAllBranches: true, // New field
     eligible_branches: [],
     min_cgpa: "",
     deadline: "",
@@ -50,19 +51,38 @@ function AddJob() {
     e.preventDefault();
     
     try {
+      // Map form data to backend format
+      const jobData = {
+        title: formData.job_role,
+        company: formData.company_name,
+        description: formData.description,
+        location: formData.location,
+        deadline: formData.deadline,
+        packageDetails: {
+          ctc: parseFloat(formData.ctc) || 0,
+        },
+        eligibilityCriteria: {
+          minCGPA: parseFloat(formData.min_cgpa) || 0,
+          openToAllBranches: formData.openToAllBranches,
+          eligibleBranches: formData.eligible_branches,
+        },
+      };
+
       const response = await fetch("http://127.0.0.1:8000/api/jobs", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem('token') || ''}`,
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(jobData),
       });
 
       if (response.ok) {
         alert("Job posted successfully!");
         navigate(`/${role}/dashboard`);
       } else {
-        alert("Failed to post job");
+        const error = await response.json();
+        alert(`Failed to post job: ${error.message}`);
       }
     } catch (error) {
       console.error("Error posting job:", error);
@@ -167,26 +187,56 @@ function AddJob() {
               </div>
             </div>
 
-            {/* Eligible Branches */}
-            <div>
-              <Label className="mb-3 block">Eligible Branches</Label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {branches.map((branch) => (
-                  <div key={branch} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={branch}
-                      checked={formData.eligible_branches.includes(branch)}
-                      onCheckedChange={() => handleBranchToggle(branch)}
-                    />
-                    <label
-                      htmlFor={branch}
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                    >
-                      {branch}
-                    </label>
-                  </div>
-                ))}
+            {/* Eligible Branches - Toggle for All Departments */}
+            <div className="space-y-4">
+              <div>
+                <Label className="mb-3 block font-semibold">Eligible Departments</Label>
+                <div className="flex items-center space-x-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <Checkbox
+                    id="openToAllBranches"
+                    checked={formData.openToAllBranches}
+                    onCheckedChange={(checked) =>
+                      setFormData({
+                        ...formData,
+                        openToAllBranches: checked,
+                        eligible_branches: checked ? [] : formData.eligible_branches,
+                      })
+                    }
+                  />
+                  <label
+                    htmlFor="openToAllBranches"
+                    className="text-sm font-medium leading-none cursor-pointer"
+                  >
+                    Open to All Departments
+                  </label>
+                </div>
               </div>
+
+              {/* Show branch checkboxes only if not open to all */}
+              {!formData.openToAllBranches && (
+                <div>
+                  <Label className="mb-3 block text-sm text-gray-600">
+                    Select Departments (Leave empty = All)
+                  </Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    {branches.map((branch) => (
+                      <div key={branch} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={branch}
+                          checked={formData.eligible_branches.includes(branch)}
+                          onCheckedChange={() => handleBranchToggle(branch)}
+                        />
+                        <label
+                          htmlFor={branch}
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                        >
+                          {branch}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Min CGPA and Deadline */}

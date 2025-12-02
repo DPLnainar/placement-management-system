@@ -103,8 +103,9 @@ const jobSchema = new mongoose.Schema({
     maxBacklogsAllowed: { type: Number, min: 0, default: 0 },
     maxCurrentBacklogs: { type: Number, min: 0, default: 0 },
     
-    // Branch eligibility
-    eligibleBranches: { type: [String], default: [] },
+    // Branch/Department eligibility
+    openToAllBranches: { type: Boolean, default: true }, // If true, all branches are eligible
+    eligibleBranches: { type: [String], default: [] }, // Specific branches if openToAllBranches is false
     
     // Year of study
     eligibleYears: { type: [Number], default: [4] },
@@ -321,9 +322,13 @@ jobSchema.methods.checkEligibility = function(studentData) {
   }
 
   // Check branch
-  if (criteria.eligibleBranches.length > 0 && !criteria.eligibleBranches.includes(studentData.branch)) {
-    issues.push(`Branch not eligible. Eligible branches: ${criteria.eligibleBranches.join(', ')}`);
+  if (!criteria.openToAllBranches && criteria.eligibleBranches.length > 0) {
+    // If restricted to specific branches, check if student's branch is in the list
+    if (!criteria.eligibleBranches.includes(studentData.branch)) {
+      issues.push(`Branch not eligible. Eligible branches: ${criteria.eligibleBranches.join(', ')}`);
+    }
   }
+  // If openToAllBranches is true, all branches are eligible (no check needed)
 
   // Check year of study
   if (criteria.eligibleYears.length > 0 && !criteria.eligibleYears.includes(studentData.yearOfStudy)) {
