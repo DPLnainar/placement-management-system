@@ -101,15 +101,34 @@ exports.createApplication = async (req, res) => {
       });
     }
     
-    // Check eligibility - auto-approve eligible students
-    let applicationStatus = 'under_review'; // Default: auto-approved
+    // Check eligibility - BLOCK ineligible students from applying
     let eligibilityCheck = { isEligible: true, issues: [] };
     
     if (studentData && job.checkEligibility) {
       eligibilityCheck = job.checkEligibility(studentData);
     }
+    
+    // If student is NOT eligible, reject the application
+    if (!eligibilityCheck.isEligible) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not eligible for this job position',
+        notEligible: true,
+        eligibilityIssues: eligibilityCheck.issues || [],
+        canApply: false,
+        data: {
+          job: {
+            id: job._id,
+            title: job.title,
+            company: job.company
+          }
+        }
+      });
+    }
 
-    // Create application
+    // Create application for eligible students
+    const applicationStatus = 'under_review'; // Default: under review
+    
     const application = new Application({
       jobId,
       studentId,

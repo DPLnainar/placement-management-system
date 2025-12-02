@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { jobAPI, applicationAPI, userAPI, uploadAPI } from '../services/api';
+import { jobAPI, applicationAPI, userAPI, uploadAPI, eligibilityAPI } from '../services/api';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
@@ -39,6 +39,7 @@ export default function StudentDash() {
   const [filteredJobs, setFilteredJobs] = useState([]);
   const [appliedJobs, setAppliedJobs] = useState(new Set());
   const [applyingJobId, setApplyingJobId] = useState(null);
+  const [jobEligibility, setJobEligibility] = useState({}); // Track eligibility for each job
   const [activeTab, setActiveTab] = useState('jobs');
   const [profileTab, setProfileTab] = useState('personal');
   const [resumeFile, setResumeFile] = useState(null);
@@ -550,9 +551,39 @@ export default function StudentDash() {
       const jobsData = Array.isArray(response.data) ? response.data : (response.data.jobs || []);
       setJobs(jobsData);
       setFilteredJobs(jobsData);
+      
+      // Check eligibility for each job
+      checkEligibilityForAllJobs(jobsData);
     } catch (error) {
       console.error('Error fetching jobs:', error);
       alert('Error loading jobs. Please refresh the page.');
+    }
+  };
+
+  const checkEligibilityForAllJobs = async (jobsList) => {
+    try {
+      const eligibilityMap = {};
+      
+      for (const job of jobsList) {
+        const jobId = job._id || job.id;
+        try {
+          const response = await eligibilityAPI.checkEligibility(jobId);
+          eligibilityMap[jobId] = {
+            isEligible: response.data?.isEligible || false,
+            issues: response.data?.issues || []
+          };
+        } catch (error) {
+          // If eligibility check fails, mark as not eligible
+          eligibilityMap[jobId] = {
+            isEligible: false,
+            issues: [error.response?.data?.message || 'Unable to verify eligibility']
+          };
+        }
+      }
+      
+      setJobEligibility(eligibilityMap);
+    } catch (error) {
+      console.error('Error checking eligibility for jobs:', error);
     }
   };
 
@@ -580,8 +611,17 @@ export default function StudentDash() {
       console.error('Error applying to job:', error);
       console.error('Error response:', error.response);
 
+      // Check if it's an eligibility error
+      if (error.response?.data?.notEligible) {
+        const issues = error.response?.data?.eligibilityIssues || [];
+        const issuesText = issues.length > 0 
+          ? issues.join('\n') 
+          : 'You do not meet the eligibility criteria for this job.';
+        
+        alert(`You are not eligible for this job.\n\nReasons:\n${issuesText}`);
+      }
       // Check if it's a profile incomplete error
-      if (error.response?.data?.profileIncomplete) {
+      else if (error.response?.data?.profileIncomplete) {
         const errorMsg = error.response?.data?.message || 'Please complete your profile before applying to jobs';
         const missingFields = error.response?.data?.missingFields || [];
 
@@ -850,9 +890,25 @@ export default function StudentDash() {
                         <div className="pt-4">
                           <Button
                             className="w-full"
-                            disabled={appliedJobs.has(job._id || job.id) || applyingJobId === (job._id || job.id) || isJobExpired(job)}
+                            disabled={
+                              appliedJobs.has(job._id || job.id) || 
+                              applyingJobId === (job._id || job.id) || 
+                              isJobExpired(job) ||
+                              (jobEligibility[job._id || job.id]?.isEligible === false)
+                            }
                             onClick={() => handleApply(job._id || job.id)}
-                            variant={appliedJobs.has(job._id || job.id) || isJobExpired(job) ? "secondary" : "default"}
+                            variant={
+                              appliedJobs.has(job._id || job.id) || 
+                              isJobExpired(job) ||
+                              (jobEligibility[job._id || job.id]?.isEligible === false)
+                                ? "secondary" 
+                                : "default"
+                            }
+                            title={
+                              jobEligibility[job._id || job.id]?.isEligible === false
+                                ? jobEligibility[job._id || job.id]?.issues?.join(', ') || 'You are not eligible for this job'
+                                : ''
+                            }
                           >
                             {applyingJobId === (job._id || job.id)
                               ? 'Submitting...'
@@ -860,8 +916,26 @@ export default function StudentDash() {
                                 ? 'Already Applied'
                                 : isJobExpired(job)
                                   ? 'Application Closed'
-                                  : 'Apply for this Position'}
+                                  : jobEligibility[job._id || job.id]?.isEligible === false
+                                    ? 'Not Eligible'
+                                    : 'Apply for this Position'}
                           </Button>
+                          
+                          {/* Show eligibility issues if not eligible */}
+                          {jobEligibility[job._id || job.id]?.isEligible === false && 
+                           jobEligibility[job._id || job.id]?.issues?.length > 0 && (
+                            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                              <p className="text-sm font-semibold text-red-800 mb-1">Why you're not eligible:</p>
+                              <ul className="text-xs text-red-700 space-y-1">
+                                {jobEligibility[job._id || job.id]?.issues?.map((issue, idx) => (
+                                  <li key={idx} className="flex items-start gap-2">
+                                    <span className="text-red-500 mt-0.5">•</span>
+                                    <span>{issue}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </CardContent>

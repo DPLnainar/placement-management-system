@@ -363,8 +363,51 @@ jobSchema.methods.extendDeadline = function(newDeadline) {
 
 // Check if student is eligible for this job
 jobSchema.methods.checkEligibility = function(studentData) {
-  const criteria = this.eligibilityCriteria;
   const issues = [];
+
+  // ===== NEW: Check eligibility criteria (common or department-wise) =====
+  
+  // If eligibility type is 'common', all students meeting common criteria are eligible
+  if (this.eligibilityType === 'common' && this.commonEligibility) {
+    const common = this.commonEligibility;
+    
+    if (common.tenth && studentData.tenthPercentage < common.tenth) {
+      issues.push(`Minimum 10th percentage required: ${common.tenth}%`);
+    }
+    
+    if (common.twelfth && studentData.twelfthPercentage < common.twelfth) {
+      issues.push(`Minimum 12th percentage required: ${common.twelfth}%`);
+    }
+    
+    if (common.cgpa && studentData.cgpa < common.cgpa) {
+      issues.push(`Minimum CGPA required: ${common.cgpa}`);
+    }
+  }
+  
+  // If eligibility type is 'department-wise', check specific department criteria
+  if (this.eligibilityType === 'department-wise' && this.departmentWiseEligibility && this.departmentWiseEligibility.length > 0) {
+    const studentDept = studentData.branch;
+    const deptCriteria = this.departmentWiseEligibility.find(d => d.department === studentDept);
+    
+    if (!deptCriteria) {
+      issues.push(`Your department (${studentDept}) is not eligible for this job`);
+    } else {
+      if (deptCriteria.tenth && studentData.tenthPercentage < deptCriteria.tenth) {
+        issues.push(`Minimum 10th percentage required for ${studentDept}: ${deptCriteria.tenth}%`);
+      }
+      
+      if (deptCriteria.twelfth && studentData.twelfthPercentage < deptCriteria.twelfth) {
+        issues.push(`Minimum 12th percentage required for ${studentDept}: ${deptCriteria.twelfth}%`);
+      }
+      
+      if (deptCriteria.cgpa && studentData.cgpa < deptCriteria.cgpa) {
+        issues.push(`Minimum CGPA required for ${studentDept}: ${deptCriteria.cgpa}`);
+      }
+    }
+  }
+
+  // ===== OLD: Check eligibility criteria (legacy) =====
+  const criteria = this.eligibilityCriteria;
 
   // Check CGPA
   if (criteria.minCGPA && studentData.cgpa < criteria.minCGPA) {
