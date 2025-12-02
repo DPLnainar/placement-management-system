@@ -308,8 +308,10 @@ exports.getUserFiles = async (req, res) => {
 exports.previewPdf = async (req, res) => {
   try {
     const { url } = req.query;
+    console.log('🔍 PDF Preview Request - URL:', url);
 
     if (!url) {
+      console.log('❌ No URL provided');
       return res.status(400).json({
         success: false,
         message: 'PDF URL is required'
@@ -318,42 +320,59 @@ exports.previewPdf = async (req, res) => {
 
     // Validate that URL is from Cloudinary
     if (!url.includes('cloudinary.com')) {
+      console.log('❌ URL is not from Cloudinary');
       return res.status(400).json({
         success: false,
         message: 'Only Cloudinary URLs are allowed'
       });
     }
 
+    console.log('✅ Valid Cloudinary URL, fetching...');
+    
     // Fetch the PDF from Cloudinary
     const https = require('https');
     const http = require('http');
     const urlObj = new URL(url);
     const protocol = urlObj.protocol === 'https:' ? https : http;
 
-    protocol.get(url, (pdfRes) => {
+    const request = protocol.get(url, (pdfRes) => {
+      console.log('✅ Connected to Cloudinary, status:', pdfRes.statusCode);
+      
       // Set headers to force inline display (not download)
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', 'inline; filename="resume.pdf"');
       res.setHeader('Cache-Control', 'public, max-age=3600');
       res.setHeader('Access-Control-Allow-Origin', '*');
 
+      console.log('✅ Headers set, streaming PDF...');
+      
       // Stream the PDF
       pdfRes.pipe(res);
+      
+      res.on('finish', () => {
+        console.log('✅ PDF streamed successfully');
+      });
     }).on('error', (error) => {
-      console.error('Error fetching PDF from Cloudinary:', error);
+      console.error('❌ Error fetching PDF from Cloudinary:', error.message);
+      if (!res.headersSent) {
+        res.status(500).json({
+          success: false,
+          message: 'Error fetching PDF',
+          error: error.message
+        });
+      }
+    });
+    
+    request.setTimeout(10000);
+  } catch (error) {
+    console.error('❌ PDF preview error:', error);
+    if (!res.headersSent) {
       res.status(500).json({
         success: false,
-        message: 'Error fetching PDF',
+        message: 'Error generating PDF preview',
         error: error.message
       });
-    });
-  } catch (error) {
-    console.error('PDF preview error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error generating PDF preview',
-      error: error.message
-    });
+    }
   }
 };
 
