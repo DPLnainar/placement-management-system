@@ -10,15 +10,10 @@ import { uploadAPI } from '../services/api';
 const getInlineViewUrl = (url) => {
   if (!url) return url;
   
-  // For Cloudinary PDF URLs, add transformation to ensure inline display
-  if (url.includes('cloudinary.com') && url.includes('.pdf')) {
-    // Convert image resource type to raw and add fl_attachment:false transformation
-    let fixedUrl = url.replace('/image/upload/', '/raw/upload/');
-    // Add fl_attachment:false transformation to force inline display instead of download
-    const urlParts = fixedUrl.split('/upload/');
-    if (urlParts.length === 2) {
-      return `${urlParts[0]}/upload/fl_attachment:false/${urlParts[1]}`;
-    }
+  // For any PDF URL, use Google Docs Viewer for reliable display
+  if (url.includes('.pdf')) {
+    // Google Docs Viewer is the most reliable way to display PDFs in browser
+    return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
   }
   
   // For Google Drive links, ensure they use preview format
@@ -35,8 +30,6 @@ const getInlineViewUrl = (url) => {
 export default function ResumeUpload({ resumeData, onUpdate }) {
   const [uploading, setUploading] = useState(false);
   const [resume, setResume] = useState(resumeData || null);
-  const [showPdfModal, setShowPdfModal] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState('');
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
@@ -171,10 +164,7 @@ export default function ResumeUpload({ resumeData, onUpdate }) {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => {
-                          setPdfUrl(resume.url);
-                          setShowPdfModal(true);
-                        }}
+                        onClick={() => window.open(getInlineViewUrl(resume.url), '_blank')}
                       >
                         <Eye className="w-4 h-4 mr-2" />
                         View Resume
