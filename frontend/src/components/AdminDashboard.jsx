@@ -249,7 +249,7 @@ export default function AdminDashboard() {
       setUploadProgress({ current: 0, total: totalRecords });
 
       // Valid departments
-      const validDepartments = ['CSE', 'ECE', 'EEE', 'MECH', 'CIVIL', 'IT', 'ISE', 'AI/ML', 'AIDS', 'DS', 'CS', 'MBA'];
+      const validDepartments = ['CSE', 'ECE', 'EEE', 'MECH', 'CIVIL', 'IT', 'ISE', 'AIML', 'AIML_DS', 'DS', 'MBA', 'MCA'];
 
       for (let i = 1; i < lines.length; i++) {
         const lineNumber = i + 1;
@@ -1026,11 +1026,11 @@ export default function AdminDashboard() {
                     <option value="CIVIL">Civil Engineering (CIVIL)</option>
                     <option value="IT">Information Technology (IT)</option>
                     <option value="ISE">Information Science Engineering (ISE)</option>
-                    <option value="AI/ML">Artificial Intelligence and Machine Learning (AI/ML)</option>
-                    <option value="AIDS">Artificial Intelligence and Data Science (AIDS)</option>
+                    <option value="AIML">Artificial Intelligence and Machine Learning (AIML)</option>
+                    <option value="AIML_DS">Artificial Intelligence and Data Science (AIML_DS)</option>
                     <option value="DS">Data Science (DS)</option>
-                    <option value="CS">Cyber Security (CS)</option>
                     <option value="MBA">Master of Business Administration (MBA)</option>
+                    <option value="MCA">Master of Computer Applications (MCA)</option>
                   </select>
                 </div>
 
@@ -1132,11 +1132,11 @@ export default function AdminDashboard() {
                     <option value="CIVIL">Civil Engineering (CIVIL)</option>
                     <option value="IT">Information Technology (IT)</option>
                     <option value="ISE">Information Science Engineering (ISE)</option>
-                    <option value="AI/ML">Artificial Intelligence and Machine Learning (AI/ML)</option>
-                    <option value="AIDS">Artificial Intelligence and Data Science (AIDS)</option>
+                    <option value="AIML">Artificial Intelligence and Machine Learning (AIML)</option>
+                    <option value="AIML_DS">Artificial Intelligence and Data Science (AIML_DS)</option>
                     <option value="DS">Data Science (DS)</option>
-                    <option value="CS">Cyber Security (CS)</option>
                     <option value="MBA">Master of Business Administration (MBA)</option>
+                    <option value="MCA">Master of Computer Applications (MCA)</option>
                   </select>
                 </div>
 
@@ -1343,7 +1343,7 @@ export default function AdminDashboard() {
                   <li>• <strong>Username:</strong> Only letters, numbers, dots, hyphens, underscores (no spaces)</li>
                   <li>• <strong>Email:</strong> Must be valid email format</li>
                   <li>• <strong>Password:</strong> Minimum 6 characters</li>
-                  <li>• <strong>Department codes:</strong> CSE, ECE, EEE, MECH, CIVIL, IT, ISE, AI/ML, AIDS, DS, CS, MBA</li>
+                  <li>• <strong>Department codes:</strong> CSE, ECE, EEE, MECH, CIVIL, IT, ISE, AIML, AIML_DS, DS, MBA, MCA</li>
                   <li>• Use quotes for fields with commas: <code className="bg-blue-100 px-1 rounded">"Doe, John"</code></li>
                   <li>• Example: <code className="bg-blue-100 px-1 rounded">johndoe,john@example.com,John Doe,pass123,CSE</code></li>
                 </ul>
