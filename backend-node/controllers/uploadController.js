@@ -301,4 +301,60 @@ exports.getUserFiles = async (req, res) => {
   }
 };
 
+/**
+ * PDF Preview Proxy - Serves PDFs with correct headers for inline display
+ * GET /api/upload/preview-pdf?url=<cloudinary_url>
+ */
+exports.previewPdf = async (req, res) => {
+  try {
+    const { url } = req.query;
+
+    if (!url) {
+      return res.status(400).json({
+        success: false,
+        message: 'PDF URL is required'
+      });
+    }
+
+    // Validate that URL is from Cloudinary
+    if (!url.includes('cloudinary.com')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Only Cloudinary URLs are allowed'
+      });
+    }
+
+    // Fetch the PDF from Cloudinary
+    const https = require('https');
+    const http = require('http');
+    const urlObj = new URL(url);
+    const protocol = urlObj.protocol === 'https:' ? https : http;
+
+    protocol.get(url, (pdfRes) => {
+      // Set headers to force inline display (not download)
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'inline; filename="resume.pdf"');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+
+      // Stream the PDF
+      pdfRes.pipe(res);
+    }).on('error', (error) => {
+      console.error('Error fetching PDF from Cloudinary:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error fetching PDF',
+        error: error.message
+      });
+    });
+  } catch (error) {
+    console.error('PDF preview error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error generating PDF preview',
+      error: error.message
+    });
+  }
+};
+
 module.exports = exports;

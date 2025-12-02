@@ -64,6 +64,9 @@ router.delete('/document/:documentId',
   uploadController.deleteDocument
 );
 
+// PDF Proxy - Serve PDFs with correct headers for inline display
+router.get('/preview-pdf', authenticate, uploadController.previewPdf);
+
 // Error handling middleware for multer errors
 router.use((error, req, res, next) => {
   if (error) {

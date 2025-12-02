@@ -6,17 +6,14 @@ import { Label } from './ui/label';
 import { Upload, FileText, Download, Trash2, CheckCircle, Eye } from 'lucide-react';
 import { uploadAPI } from '../services/api';
 
-// Helper function to get inline viewable URL for Cloudinary files
+// Helper function to get inline viewable URL for PDFs
 const getInlineViewUrl = (url) => {
   if (!url) return url;
   
-  // For Cloudinary URLs, add fl_inline transformation for inline display
+  // For any cloudinary PDF, use backend proxy with correct headers
   if (url.includes('cloudinary.com')) {
-    // Insert fl_inline:true transformation to force inline display
-    const urlParts = url.split('/upload/');
-    if (urlParts.length === 2) {
-      return `${urlParts[0]}/upload/fl_inline:true/${urlParts[1]}`;
-    }
+    // Use backend proxy endpoint that serves PDF with inline headers
+    return `/api/upload/preview-pdf?url=${encodeURIComponent(url)}`;
   }
   
   // For Google Drive links, ensure they use preview format
