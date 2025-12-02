@@ -10,7 +10,7 @@ const eligibilityController = require('../controllers/eligibilityController');
 
 // Student routes
 router.get(
-  '/job/:jobId/check',
+  '/check/:jobId',
   authenticate,
   requireRole(['student']),
   eligibilityController.checkEligibility
