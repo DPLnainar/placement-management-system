@@ -16,8 +16,9 @@ const getInlineViewUrl = (url) => {
   
   // For any cloudinary PDF, use backend proxy with correct headers
   if (url.includes('cloudinary.com')) {
-    // Use backend proxy endpoint that serves PDF with inline headers
-    return `/api/upload/preview-pdf?url=${encodeURIComponent(url)}`;
+    // Use backend proxy endpoint with absolute URL
+    const backendUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+    return `${backendUrl}/api/upload/preview-pdf?url=${encodeURIComponent(url)}`;
   }
   
   // For Google Drive links, ensure they use preview format
