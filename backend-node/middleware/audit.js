@@ -3,8 +3,8 @@ const AuditLog = require('../models/AuditLog');
 // Middleware to log all API actions
 const auditMiddleware = async (req, res, next) => {
   // Skip audit logging for certain routes
-  const skipRoutes = ['/api/auth/profile', '/'];
-  if (skipRoutes.includes(req.path)) {
+  const skipRoutes = ['/api/auth/profile', '/', '/api/public', '/api/auth/login'];
+  if (skipRoutes.some(route => req.path.startsWith(route))) {
     return next();
   }
   

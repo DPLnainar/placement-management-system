@@ -73,6 +73,12 @@ const app = express();
 // MIDDLEWARE
 // ==========================================
 
+// Log all incoming requests immediately
+app.use((req, res, next) => {
+  console.log(`\n📨 [${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
 // Enable CORS for frontend (single port application)
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
@@ -280,7 +286,15 @@ const startServer = async () => {
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
   console.error('Unhandled Rejection:', JSON.stringify(err, Object.getOwnPropertyNames(err), 2));
-  process.exit(1);
+  // Don't exit - just log it
+  // process.exit(1);
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  // Don't exit - just log it
+  // process.exit(1);
 });
 
 // Start the server

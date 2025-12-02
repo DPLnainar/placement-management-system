@@ -532,20 +532,23 @@ exports.resetPassword = async (req, res) => {
  */
 exports.getPublicColleges = async (req, res) => {
   try {
+    console.log('🔍 Getting public colleges...');
     const colleges = await College.find({})
       .select('name code location')
       .sort({ name: 1 });
 
+    console.log(`✅ Found ${colleges.length} colleges`);
     res.json({
       success: true,
       count: colleges.length,
       data: colleges
     });
   } catch (error) {
-    console.error('Get public colleges error:', error);
+    console.error('❌ Get public colleges error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching colleges'
+      message: 'Error fetching colleges',
+      error: error.message
     });
   }
 };
