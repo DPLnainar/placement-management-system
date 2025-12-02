@@ -37,6 +37,7 @@ export default function CreateJob() {
     // Job Department Access - Which departments can see this job
     jobDepartmentAccess: 'all', // 'all' or 'specific'
     specificJobDepartments: [], // List of dept codes if 'specific'
+    otherDepartment: '', // Custom department name if not in list
     deadline: '',
     skills: {
       wirelessCommunication: false,
@@ -69,7 +70,7 @@ export default function CreateJob() {
     { code: 'MECH', name: 'Mechanical Engineering' },
     { code: 'CIVIL', name: 'Civil Engineering' },
     { code: 'AIML', name: 'AI & Machine Learning' },
-    { code: 'ADS', name: 'Advanced Data Science' },
+    { code: 'AIDS', name: 'AI in Data Science' },
   ];
 
   const handleChange = (e) => {
@@ -179,7 +180,12 @@ export default function CreateJob() {
         // Job Department Access - Which departments can see this job
         eligibility: {
           type: formData.jobDepartmentAccess === 'all' ? 'all' : 'specific',
-          departments: formData.jobDepartmentAccess === 'all' ? [] : formData.specificJobDepartments,
+          departments: formData.jobDepartmentAccess === 'all' 
+            ? [] 
+            : [
+                ...formData.specificJobDepartments,
+                ...(formData.otherDepartment ? [formData.otherDepartment] : [])
+              ],
         },
         // Additional fields (can be stored in description or ignored for now)
         requirements: {
@@ -501,11 +507,32 @@ export default function CreateJob() {
                         </div>
                       ))}
                     </div>
-                    {formData.specificJobDepartments.length === 0 && (
+                    {formData.specificJobDepartments.length === 0 && !formData.otherDepartment && (
                       <p className="text-red-500 text-sm mt-2">
-                        Please select at least one department
+                        Please select at least one department or add under "Others"
                       </p>
                     )}
+                    
+                    {/* Others Input */}
+                    <div className="mt-4 pt-4 border-t border-green-200">
+                      <Label htmlFor="otherDepartment" className="text-sm font-medium">
+                        Other Department (Not Listed Above)
+                      </Label>
+                      <Input
+                        id="otherDepartment"
+                        type="text"
+                        placeholder="e.g., Biomedical Engineering, Chemical Engineering"
+                        value={formData.otherDepartment}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          otherDepartment: e.target.value
+                        })}
+                        className="mt-2"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Enter department name if not in the list above. This will be added to the eligible departments.
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
