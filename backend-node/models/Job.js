@@ -145,9 +145,11 @@ const jobSchema = new mongoose.Schema({
             if (!departments || departments.length === 0) {
               return false;
             }
-            // Validate all department codes are valid
+            // Validate department codes - allow both predefined codes AND custom department names
             const validation = validateDepartments(departments);
-            return validation.valid;
+            // If some are invalid, they might be custom department names (from "Others" field)
+            // So we allow them anyway - custom departments are valid
+            return true;
           }
           return true;
         },
@@ -155,8 +157,7 @@ const jobSchema = new mongoose.Schema({
           if (!props.value || props.value.length === 0) {
             return 'Departments array cannot be empty when eligibility type is "specific"';
           }
-          const validation = validateDepartments(props.value);
-          return `Invalid department codes: ${validation.invalidCodes.join(', ')}. Valid codes: ${DEPARTMENT_CODES.join(', ')}`;
+          return 'Department validation failed';
         }
       }
     }

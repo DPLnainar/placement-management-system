@@ -12,8 +12,8 @@ const DEPARTMENTS = {
   MECH: 'Mechanical Engineering',
   CIVIL: 'Civil Engineering',
   ISE: 'Information Science and Engineering',
-  AI_ML: 'Artificial Intelligence and Machine Learning',
-  AIDS: 'Artificial Intelligence and Data Science',
+  AIML: 'AI & Machine Learning',
+  AIML_DS: 'Artificial Intelligence and Data Science',
   DS: 'Data Science',
   MBA: 'Master of Business Administration',
   MCA: 'Master of Computer Applications'
