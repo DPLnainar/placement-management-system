@@ -205,13 +205,26 @@ exports.updateStudentProfile = async (req, res) => {
     const isOwnProfile = userId.toString() === req.user._id.toString();
 
     // Get existing student data to check what's already set
-    const existingData = await StudentData.findOne({ userId: userId });
+    let existingData = await StudentData.findOne({ userId: userId });
 
+    // If StudentData is missing (e.g., old user or creation failed), create it
     if (!existingData) {
-      return res.status(404).json({
-        success: false,
-        message: 'Student profile not found'
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      existingData = new StudentData({
+        userId: userId,
+        collegeId: user.collegeId,
+        documentsVerified: false,
+        placementStatus: 'not_placed'
       });
+      await existingData.save();
+      console.log(`Created missing StudentData for user ${userId}`);
     }
 
     const {
