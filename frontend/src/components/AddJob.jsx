@@ -130,16 +130,30 @@ function AddJob() {
           },
         };
       } else if (formData.eligibilityType === "department-wise") {
-        eligibilityData = {
-          eligibilityType: "department-wise",
-          departmentWiseEligibility: Object.entries(formData.departmentCriteria).map(
-            ([dept, criteria]) => ({
+        // Filter out empty departments and build array only with filled entries
+        const deptWiseEligibility = Object.entries(formData.departmentCriteria)
+          .map(([dept, criteria]) => ({
+            department: dept,
+            tenth: parseFloat(criteria.tenth) || 0,
+            twelfth: parseFloat(criteria.twelfth) || 0,
+            cgpa: parseFloat(criteria.cgpa) || 0,
+          }))
+          // Include all departments, even with 0 values (backend will validate)
+          .filter(dept => dept.tenth > 0 || dept.twelfth > 0 || dept.cgpa > 0);
+        
+        // If no departments have criteria, still include all with 0 values
+        const finalDeptWiseEligibility = deptWiseEligibility.length > 0 
+          ? deptWiseEligibility
+          : Object.entries(formData.departmentCriteria).map(([dept, criteria]) => ({
               department: dept,
               tenth: parseFloat(criteria.tenth) || 0,
               twelfth: parseFloat(criteria.twelfth) || 0,
               cgpa: parseFloat(criteria.cgpa) || 0,
-            })
-          ),
+            }));
+        
+        eligibilityData = {
+          eligibilityType: "department-wise",
+          departmentWiseEligibility: finalDeptWiseEligibility,
         };
       }
 

@@ -20,9 +20,20 @@ export default function CreateJob() {
     ctc: '',
     jobDescription: '',
     termsConditions: '',
-    tenthPercentage: '',
-    twelfthPercentage: '',
-    cgpa: '',
+    eligibilityType: 'common', // New: 'common' or 'department-wise'
+    commonCriteria: {
+      tenth: '',
+      twelfth: '',
+      cgpa: '',
+    },
+    departmentCriteria: {
+      CSE: { tenth: '', twelfth: '', cgpa: '' },
+      IT: { tenth: '', twelfth: '', cgpa: '' },
+      ECE: { tenth: '', twelfth: '', cgpa: '' },
+      EEE: { tenth: '', twelfth: '', cgpa: '' },
+      MECH: { tenth: '', twelfth: '', cgpa: '' },
+      CIVIL: { tenth: '', twelfth: '', cgpa: '' },
+    },
     deadline: '',
     skills: {
       wirelessCommunication: false,
@@ -38,9 +49,41 @@ export default function CreateJob() {
     otherSkill: '',
   });
 
+  const departmentNames = {
+    CSE: 'Computer Science',
+    IT: 'Information Technology',
+    ECE: 'Electronics & Communication',
+    EEE: 'Electrical Engineering',
+    MECH: 'Mechanical Engineering',
+    CIVIL: 'Civil Engineering',
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
+  };
+
+  const handleCommonCriteriaChange = (field, value) => {
+    setFormData({
+      ...formData,
+      commonCriteria: {
+        ...formData.commonCriteria,
+        [field]: value,
+      },
+    });
+  };
+
+  const handleDepartmentCriteriaChange = (dept, field, value) => {
+    setFormData({
+      ...formData,
+      departmentCriteria: {
+        ...formData.departmentCriteria,
+        [dept]: {
+          ...formData.departmentCriteria[dept],
+          [field]: value,
+        },
+      },
+    });
   };
 
   const handleSkillChange = (skill) => {
@@ -58,24 +101,67 @@ export default function CreateJob() {
     setLoading(true);
 
     try {
+      // Build eligibility structure based on type
+      let eligibilityData = {};
+      
+      if (formData.eligibilityType === "common") {
+        eligibilityData = {
+          eligibilityType: "common",
+          commonEligibility: {
+            tenth: parseFloat(formData.commonCriteria.tenth) || 0,
+            twelfth: parseFloat(formData.commonCriteria.twelfth) || 0,
+            cgpa: parseFloat(formData.commonCriteria.cgpa) || 0,
+          },
+        };
+      } else if (formData.eligibilityType === "department-wise") {
+        // Filter out empty departments and build array only with filled entries
+        const deptWiseEligibility = Object.entries(formData.departmentCriteria)
+          .map(([dept, criteria]) => ({
+            department: dept,
+            tenth: parseFloat(criteria.tenth) || 0,
+            twelfth: parseFloat(criteria.twelfth) || 0,
+            cgpa: parseFloat(criteria.cgpa) || 0,
+          }))
+          // Include all departments, even with 0 values
+          .filter(dept => dept.tenth > 0 || dept.twelfth > 0 || dept.cgpa > 0);
+        
+        // If no departments have criteria, still include all with 0 values
+        const finalDeptWiseEligibility = deptWiseEligibility.length > 0 
+          ? deptWiseEligibility
+          : Object.entries(formData.departmentCriteria).map(([dept, criteria]) => ({
+              department: dept,
+              tenth: parseFloat(criteria.tenth) || 0,
+              twelfth: parseFloat(criteria.twelfth) || 0,
+              cgpa: parseFloat(criteria.cgpa) || 0,
+            }));
+        
+        eligibilityData = {
+          eligibilityType: "department-wise",
+          departmentWiseEligibility: finalDeptWiseEligibility,
+        };
+      }
+
       // Map frontend field names to backend expected names
       const jobData = {
         title: formData.jobCategory,
         company: formData.companyName,
         description: formData.jobDescription,
-        salary: formData.ctc,
+        packageDetails: {
+          ctc: formData.ctc,
+        },
         location: formData.location,
         jobType: formData.jobType,
         deadline: formData.deadline,
+        ...eligibilityData,
         // Additional fields (can be stored in description or ignored for now)
         requirements: {
-          tenthPercentage: parseFloat(formData.tenthPercentage) || 0,
-          twelfthPercentage: parseFloat(formData.twelfthPercentage) || 0,
-          cgpa: parseFloat(formData.cgpa) || 0,
-          skills: formData.skills
+          skills: formData.skills,
+          otherSkill: formData.otherSkill,
+          termsConditions: formData.termsConditions,
         }
       };
 
+      console.log('Submitting job data:', jobData);
       await jobAPI.create(jobData);
       alert('Job posted successfully!');
       navigate('/dashboard');
@@ -220,53 +306,127 @@ export default function CreateJob() {
                 </div>
               </div>
 
-              {/* Eligibility Criteria */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Eligibility Criteria</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="tenthPercentage">10th Percentage</Label>
-                    <Input
-                      id="tenthPercentage"
-                      name="tenthPercentage"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      value={formData.tenthPercentage}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="twelfthPercentage">12th Percentage</Label>
-                    <Input
-                      id="twelfthPercentage"
-                      name="twelfthPercentage"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      value={formData.twelfthPercentage}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="cgpa">Minimum CGPA</Label>
-                    <Input
-                      id="cgpa"
-                      name="cgpa"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="10"
-                      value={formData.cgpa}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
+              {/* Eligibility Criteria - New Department-wise System */}
+              <div className="space-y-4 border-2 border-indigo-200 rounded-lg p-4 bg-indigo-50">
+                <h3 className="text-lg font-semibold text-indigo-700">Eligibility Criteria</h3>
+                
+                {/* Toggle between common and department-wise */}
+                <div className="flex items-center space-x-2 p-3 bg-white rounded-lg border border-indigo-300">
+                  <Checkbox
+                    id="eligibilityCommon"
+                    checked={formData.eligibilityType === "common"}
+                    onCheckedChange={(checked) =>
+                      setFormData({
+                        ...formData,
+                        eligibilityType: checked ? "common" : "department-wise",
+                      })
+                    }
+                  />
+                  <Label htmlFor="eligibilityCommon" className="cursor-pointer">
+                    Same criteria for all departments
+                  </Label>
                 </div>
+
+                {/* Common Criteria Section */}
+                {formData.eligibilityType === "common" && (
+                  <div className="space-y-4 bg-white p-4 rounded-lg border border-indigo-200">
+                    <h4 className="font-semibold text-indigo-600">Common Eligibility Criteria</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <Label htmlFor="common-tenth">10th Percentage (%)</Label>
+                        <Input
+                          id="common-tenth"
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="100"
+                          value={formData.commonCriteria.tenth}
+                          onChange={(e) => handleCommonCriteriaChange("tenth", e.target.value)}
+                          placeholder="e.g. 80"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="common-twelfth">12th Percentage (%)</Label>
+                        <Input
+                          id="common-twelfth"
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="100"
+                          value={formData.commonCriteria.twelfth}
+                          onChange={(e) => handleCommonCriteriaChange("twelfth", e.target.value)}
+                          placeholder="e.g. 85"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="common-cgpa">CGPA</Label>
+                        <Input
+                          id="common-cgpa"
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="10"
+                          value={formData.commonCriteria.cgpa}
+                          onChange={(e) => handleCommonCriteriaChange("cgpa", e.target.value)}
+                          placeholder="e.g. 7.5"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Department-wise Criteria Section */}
+                {formData.eligibilityType === "department-wise" && (
+                  <div className="space-y-4">
+                    <h4 className="font-semibold text-indigo-600">Department-wise Eligibility Criteria</h4>
+                    {Object.entries(formData.departmentCriteria).map(([deptCode, criteria]) => (
+                      <div key={deptCode} className="bg-white p-4 rounded-lg border border-indigo-200">
+                        <h5 className="font-medium text-indigo-600 mb-3">{departmentNames[deptCode]} ({deptCode})</h5>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <Label htmlFor={`${deptCode}-tenth`}>10th Percentage (%)</Label>
+                            <Input
+                              id={`${deptCode}-tenth`}
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={criteria.tenth}
+                              onChange={(e) => handleDepartmentCriteriaChange(deptCode, "tenth", e.target.value)}
+                              placeholder="e.g. 80"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor={`${deptCode}-twelfth`}>12th Percentage (%)</Label>
+                            <Input
+                              id={`${deptCode}-twelfth`}
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={criteria.twelfth}
+                              onChange={(e) => handleDepartmentCriteriaChange(deptCode, "twelfth", e.target.value)}
+                              placeholder="e.g. 85"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor={`${deptCode}-cgpa`}>CGPA</Label>
+                            <Input
+                              id={`${deptCode}-cgpa`}
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="10"
+                              value={criteria.cgpa}
+                              onChange={(e) => handleDepartmentCriteriaChange(deptCode, "cgpa", e.target.value)}
+                              placeholder="e.g. 7.5"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Required Skills */}
