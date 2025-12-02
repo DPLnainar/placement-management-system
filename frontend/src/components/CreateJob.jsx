@@ -34,6 +34,9 @@ export default function CreateJob() {
       MECH: { tenth: '', twelfth: '', cgpa: '' },
       CIVIL: { tenth: '', twelfth: '', cgpa: '' },
     },
+    // Job Department Access - Which departments can see this job
+    jobDepartmentAccess: 'all', // 'all' or 'specific'
+    specificJobDepartments: [], // List of dept codes if 'specific'
     deadline: '',
     skills: {
       wirelessCommunication: false,
@@ -57,6 +60,17 @@ export default function CreateJob() {
     MECH: 'Mechanical Engineering',
     CIVIL: 'Civil Engineering',
   };
+
+  const allDepartments = [
+    { code: 'CSE', name: 'Computer Science' },
+    { code: 'IT', name: 'Information Technology' },
+    { code: 'ECE', name: 'Electronics & Communication' },
+    { code: 'EEE', name: 'Electrical Engineering' },
+    { code: 'MECH', name: 'Mechanical Engineering' },
+    { code: 'CIVIL', name: 'Civil Engineering' },
+    { code: 'AIML', name: 'AI & Machine Learning' },
+    { code: 'ADS', name: 'Advanced Data Science' },
+  ];
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -83,6 +97,15 @@ export default function CreateJob() {
           [field]: value,
         },
       },
+    });
+  };
+
+  const handleJobDepartmentToggle = (deptCode) => {
+    setFormData({
+      ...formData,
+      specificJobDepartments: formData.specificJobDepartments.includes(deptCode)
+        ? formData.specificJobDepartments.filter((d) => d !== deptCode)
+        : [...formData.specificJobDepartments, deptCode],
     });
   };
 
@@ -153,6 +176,11 @@ export default function CreateJob() {
         jobType: formData.jobType,
         deadline: formData.deadline,
         ...eligibilityData,
+        // Job Department Access - Which departments can see this job
+        eligibility: {
+          type: formData.jobDepartmentAccess === 'all' ? 'all' : 'specific',
+          departments: formData.jobDepartmentAccess === 'all' ? [] : formData.specificJobDepartments,
+        },
         // Additional fields (can be stored in description or ignored for now)
         requirements: {
           skills: formData.skills,
@@ -429,7 +457,58 @@ export default function CreateJob() {
                 )}
               </div>
 
-              {/* Required Skills */}
+              {/* Job Department Access - Which departments can see/apply for this job */}
+              <div className="space-y-4 border-2 border-green-200 rounded-lg p-4 bg-green-50">
+                <h3 className="text-lg font-semibold text-green-700">Job Department Access</h3>
+                <p className="text-sm text-gray-600">Choose which departments can view and apply for this job</p>
+                
+                {/* Toggle: All vs Specific */}
+                <div className="flex items-center space-x-2 p-3 bg-white rounded-lg border border-green-300">
+                  <Checkbox
+                    id="jobAccessAll"
+                    checked={formData.jobDepartmentAccess === "all"}
+                    onCheckedChange={(checked) =>
+                      setFormData({
+                        ...formData,
+                        jobDepartmentAccess: checked ? "all" : "specific",
+                        specificJobDepartments: checked ? [] : formData.specificJobDepartments,
+                      })
+                    }
+                  />
+                  <Label htmlFor="jobAccessAll" className="cursor-pointer">
+                    All Departments Eligible
+                  </Label>
+                </div>
+
+                {/* Specific Departments Selection */}
+                {formData.jobDepartmentAccess === "specific" && (
+                  <div className="space-y-3 bg-white p-4 rounded-lg border border-green-200">
+                    <h4 className="font-semibold text-green-600">Select Departments That Can Access This Job</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {allDepartments.map((dept) => (
+                        <div key={dept.code} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`job-dept-${dept.code}`}
+                            checked={formData.specificJobDepartments.includes(dept.code)}
+                            onCheckedChange={() => handleJobDepartmentToggle(dept.code)}
+                          />
+                          <Label 
+                            htmlFor={`job-dept-${dept.code}`} 
+                            className="cursor-pointer text-sm"
+                          >
+                            {dept.name} ({dept.code})
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                    {formData.specificJobDepartments.length === 0 && (
+                      <p className="text-red-500 text-sm mt-2">
+                        Please select at least one department
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Required Skills</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
