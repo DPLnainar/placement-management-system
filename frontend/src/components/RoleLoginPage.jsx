@@ -43,7 +43,11 @@ export default function RoleLogin() {
   const fetchColleges = async () => {
     try {
       const response = await publicAPI.getColleges();
-      setColleges(response.data.data || []);
+      console.log('Colleges API Response:', response);
+      console.log('Response data:', response.data);
+      const collegesData = response.data.data || response.data || [];
+      console.log('Colleges to display:', collegesData);
+      setColleges(Array.isArray(collegesData) ? collegesData : []);
     } catch (error) {
       console.error('Error fetching colleges:', error);
     }

@@ -265,7 +265,11 @@ const startServer = async () => {
 
       // Start job scheduler for auto-closing expired jobs
       const { startScheduler } = require('./utils/jobScheduler');
-      startScheduler();
+      try {
+        startScheduler();
+      } catch (error) {
+        console.error('❌ Error starting scheduler:', error);
+      }
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);

@@ -156,46 +156,56 @@ async function getJobsStatisticsSummary() {
  * Run all scheduled tasks
  */
 async function runScheduledTasks() {
-  console.log('\n🕒 Running scheduled job tasks...');
-  console.log('Time:', new Date().toLocaleString());
-  
-  const stats = await getJobsStatisticsSummary();
-  if (stats) {
-    console.log('\n📊 Current Job Statistics:');
-    console.log(`   Total Jobs: ${stats.total}`);
-    console.log(`   Active: ${stats.active}`);
-    console.log(`   Closed: ${stats.closed}`);
-    console.log(`   Draft: ${stats.draft}`);
-    console.log(`   Expired (need closing): ${stats.expired}`);
-    console.log(`   Closing Soon (3 days): ${stats.closingSoon}`);
-  }
+  try {
+    console.log('\n🕒 Running scheduled job tasks...');
+    console.log('Time:', new Date().toLocaleString());
+    
+    const stats = await getJobsStatisticsSummary();
+    if (stats) {
+      console.log('\n📊 Current Job Statistics:');
+      console.log(`   Total Jobs: ${stats.total}`);
+      console.log(`   Active: ${stats.active}`);
+      console.log(`   Closed: ${stats.closed}`);
+      console.log(`   Draft: ${stats.draft}`);
+      console.log(`   Expired (need closing): ${stats.expired}`);
+      console.log(`   Closing Soon (3 days): ${stats.closingSoon}`);
+    }
 
-  console.log('\n🔄 Running maintenance tasks...');
-  
-  // Close expired jobs
-  await autoCloseExpiredJobs();
-  
-  // Close jobs at max capacity
-  await autoCloseFullJobs();
-  
-  // Send deadline reminders
-  // await sendDeadlineReminders(); // Uncomment when email notifications are ready
-  
-  console.log('✅ Scheduled tasks completed\n');
+    console.log('\n🔄 Running maintenance tasks...');
+    
+    // Close expired jobs
+    await autoCloseExpiredJobs();
+    
+    // Close jobs at max capacity
+    await autoCloseFullJobs();
+    
+    // Send deadline reminders
+    // await sendDeadlineReminders(); // Uncomment when email notifications are ready
+    
+    console.log('✅ Scheduled tasks completed\n');
+  } catch (error) {
+    console.error('❌ Error running scheduled tasks:', error);
+  }
 }
 
 /**
  * Start the scheduler (runs every 1 hour)
  */
 function startScheduler() {
-  // Run immediately on start
-  runScheduledTasks();
-  
-  // Then run every hour
-  const HOUR_IN_MS = 60 * 60 * 1000;
-  setInterval(runScheduledTasks, HOUR_IN_MS);
-  
-  console.log('✓ Job scheduler started (runs every hour)');
+  try {
+    // Run immediately on start - commented out for now due to crashing issues
+    // runScheduledTasks();
+    
+    // Then run every hour
+    const HOUR_IN_MS = 60 * 60 * 1000;
+    setInterval(() => {
+      runScheduledTasks().catch(err => console.error('Scheduler error:', err));
+    }, HOUR_IN_MS);
+    
+    console.log('✓ Job scheduler started (runs every hour)');
+  } catch (error) {
+    console.error('❌ Error starting scheduler:', error);
+  }
 }
 
 module.exports = {
