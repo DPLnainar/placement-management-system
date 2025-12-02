@@ -28,9 +28,8 @@ const resumeStorage = new CloudinaryStorage({
   params: {
     folder: 'placement-portal/resumes',
     allowed_formats: ['pdf', 'doc', 'docx'],
-    resource_type: 'raw', // Use raw for documents like PDFs
-    type: 'upload', // Ensure files are uploaded as public
-    flags: 'attachment', // Ensure proper content-type handling
+    resource_type: 'auto', // Auto-detect resource type
+    type: 'upload', // Public upload
     public_id: (req, file) => {
       const userId = req.user?.id || 'unknown';
       const timestamp = Date.now();

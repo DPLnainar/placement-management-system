@@ -10,10 +10,13 @@ import { uploadAPI } from '../services/api';
 const getInlineViewUrl = (url) => {
   if (!url) return url;
   
-  // For any PDF URL, use Google Docs Viewer for reliable display
-  if (url.includes('.pdf')) {
-    // Google Docs Viewer is the most reliable way to display PDFs in browser
-    return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+  // For Cloudinary URLs, add fl_inline transformation for inline display
+  if (url.includes('cloudinary.com')) {
+    // Insert fl_inline:true transformation to force inline display
+    const urlParts = url.split('/upload/');
+    if (urlParts.length === 2) {
+      return `${urlParts[0]}/upload/fl_inline:true/${urlParts[1]}`;
+    }
   }
   
   // For Google Drive links, ensure they use preview format
