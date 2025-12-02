@@ -8,6 +8,7 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Briefcase, LogOut, MapPin, Calendar, User, Save, Upload, Plus, Trash2, FileText, Download, Menu, X, Printer, ExternalLink } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
+import html2pdf from 'html2pdf.js';
 import { ResumeTemplate } from './ResumeTemplate';
 
 // Helper function to get inline viewable URL for PDFs
@@ -141,6 +142,31 @@ export default function StudentDash() {
     content: () => resumeRef.current,
     documentTitle: `${user?.username || 'Student'}_Resume`,
   });
+
+  const handleDownloadPDF = async () => {
+    try {
+      const element = resumeRef.current;
+      
+      if (!element) {
+        alert('Resume content not found');
+        return;
+      }
+
+      const opt = {
+        margin: 10,
+        filename: `${user?.username || 'Student'}_Resume.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
+      };
+
+      html2pdf().set(opt).from(element).save();
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      // Fallback to print dialog
+      handlePrint();
+    }
+  };
 
   const addProject = () => {
     if (newProject.title && newProject.description) {
@@ -1979,7 +2005,7 @@ export default function StudentDash() {
                   <h2 className="text-2xl font-bold text-gray-900">Resume Builder</h2>
                   <p className="text-gray-600">Preview and download your professional resume</p>
                 </div>
-                <Button onClick={handlePrint} className="flex items-center gap-2">
+                <Button onClick={handleDownloadPDF} className="flex items-center gap-2">
                   <Printer className="h-4 w-4" />
                   Download PDF
                 </Button>
