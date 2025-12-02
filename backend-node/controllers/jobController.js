@@ -592,3 +592,58 @@ exports.getJobsClosingSoon = async (req, res) => {
   }
 };
 
+/**
+ * Change Job Status
+ * 
+ * ADMIN/MODERATOR ONLY
+ * Allow changing job status between active and closed
+ */
+exports.changeJobStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    // Validate status
+    const validStatuses = ['draft', 'active', 'inactive', 'closed', 'cancelled'];
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
+      });
+    }
+
+    // Find job and ensure it belongs to user's college
+    const job = await Job.findOne({
+      _id: id,
+      collegeId: req.user.collegeId._id || req.user.collegeId
+    });
+
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: 'Job not found or does not belong to your college'
+      });
+    }
+
+    // Update status
+    job.status = status;
+    await job.save();
+
+    // Populate user info
+    await job.populate('postedBy', 'username fullName role');
+
+    res.json({
+      success: true,
+      message: `Job status changed to ${status}`,
+      job
+    });
+
+  } catch (error) {
+    console.error('Change job status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error changing job status'
+    });
+  }
+};
+

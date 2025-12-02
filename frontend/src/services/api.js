@@ -105,6 +105,7 @@ export const jobAPI = {
   getById: (id) => api.get(`/jobs/${id}`),
   create: (data) => api.post('/jobs', data),
   update: (id, data) => api.put(`/jobs/${id}`, data),
+  changeStatus: (id, status) => api.put(`/jobs/${id}/status`, { status }),
   delete: (id) => api.delete(`/jobs/${id}`),
 };
 

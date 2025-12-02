@@ -141,6 +141,16 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleChangeJobStatus = async (jobId, newStatus) => {
+    try {
+      await jobAPI.changeStatus(jobId, newStatus);
+      fetchDashboardData();
+      alert(`Job status changed to ${newStatus}`);
+    } catch (error) {
+      alert(error.response?.data?.message || 'Error changing job status');
+    }
+  };
+
   const handleToggleUserStatus = async (userId, currentStatus) => {
     try {
       await userAPI.updateStatus(userId, !currentStatus);
@@ -634,6 +644,17 @@ export default function AdminDashboard() {
                               </CardDescription>
                             </div>
                             <div className="flex gap-2">
+                              <select
+                                value={job.status || 'active'}
+                                onChange={(e) => handleChangeJobStatus(job._id || job.id, e.target.value)}
+                                className="px-2 py-1 text-sm border rounded bg-white cursor-pointer"
+                                title="Change job status"
+                              >
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                                <option value="closed">Closed</option>
+                                <option value="draft">Draft</option>
+                              </select>
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -659,7 +680,15 @@ export default function AdminDashboard() {
                                 {job.salary && <span> • {job.salary}</span>}
                               </p>
                               <p className="text-sm text-gray-500 mt-1">
-                                Status: <span className="font-semibold capitalize">{job.status}</span>
+                                Status: 
+                                <span className={`ml-2 px-3 py-1 rounded-full text-xs font-semibold capitalize ${
+                                  job.status === 'active' ? 'bg-green-100 text-green-800' :
+                                  job.status === 'closed' ? 'bg-red-100 text-red-800' :
+                                  job.status === 'inactive' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {job.status}
+                                </span>
                               </p>
                               {job.deadline && (
                                 <p className="text-sm text-gray-500">

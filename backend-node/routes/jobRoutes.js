@@ -18,7 +18,8 @@ const {
   getJobStatistics,
   bulkUpdateStatus,
   closeExpiredJobs,
-  getJobsClosingSoon
+  getJobsClosingSoon,
+  changeJobStatus
 } = require('../controllers/jobController');
 
 const router = express.Router();
@@ -61,6 +62,13 @@ router.put(
   '/:id',
   requireRole(['admin', 'moderator']),
   updateJob
+);
+
+// Admin and Moderator: Change job status (active/closed/inactive)
+router.put(
+  '/:id/status',
+  requireRole(['admin', 'moderator']),
+  changeJobStatus
 );
 
 // Admin and Moderator: Delete job from their college
