@@ -173,7 +173,7 @@ export default function StudentRegistration() {
                 placeholder="e.g., john.doe or johndoe123"
                 required
                 minLength={3}
-                pattern="[a-z0-9._-]+"
+                pattern="[a-z0-9._\-]*"
                 title="Username can only contain lowercase letters, numbers, dots, underscores, and hyphens"
                 disabled={submitting}
                 className="lowercase"

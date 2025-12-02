@@ -14,16 +14,15 @@ import { ResumeTemplate } from './ResumeTemplate';
 const getInlineViewUrl = (url) => {
   if (!url) return url;
   
-  // If it's a Cloudinary URL with raw resource type, use Google Docs Viewer
-  // This allows viewing PDFs inline in the browser
-  if (url.includes('cloudinary.com') && url.includes('/raw/upload/')) {
-    // Use Google Docs Viewer to display the PDF inline
-    return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
-  }
-  
-  // For Cloudinary image type PDFs, add fl_attachment:false
-  if (url.includes('cloudinary.com') && url.includes('/image/upload/') && url.includes('.pdf')) {
-    return url.replace('/image/upload/', '/image/upload/fl_attachment:false/');
+  // For Cloudinary PDF URLs, add transformation to ensure inline display
+  if (url.includes('cloudinary.com') && url.includes('.pdf')) {
+    // Convert image resource type to raw and add fl_attachment:false transformation
+    let fixedUrl = url.replace('/image/upload/', '/raw/upload/');
+    // Add fl_attachment:false transformation to force inline display instead of download
+    const urlParts = fixedUrl.split('/upload/');
+    if (urlParts.length === 2) {
+      return `${urlParts[0]}/upload/fl_attachment:false/${urlParts[1]}`;
+    }
   }
   
   // For Google Drive links, ensure they use preview format
@@ -51,6 +50,8 @@ export default function StudentDash() {
   const [isAcademicLocked, setIsAcademicLocked] = useState(false);
   const [isProfileComplete, setIsProfileComplete] = useState(true);
   const [missingProfileFields, setMissingProfileFields] = useState([]);
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState('');
 
   const [profileData, setProfileData] = useState({
     // Personal Information
@@ -1915,7 +1916,10 @@ export default function StudentDash() {
                                   variant="ghost"
                                   size="sm"
                                   className="h-6 px-2 text-blue-600 hover:text-blue-800"
-                                  onClick={() => window.open(getInlineViewUrl(resumeFile.url), '_blank')}
+                                  onClick={() => {
+                                    setPdfUrl(resumeFile.url);
+                                    setShowPdfModal(true);
+                                  }}
                                 >
                                   <ExternalLink className="h-3 w-3 mr-1" />
                                   View
@@ -2065,6 +2069,51 @@ export default function StudentDash() {
           )
         }
       </div >
+
+      {/* PDF Viewer Modal */}
+      {showPdfModal && pdfUrl && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg w-11/12 h-5/6 flex flex-col">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-lg font-semibold">Resume Preview</h2>
+              <button
+                onClick={() => setShowPdfModal(false)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* PDF Viewer */}
+            <div className="flex-1 overflow-hidden">
+              <iframe
+                src={`${pdfUrl}?dl=false`}
+                className="w-full h-full border-none"
+                title="Resume Preview"
+              />
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-between items-center p-4 border-t bg-gray-50">
+              <a
+                href={`${pdfUrl}?dl=false`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800 underline"
+              >
+                Open in new tab
+              </a>
+              <button
+                onClick={() => setShowPdfModal(false)}
+                className="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div >
   );
 }

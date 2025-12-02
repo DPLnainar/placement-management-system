@@ -1,0 +1,9 @@
+
+=== DELETING OLD RESUME ===
+
+Current resume: https://res.cloudinary.com/dm8vlf3vj/raw/upload/v1764666216/placement-portal/resumes/resume_692e9bf79ee477bfb2320b81_1764666214173
+Public ID: placement-portal/resumes/resume_692e9bf79ee477bfb2320b81_1764666214173
+⚠️ Error deleting from Cloudinary: Invalid resource type 'auto'. Must be one of: image, javascript, css, video, raw.
+✅ Cleared resume from database
+
+📝 Now upload a new resume - it will use raw resource type (better for PDFs)

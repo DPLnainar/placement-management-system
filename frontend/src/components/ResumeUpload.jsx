@@ -1,22 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Upload, FileText, Download, Trash2, CheckCircle, Eye } from 'lucide-react';
+import { uploadAPI } from '../services/api';
 
 // Helper function to get inline viewable URL for Cloudinary files
 const getInlineViewUrl = (url) => {
   if (!url) return url;
   
-  // If it's a Cloudinary URL with raw resource type, use Google Docs Viewer
-  if (url.includes('cloudinary.com') && url.includes('/raw/upload/')) {
-    return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
-  }
-  
-  // For Cloudinary image type PDFs, add fl_attachment:false
-  if (url.includes('cloudinary.com') && url.includes('/image/upload/') && url.includes('.pdf')) {
-    return url.replace('/image/upload/', '/image/upload/fl_attachment:false/');
+  // For Cloudinary PDF URLs, add transformation to ensure inline display
+  if (url.includes('cloudinary.com') && url.includes('.pdf')) {
+    // Convert image resource type to raw and add fl_attachment:false transformation
+    let fixedUrl = url.replace('/image/upload/', '/raw/upload/');
+    // Add fl_attachment:false transformation to force inline display instead of download
+    const urlParts = fixedUrl.split('/upload/');
+    if (urlParts.length === 2) {
+      return `${urlParts[0]}/upload/fl_attachment:false/${urlParts[1]}`;
+    }
   }
   
   // For Google Drive links, ensure they use preview format
@@ -33,6 +35,8 @@ const getInlineViewUrl = (url) => {
 export default function ResumeUpload({ resumeData, onUpdate }) {
   const [uploading, setUploading] = useState(false);
   const [resume, setResume] = useState(resumeData || null);
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState('');
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
@@ -54,27 +58,36 @@ export default function ResumeUpload({ resumeData, onUpdate }) {
     setUploading(true);
 
     try {
-      // In a real application, upload to server/cloud storage
-      // For now, we'll just store the file info
-      const resumeInfo = {
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        uploadDate: new Date().toISOString(),
-        // In production, this would be the URL from your storage service
-        url: URL.createObjectURL(file)
-      };
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('resume', file); // Must match backend multer field name
 
-      setResume(resumeInfo);
-      
-      if (onUpdate) {
-        await onUpdate(resumeInfo);
+      // Upload to backend which will store in Cloudinary
+      const response = await uploadAPI.uploadResume(formData);
+
+      if (response.data && response.data.data) {
+        const resumeInfo = {
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          uploadDate: new Date().toISOString(),
+          // This is the Cloudinary URL returned from backend
+          url: response.data.data.resumeUrl
+        };
+
+        setResume(resumeInfo);
+        
+        if (onUpdate) {
+          await onUpdate(resumeInfo);
+        }
+
+        alert('Resume uploaded successfully to Cloudinary!');
+      } else {
+        throw new Error('Invalid response from server');
       }
-
-      alert('Resume uploaded successfully!');
     } catch (error) {
       console.error('Error uploading resume:', error);
-      alert('Error uploading resume');
+      alert(`Error uploading resume: ${error.message}`);
     } finally {
       setUploading(false);
     }
@@ -82,9 +95,17 @@ export default function ResumeUpload({ resumeData, onUpdate }) {
 
   const handleDelete = async () => {
     if (window.confirm('Are you sure you want to delete your resume?')) {
-      setResume(null);
-      if (onUpdate) {
-        await onUpdate(null);
+      try {
+        // Call backend to delete from Cloudinary
+        await uploadAPI.deleteResume();
+        setResume(null);
+        if (onUpdate) {
+          await onUpdate(null);
+        }
+        alert('Resume deleted successfully');
+      } catch (error) {
+        console.error('Error deleting resume:', error);
+        alert(`Error deleting resume: ${error.message}`);
       }
     }
   };
@@ -150,7 +171,10 @@ export default function ResumeUpload({ resumeData, onUpdate }) {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => window.open(getInlineViewUrl(resume.url), '_blank')}
+                        onClick={() => {
+                          setPdfUrl(resume.url);
+                          setShowPdfModal(true);
+                        }}
                       >
                         <Eye className="w-4 h-4 mr-2" />
                         View Resume
@@ -196,5 +220,49 @@ export default function ResumeUpload({ resumeData, onUpdate }) {
         </div>
       </CardContent>
     </Card>
+
+    {/* PDF Viewer Modal */}
+    {showPdfModal && pdfUrl && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg w-11/12 h-5/6 flex flex-col">
+          {/* Modal Header */}
+          <div className="flex justify-between items-center p-4 border-b">
+            <h2 className="text-lg font-semibold">Resume Preview</h2>
+            <button
+              onClick={() => setShowPdfModal(false)}
+              className="text-gray-500 hover:text-gray-700 text-2xl"
+            >
+              ×
+            </button>
+          </div>
+
+          {/* PDF Viewer */}
+          <div className="flex-1 overflow-hidden">
+            <iframe
+              src={`${pdfUrl}?dl=false`}
+              className="w-full h-full border-none"
+              title="Resume Preview"
+            />
+          </div>
+
+          {/* Modal Footer */}
+          <div className="flex justify-between items-center p-4 border-t bg-gray-50">
+            <a
+              href={`${pdfUrl}?dl=false`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-800 underline"
+            >
+              Open in new tab
+            </a>
+            <button
+              onClick={() => setShowPdfModal(false)}
+              className="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
   );
-}

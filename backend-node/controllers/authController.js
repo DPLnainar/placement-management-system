@@ -679,6 +679,16 @@ exports.registerInvited = async (req, res) => {
       });
     }
 
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: messages
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: 'Error completing registration',

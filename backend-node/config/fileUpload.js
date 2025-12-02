@@ -28,14 +28,14 @@ const resumeStorage = new CloudinaryStorage({
   params: {
     folder: 'placement-portal/resumes',
     allowed_formats: ['pdf', 'doc', 'docx'],
-    resource_type: (req, file) => {
-      return file.mimetype === 'application/pdf' ? 'image' : 'raw';
-    },
+    resource_type: 'raw', // Use raw for documents like PDFs
+    type: 'upload', // Ensure files are uploaded as public
+    flags: 'attachment', // Ensure proper content-type handling
     public_id: (req, file) => {
       const userId = req.user?.id || 'unknown';
       const timestamp = Date.now();
-      const ext = file.originalname.split('.').pop();
-      return `resume_${userId}_${timestamp}.${ext}`;
+      // Don't add extension - Cloudinary adds it automatically based on allowed_formats
+      return `resume_${userId}_${timestamp}`;
     }
   }
 });
