@@ -407,6 +407,24 @@ const studentDataSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // Personal Information Completion (User profile: name, email, phone, address, DOB, gender)
+  personalInfoCompleted: {
+    type: Boolean,
+    default: false
+  },
+  personalInfoCompletedDate: {
+    type: Date,
+    default: null
+  },
+  // Academic Information Completion (Education: 10th, 12th, graduation CGPA, backlogs)
+  academicInfoCompleted: {
+    type: Boolean,
+    default: false
+  },
+  academicInfoCompletedDate: {
+    type: Date,
+    default: null
+  },
   // Placement preferences
   placementPreferences: {
     preferredLocations: { type: [String], default: [] },
@@ -665,6 +683,49 @@ studentDataSchema.methods.getAllSkills = function () {
   });
 
   return Array.from(skillsSet);
+};
+
+// Check if personal information is complete
+studentDataSchema.methods.isPersonalInfoComplete = function () {
+  return !!(
+    this.phoneNumber &&
+    this.dateOfBirth &&
+    this.gender &&
+    this.currentAddress &&
+    this.permanentAddress
+  );
+};
+
+// Check if academic information is complete
+studentDataSchema.methods.isAcademicInfoComplete = function () {
+  const hasEducation = !!(
+    this.education?.tenth?.percentage &&
+    this.education?.twelfth?.percentage &&
+    this.education?.graduation?.cgpa
+  );
+  
+  return !!(hasEducation && (this.cgpa || this.education?.graduation?.cgpa));
+};
+
+// Get missing fields for personal info
+studentDataSchema.methods.getMissingPersonalInfoFields = function () {
+  const missing = [];
+  if (!this.phoneNumber) missing.push('Phone Number');
+  if (!this.dateOfBirth) missing.push('Date of Birth');
+  if (!this.gender) missing.push('Gender');
+  if (!this.currentAddress) missing.push('Current Address');
+  if (!this.permanentAddress) missing.push('Permanent Address');
+  return missing;
+};
+
+// Get missing fields for academic info
+studentDataSchema.methods.getMissingAcademicInfoFields = function () {
+  const missing = [];
+  if (!this.education?.tenth?.percentage) missing.push('10th Grade Details');
+  if (!this.education?.twelfth?.percentage) missing.push('12th Grade Details');
+  if (!this.education?.graduation?.cgpa) missing.push('Graduation CGPA');
+  if (!this.cgpa && !this.education?.graduation?.cgpa) missing.push('Current CGPA');
+  return missing;
 };
 
 module.exports = mongoose.model('StudentData', studentDataSchema);

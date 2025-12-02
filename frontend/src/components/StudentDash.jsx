@@ -620,10 +620,15 @@ export default function StudentDash() {
         
         alert(`You are not eligible for this job.\n\nReasons:\n${issuesText}`);
       }
-      // Check if it's a profile incomplete error
+      // Check if it's a profile incomplete error with section info
       else if (error.response?.data?.profileIncomplete) {
         const errorMsg = error.response?.data?.message || 'Please complete your profile before applying to jobs';
         const missingFields = error.response?.data?.missingFields || [];
+        const section = error.response?.data?.section || '';
+
+        let sectionName = '';
+        if (section === 'personal_info') sectionName = 'Personal Information';
+        if (section === 'academic_info') sectionName = 'Academic Information';
 
         if (missingFields.length > 0) {
           const formattedFields = missingFields.map(f =>
@@ -633,7 +638,7 @@ export default function StudentDash() {
           ).join(', ');
 
           const confirmSwitch = window.confirm(
-            `${errorMsg}\n\nMissing fields: ${formattedFields}\n\nWould you like to go to your profile to complete these details?`
+            `${errorMsg}\n\n${sectionName ? `Section: ${sectionName}\n` : ''}Missing fields: ${formattedFields}\n\nWould you like to go to your profile to complete these details?`
           );
 
           if (confirmSwitch) {
@@ -641,7 +646,7 @@ export default function StudentDash() {
           }
         } else {
           const confirmSwitch = window.confirm(
-            `${errorMsg}\n\nWould you like to go to your profile to complete these details?`
+            `${errorMsg}\n\n${sectionName ? `Please complete: ${sectionName}\n` : ''}Would you like to go to your profile to complete these details?`
           );
 
           if (confirmSwitch) {

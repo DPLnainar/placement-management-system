@@ -36,6 +36,30 @@ exports.checkEligibility = async (req, res) => {
       });
     }
 
+    // Check personal information completion
+    if (!studentData.personalInfoCompleted) {
+      const missingPersonalInfo = studentData.getMissingPersonalInfoFields();
+      return res.status(400).json({
+        success: false,
+        message: 'Please complete your personal information before applying',
+        profileIncomplete: true,
+        section: 'personal_info',
+        missingFields: missingPersonalInfo
+      });
+    }
+
+    // Check academic information completion
+    if (!studentData.academicInfoCompleted) {
+      const missingAcademicInfo = studentData.getMissingAcademicInfoFields();
+      return res.status(400).json({
+        success: false,
+        message: 'Please complete your academic information before applying',
+        profileIncomplete: true,
+        section: 'academic_info',
+        missingFields: missingAcademicInfo
+      });
+    }
+
     // Check basic profile completion
     if (!studentData.isProfileCompleted || !studentData.mandatoryFieldsCompleted) {
       return res.status(400).json({
@@ -413,10 +437,186 @@ exports.getJobRecommendations = async (req, res) => {
   }
 };
 
+/**
+ * Verify personal information for a student (Admin/Moderator)
+ */
+exports.verifyPersonalInfo = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const collegeId = req.user.collegeId._id || req.user.collegeId;
+    const { verified, notes } = req.body;
+
+    // Get student data
+    const studentData = await StudentData.findOne({ 
+      userId: studentId, 
+      collegeId: collegeId 
+    });
+
+    if (!studentData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found'
+      });
+    }
+
+    if (verified) {
+      // Check if personal info is actually complete
+      if (!studentData.isPersonalInfoComplete()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Personal information is not complete',
+          missingFields: studentData.getMissingPersonalInfoFields()
+        });
+      }
+
+      studentData.personalInfoCompleted = true;
+      studentData.personalInfoCompletedDate = new Date();
+    } else {
+      studentData.personalInfoCompleted = false;
+      studentData.personalInfoCompletedDate = null;
+    }
+
+    await studentData.save();
+
+    res.json({
+      success: true,
+      message: verified ? 'Personal information verified' : 'Personal information verification removed',
+      data: {
+        studentId: studentId,
+        personalInfoCompleted: studentData.personalInfoCompleted,
+        personalInfoCompletedDate: studentData.personalInfoCompletedDate
+      }
+    });
+  } catch (error) {
+    console.error('Verify personal info error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error verifying personal information'
+    });
+  }
+};
+
+/**
+ * Verify academic information for a student (Admin/Moderator)
+ */
+exports.verifyAcademicInfo = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const collegeId = req.user.collegeId._id || req.user.collegeId;
+    const { verified, notes } = req.body;
+
+    // Get student data
+    const studentData = await StudentData.findOne({ 
+      userId: studentId, 
+      collegeId: collegeId 
+    });
+
+    if (!studentData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found'
+      });
+    }
+
+    if (verified) {
+      // Check if academic info is actually complete
+      if (!studentData.isAcademicInfoComplete()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Academic information is not complete',
+          missingFields: studentData.getMissingAcademicInfoFields()
+        });
+      }
+
+      studentData.academicInfoCompleted = true;
+      studentData.academicInfoCompletedDate = new Date();
+    } else {
+      studentData.academicInfoCompleted = false;
+      studentData.academicInfoCompletedDate = null;
+    }
+
+    await studentData.save();
+
+    res.json({
+      success: true,
+      message: verified ? 'Academic information verified' : 'Academic information verification removed',
+      data: {
+        studentId: studentId,
+        academicInfoCompleted: studentData.academicInfoCompleted,
+        academicInfoCompletedDate: studentData.academicInfoCompletedDate
+      }
+    });
+  } catch (error) {
+    console.error('Verify academic info error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error verifying academic information'
+    });
+  }
+};
+
+/**
+ * Get student eligibility status (Admin/Moderator - view student requirements)
+ */
+exports.getStudentEligibilityStatus = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const collegeId = req.user.collegeId._id || req.user.collegeId;
+
+    // Get student data
+    const studentData = await StudentData.findOne({ 
+      userId: studentId, 
+      collegeId: collegeId 
+    }).populate('userId', 'username email fullName');
+
+    if (!studentData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found'
+      });
+    }
+
+    const personalInfoMissing = studentData.getMissingPersonalInfoFields();
+    const academicInfoMissing = studentData.getMissingAcademicInfoFields();
+
+    res.json({
+      success: true,
+      data: {
+        studentId: studentData.userId._id,
+        username: studentData.userId.username,
+        email: studentData.userId.email,
+        fullName: studentData.userId.fullName,
+        personalInfo: {
+          completed: studentData.personalInfoCompleted,
+          completedDate: studentData.personalInfoCompletedDate,
+          missingFields: personalInfoMissing,
+          isComplete: studentData.isPersonalInfoComplete()
+        },
+        academicInfo: {
+          completed: studentData.academicInfoCompleted,
+          completedDate: studentData.academicInfoCompletedDate,
+          missingFields: academicInfoMissing,
+          isComplete: studentData.isAcademicInfoComplete()
+        },
+        canApply: studentData.personalInfoCompleted && studentData.academicInfoCompleted
+      }
+    });
+  } catch (error) {
+    console.error('Get student eligibility status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching student eligibility status'
+    });
+  }
+};
+
 module.exports = {
   checkEligibility: exports.checkEligibility,
   getEligibleJobs: exports.getEligibleJobs,
   getEligibleStudents: exports.getEligibleStudents,
   bulkEligibilityCheck: exports.bulkEligibilityCheck,
-  getJobRecommendations: exports.getJobRecommendations
+  getJobRecommendations: exports.getJobRecommendations,
+  verifyPersonalInfo: exports.verifyPersonalInfo,
+  verifyAcademicInfo: exports.verifyAcademicInfo,
+  getStudentEligibilityStatus: exports.getStudentEligibilityStatus
 };

@@ -203,4 +203,13 @@ export const uploadAPI = {
   deleteResume: () => api.delete('/upload/resume'),
 };
 
+// Eligibility Management API (Admin/Moderator)
+export const eligibilityManagementAPI = {
+  getStudentEligibilityStatus: (studentId) => api.get(`/eligibility/student/${studentId}/status`),
+  verifyPersonalInfo: (studentId, verified = true, notes = '') => 
+    api.post(`/eligibility/student/${studentId}/verify/personal`, { verified, notes }),
+  verifyAcademicInfo: (studentId, verified = true, notes = '') => 
+    api.post(`/eligibility/student/${studentId}/verify/academic`, { verified, notes }),
+};
+
 export default api;

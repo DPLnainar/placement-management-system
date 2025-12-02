@@ -45,4 +45,26 @@ router.post(
   eligibilityController.bulkEligibilityCheck
 );
 
+// Student eligibility verification routes (Admin/Moderator)
+router.get(
+  '/student/:studentId/status',
+  authenticate,
+  requireRole(['admin', 'moderator']),
+  eligibilityController.getStudentEligibilityStatus
+);
+
+router.post(
+  '/student/:studentId/verify/personal',
+  authenticate,
+  requireRole(['admin', 'moderator']),
+  eligibilityController.verifyPersonalInfo
+);
+
+router.post(
+  '/student/:studentId/verify/academic',
+  authenticate,
+  requireRole(['admin', 'moderator']),
+  eligibilityController.verifyAcademicInfo
+);
+
 module.exports = router;
