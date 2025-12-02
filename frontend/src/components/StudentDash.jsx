@@ -894,18 +894,22 @@ export default function StudentDash() {
                               appliedJobs.has(job._id || job.id) || 
                               applyingJobId === (job._id || job.id) || 
                               isJobExpired(job) ||
+                              job.status !== 'active' ||
                               (jobEligibility[job._id || job.id]?.isEligible === false)
                             }
                             onClick={() => handleApply(job._id || job.id)}
                             variant={
                               appliedJobs.has(job._id || job.id) || 
                               isJobExpired(job) ||
+                              job.status !== 'active' ||
                               (jobEligibility[job._id || job.id]?.isEligible === false)
                                 ? "secondary" 
                                 : "default"
                             }
                             title={
-                              jobEligibility[job._id || job.id]?.isEligible === false
+                              job.status !== 'active'
+                                ? 'This job is no longer accepting applications'
+                                : jobEligibility[job._id || job.id]?.isEligible === false
                                 ? jobEligibility[job._id || job.id]?.issues?.join(', ') || 'You are not eligible for this job'
                                 : ''
                             }
@@ -916,7 +920,9 @@ export default function StudentDash() {
                                 ? 'Already Applied'
                                 : isJobExpired(job)
                                   ? 'Application Closed'
-                                  : jobEligibility[job._id || job.id]?.isEligible === false
+                                  : job.status !== 'active'
+                                    ? 'Job Closed'
+                                    : jobEligibility[job._id || job.id]?.isEligible === false
                                     ? 'Not Eligible'
                                     : 'Apply for this Position'}
                           </Button>
