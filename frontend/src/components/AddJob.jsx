@@ -18,8 +18,10 @@ function AddJob() {
     description: "",
     ctc: "",
     location: "",
-    openToAllBranches: true, // New field
+    openToAllBranches: true,
     eligible_branches: [],
+    jobBelongsToAllDepts: true, // Job department category
+    jobDepartments: [], // Specific departments
     min_cgpa: "",
     deadline: "",
   });
@@ -47,6 +49,15 @@ function AddJob() {
     });
   };
 
+  const handleDepartmentToggle = (dept) => {
+    setFormData({
+      ...formData,
+      jobDepartments: formData.jobDepartments.includes(dept)
+        ? formData.jobDepartments.filter((d) => d !== dept)
+        : [...formData.jobDepartments, dept],
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -60,6 +71,10 @@ function AddJob() {
         deadline: formData.deadline,
         packageDetails: {
           ctc: parseFloat(formData.ctc) || 0,
+        },
+        departmentCategory: {
+          isCommonForAll: formData.jobBelongsToAllDepts,
+          specificDepartments: formData.jobDepartments,
         },
         eligibilityCriteria: {
           minCGPA: parseFloat(formData.min_cgpa) || 0,
@@ -185,6 +200,58 @@ function AddJob() {
                   required
                 />
               </div>
+            </div>
+
+            {/* Job Department Category */}
+            <div className="space-y-4">
+              <div>
+                <Label className="mb-3 block font-semibold text-green-700">Job Department Category</Label>
+                <div className="flex items-center space-x-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                  <Checkbox
+                    id="jobBelongsToAllDepts"
+                    checked={formData.jobBelongsToAllDepts}
+                    onCheckedChange={(checked) =>
+                      setFormData({
+                        ...formData,
+                        jobBelongsToAllDepts: checked,
+                        jobDepartments: checked ? [] : formData.jobDepartments,
+                      })
+                    }
+                  />
+                  <label
+                    htmlFor="jobBelongsToAllDepts"
+                    className="text-sm font-medium leading-none cursor-pointer"
+                  >
+                    Common for All Departments
+                  </label>
+                </div>
+              </div>
+
+              {/* Show department checkboxes only if not common for all */}
+              {!formData.jobBelongsToAllDepts && (
+                <div>
+                  <Label className="mb-3 block text-sm text-gray-600">
+                    Which departments does this job belong to?
+                  </Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    {branches.map((dept) => (
+                      <div key={dept} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`dept-${dept}`}
+                          checked={formData.jobDepartments.includes(dept)}
+                          onCheckedChange={() => handleDepartmentToggle(dept)}
+                        />
+                        <label
+                          htmlFor={`dept-${dept}`}
+                          className="text-sm font-medium leading-none cursor-pointer"
+                        >
+                          {dept}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Eligible Branches - Toggle for All Departments */}

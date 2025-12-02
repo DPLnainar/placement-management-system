@@ -87,6 +87,11 @@ const jobSchema = new mongoose.Schema({
     enum: ['campus_placement', 'off_campus', 'internship', 'ppo', 'pool_campus'],
     default: 'campus_placement'
   },
+  // Department category - which department(s) this job belongs to
+  departmentCategory: {
+    isCommonForAll: { type: Boolean, default: true }, // If true, job is common for all departments
+    specificDepartments: { type: [String], default: [] }, // If isCommonForAll is false, specify departments
+  },
   companyTier: {
     type: String,
     enum: ['super_dream', 'dream', 'normal'],
