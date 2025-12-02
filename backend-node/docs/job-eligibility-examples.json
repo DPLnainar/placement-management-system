@@ -1,0 +1,283 @@
+{
+  "description": "Sample API requests for creating jobs with different eligibility configurations",
+  "endpoint": "POST /api/jobs",
+  "authentication": "Required - Bearer token (Admin or Moderator role)",
+  "headers": {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer <your_jwt_token>"
+  },
+  
+  "examples": {
+    "1_eligibility_all_departments": {
+      "description": "Job open to ALL departments - any student can apply",
+      "request": {
+        "title": "Software Developer Intern",
+        "company": "Tech Giants Inc.",
+        "description": "Seeking passionate developers for summer internship program. All branches welcome!",
+        "location": "Bangalore, India",
+        "salary": "₹30,000/month",
+        "jobType": "internship",
+        "deadline": "2025-12-31",
+        "eligibility": {
+          "type": "all"
+        },
+        "eligibilityCriteria": {
+          "minCGPA": 7.0,
+          "maxBacklogsAllowed": 0
+        }
+      },
+      "response": {
+        "success": true,
+        "message": "Job posted successfully",
+        "job": {
+          "_id": "507f1f77bcf86cd799439011",
+          "title": "Software Developer Intern",
+          "company": "Tech Giants Inc.",
+          "eligibility": {
+            "type": "all",
+            "departments": []
+          },
+          "status": "active"
+        }
+      }
+    },
+    
+    "2_eligibility_specific_departments": {
+      "description": "Job restricted to specific departments - only CSE, IT, and ECE students can apply",
+      "request": {
+        "title": "Full Stack Developer",
+        "company": "StartupHub Solutions",
+        "description": "Looking for full stack developers with strong coding skills. Open only for Computer Science, IT, and ECE branches.",
+        "location": "Hyderabad, India",
+        "salary": "₹8-12 LPA",
+        "jobType": "full-time",
+        "deadline": "2025-12-15",
+        "eligibility": {
+          "type": "specific",
+          "departments": ["CSE", "IT", "ECE"]
+        },
+        "eligibilityCriteria": {
+          "minCGPA": 7.5,
+          "maxBacklogsAllowed": 1,
+          "requiredSkills": ["React", "Node.js", "MongoDB"]
+        }
+      },
+      "response": {
+        "success": true,
+        "message": "Job posted successfully",
+        "job": {
+          "_id": "507f1f77bcf86cd799439012",
+          "title": "Full Stack Developer",
+          "company": "StartupHub Solutions",
+          "eligibility": {
+            "type": "specific",
+            "departments": ["CSE", "IT", "ECE"]
+          },
+          "status": "active"
+        }
+      }
+    },
+    
+    "3_eligibility_engineering_core": {
+      "description": "Job for core engineering branches only",
+      "request": {
+        "title": "Design Engineer",
+        "company": "AutoMotive Corp",
+        "description": "Automotive design engineer position for mechanical and electrical engineering graduates.",
+        "location": "Chennai, India",
+        "salary": "₹6-9 LPA",
+        "jobType": "full-time",
+        "deadline": "2025-11-30",
+        "eligibility": {
+          "type": "specific",
+          "departments": ["MECH", "EEE", "CIVIL"]
+        },
+        "eligibilityCriteria": {
+          "minCGPA": 6.5,
+          "maxBacklogsAllowed": 2
+        }
+      },
+      "response": {
+        "success": true,
+        "message": "Job posted successfully",
+        "job": {
+          "_id": "507f1f77bcf86cd799439013",
+          "title": "Design Engineer",
+          "company": "AutoMotive Corp",
+          "eligibility": {
+            "type": "specific",
+            "departments": ["MECH", "EEE", "CIVIL"]
+          },
+          "status": "active"
+        }
+      }
+    },
+    
+    "4_eligibility_ai_ml_departments": {
+      "description": "Job for AI/ML and Data Science specializations",
+      "request": {
+        "title": "Machine Learning Engineer",
+        "company": "AI Innovations Ltd",
+        "description": "Seeking ML engineers with strong foundation in statistics and programming.",
+        "location": "Pune, India",
+        "salary": "₹10-15 LPA",
+        "jobType": "full-time",
+        "deadline": "2025-12-20",
+        "eligibility": {
+          "type": "specific",
+          "departments": ["AI_ML", "AIDS", "DS", "CSE"]
+        },
+        "eligibilityCriteria": {
+          "minCGPA": 8.0,
+          "maxBacklogsAllowed": 0,
+          "requiredSkills": ["Python", "TensorFlow", "PyTorch"],
+          "preferredSkills": ["Deep Learning", "NLP", "Computer Vision"]
+        }
+      },
+      "response": {
+        "success": true,
+        "message": "Job posted successfully",
+        "job": {
+          "_id": "507f1f77bcf86cd799439014",
+          "title": "Machine Learning Engineer",
+          "company": "AI Innovations Ltd",
+          "eligibility": {
+            "type": "specific",
+            "departments": ["AI_ML", "AIDS", "DS", "CSE"]
+          },
+          "status": "active"
+        }
+      }
+    },
+    
+    "5_minimal_job_all_departments": {
+      "description": "Minimal job posting with only required fields - defaults to all departments",
+      "request": {
+        "title": "Business Analyst",
+        "company": "Consulting Pro",
+        "description": "Entry-level business analyst position. Open to all branches.",
+        "location": "Mumbai, India",
+        "deadline": "2025-12-10"
+      },
+      "note": "When eligibility field is omitted, it defaults to type: 'all'",
+      "response": {
+        "success": true,
+        "message": "Job posted successfully",
+        "job": {
+          "_id": "507f1f77bcf86cd799439015",
+          "title": "Business Analyst",
+          "company": "Consulting Pro",
+          "eligibility": {
+            "type": "all",
+            "departments": []
+          },
+          "status": "active"
+        }
+      }
+    }
+  },
+  
+  "error_examples": {
+    "1_missing_departments_array": {
+      "description": "Error when type is 'specific' but departments array is missing",
+      "request": {
+        "title": "Software Engineer",
+        "company": "TechCorp",
+        "description": "Software engineering role",
+        "location": "Bangalore",
+        "deadline": "2025-12-31",
+        "eligibility": {
+          "type": "specific"
+        }
+      },
+      "response": {
+        "success": false,
+        "message": "Departments array is required when eligibility type is \"specific\""
+      },
+      "status_code": 400
+    },
+    
+    "2_empty_departments_array": {
+      "description": "Error when departments array is empty for specific type",
+      "request": {
+        "title": "Software Engineer",
+        "company": "TechCorp",
+        "description": "Software engineering role",
+        "location": "Bangalore",
+        "deadline": "2025-12-31",
+        "eligibility": {
+          "type": "specific",
+          "departments": []
+        }
+      },
+      "response": {
+        "success": false,
+        "message": "Departments array cannot be empty when eligibility type is \"specific\""
+      },
+      "status_code": 400
+    },
+    
+    "3_invalid_department_codes": {
+      "description": "Error when invalid department codes are provided",
+      "request": {
+        "title": "Software Engineer",
+        "company": "TechCorp",
+        "description": "Software engineering role",
+        "location": "Bangalore",
+        "deadline": "2025-12-31",
+        "eligibility": {
+          "type": "specific",
+          "departments": ["CSE", "INVALID_DEPT", "XYZ"]
+        }
+      },
+      "response": {
+        "success": false,
+        "message": "Invalid department codes: INVALID_DEPT, XYZ. Valid codes are: CSE, ECE, EEE, IT, MECH, CIVIL, ISE, AI_ML, AIDS, DS, MBA, MCA"
+      },
+      "status_code": 400
+    },
+    
+    "4_invalid_eligibility_type": {
+      "description": "Error when eligibility type is not 'all' or 'specific'",
+      "request": {
+        "title": "Software Engineer",
+        "company": "TechCorp",
+        "description": "Software engineering role",
+        "location": "Bangalore",
+        "deadline": "2025-12-31",
+        "eligibility": {
+          "type": "some_other_type",
+          "departments": ["CSE"]
+        }
+      },
+      "response": {
+        "success": false,
+        "message": "Eligibility type must be one of: all, specific"
+      },
+      "status_code": 400
+    }
+  },
+  
+  "valid_department_codes": [
+    "CSE - Computer Science and Engineering",
+    "ECE - Electronics and Communication Engineering",
+    "EEE - Electrical and Electronics Engineering",
+    "IT - Information Technology",
+    "MECH - Mechanical Engineering",
+    "CIVIL - Civil Engineering",
+    "ISE - Information Science and Engineering",
+    "AI_ML - Artificial Intelligence and Machine Learning",
+    "AIDS - Artificial Intelligence and Data Science",
+    "DS - Data Science",
+    "MBA - Master of Business Administration",
+    "MCA - Master of Computer Applications"
+  ],
+  
+  "usage_notes": {
+    "checking_eligibility": "Use the helper methods in Job model to check if a student is eligible",
+    "instance_method": "job.checkStudentEligibility(student) - returns true/false",
+    "static_method": "Job.checkStudentEligibility(job, student) - returns true/false",
+    "student_object": "Student object must have 'department' or 'branch' field with department code",
+    "example_usage": "const isEligible = job.checkStudentEligibility({ department: 'CSE' });"
+  }
+}

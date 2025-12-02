@@ -1,4 +1,5 @@
 const Job = require('../models/Job');
+const { DEPARTMENT_CODES } = require('../constants/departments');
 
 /**
  * Create Job Posting
@@ -19,9 +20,48 @@ exports.createJob = async (req, res) => {
       });
     }
 
+    // Handle eligibility based on type
+    let eligibilityToSave = {};
+    
+    if (jobData.eligibilityType) {
+      eligibilityToSave.eligibilityType = jobData.eligibilityType;
+
+      if (jobData.eligibilityType === 'common') {
+        // For common eligibility, save commonEligibility with tenth, twelfth, cgpa
+        if (jobData.commonEligibility) {
+          eligibilityToSave.commonEligibility = {
+            tenth: jobData.commonEligibility.tenth || 0,
+            twelfth: jobData.commonEligibility.twelfth || 0,
+            cgpa: jobData.commonEligibility.cgpa || 0
+          };
+        }
+      } else if (jobData.eligibilityType === 'department-wise') {
+        // For department-wise, save departmentWiseEligibility array
+        if (jobData.departmentWiseEligibility && Array.isArray(jobData.departmentWiseEligibility)) {
+          eligibilityToSave.departmentWiseEligibility = jobData.departmentWiseEligibility.map(dept => ({
+            department: dept.department,
+            tenth: dept.tenth || 0,
+            twelfth: dept.twelfth || 0,
+            cgpa: dept.cgpa || 0
+          }));
+        }
+      }
+    } else {
+      // Default to common eligibility if type not specified (backward compatibility)
+      eligibilityToSave.eligibilityType = 'common';
+      if (jobData.commonEligibility) {
+        eligibilityToSave.commonEligibility = {
+          tenth: jobData.commonEligibility.tenth || 0,
+          twelfth: jobData.commonEligibility.twelfth || 0,
+          cgpa: jobData.commonEligibility.cgpa || 0
+        };
+      }
+    }
+
     // Create new job with all fields
     const newJob = new Job({
       ...jobData,
+      ...eligibilityToSave,
       collegeId: req.user.collegeId._id || req.user.collegeId,
       postedBy: req.user._id,
       status: jobData.status || 'active',

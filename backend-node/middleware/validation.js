@@ -6,6 +6,7 @@
  */
 
 const mongoose = require('mongoose');
+const { validateDepartments } = require('../constants/departments');
 
 /**
  * Validate MongoDB ObjectId
@@ -239,6 +240,103 @@ const validateDate = (fieldName) => {
   };
 };
 
+/**
+ * Validate job eligibility configuration (common vs department-wise)
+ */
+const validateJobEligibility = (req, res, next) => {
+  const { eligibilityType, commonEligibility, departmentWiseEligibility } = req.body;
+  
+  // If no eligibility type specified, skip (will default to 'common')
+  if (!eligibilityType) {
+    return next();
+  }
+  
+  // Validate eligibility type
+  const validTypes = ['common', 'department-wise'];
+  if (!validTypes.includes(eligibilityType)) {
+    return res.status(400).json({
+      success: false,
+      message: `Eligibility type must be one of: ${validTypes.join(', ')}`
+    });
+  }
+  
+  // Validate common eligibility
+  if (eligibilityType === 'common') {
+    if (commonEligibility) {
+      if (typeof commonEligibility.tenth !== 'number' || commonEligibility.tenth < 0 || commonEligibility.tenth > 100) {
+        return res.status(400).json({
+          success: false,
+          message: 'Common eligibility: tenth percentage must be between 0-100'
+        });
+      }
+      if (typeof commonEligibility.twelfth !== 'number' || commonEligibility.twelfth < 0 || commonEligibility.twelfth > 100) {
+        return res.status(400).json({
+          success: false,
+          message: 'Common eligibility: twelfth percentage must be between 0-100'
+        });
+      }
+      if (typeof commonEligibility.cgpa !== 'number' || commonEligibility.cgpa < 0 || commonEligibility.cgpa > 10) {
+        return res.status(400).json({
+          success: false,
+          message: 'Common eligibility: CGPA must be between 0-10'
+        });
+      }
+    }
+  }
+  
+  // Validate department-wise eligibility
+  if (eligibilityType === 'department-wise') {
+    if (!departmentWiseEligibility || !Array.isArray(departmentWiseEligibility)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Department-wise eligibility requires an array of department criteria'
+      });
+    }
+    
+    if (departmentWiseEligibility.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one department criteria must be provided'
+      });
+    }
+    
+    // Validate each department criteria
+    for (let i = 0; i < departmentWiseEligibility.length; i++) {
+      const dept = departmentWiseEligibility[i];
+      
+      if (!dept.department) {
+        return res.status(400).json({
+          success: false,
+          message: `Department name is required for criteria #${i + 1}`
+        });
+      }
+      
+      if (typeof dept.tenth !== 'number' || dept.tenth < 0 || dept.tenth > 100) {
+        return res.status(400).json({
+          success: false,
+          message: `${dept.department}: tenth percentage must be between 0-100`
+        });
+      }
+      
+      if (typeof dept.twelfth !== 'number' || dept.twelfth < 0 || dept.twelfth > 100) {
+        return res.status(400).json({
+          success: false,
+          message: `${dept.department}: twelfth percentage must be between 0-100`
+        });
+      }
+      
+      if (typeof dept.cgpa !== 'number' || dept.cgpa < 0 || dept.cgpa > 10) {
+        return res.status(400).json({
+          success: false,
+          message: `${dept.department}: CGPA must be between 0-10`
+        });
+      }
+    }
+  }
+  
+  next();
+};
+
 module.exports = {
   validateObjectId,
   validateRequiredFields,
@@ -248,5 +346,6 @@ module.exports = {
   validateRange,
   validateEnum,
   sanitizeInput,
-  validateDate
+  validateDate,
+  validateJobEligibility
 };

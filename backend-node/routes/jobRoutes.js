@@ -5,6 +5,9 @@ const {
   requireSameCollege 
 } = require('../middleware/auth');
 const {
+  validateJobEligibility
+} = require('../middleware/validation');
+const {
   createJob,
   getJobs,
   getJobById,
@@ -43,6 +46,7 @@ router.use(requireSameCollege);
 router.post(
   '/',
   requireRole(['admin', 'moderator']),
+  validateJobEligibility,
   createJob
 );
 

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { DEPARTMENT_CODES, validateDepartments } = require('../constants/departments');
 
 /**
  * Job Model
@@ -96,6 +97,69 @@ const jobSchema = new mongoose.Schema({
     type: String,
     enum: ['super_dream', 'dream', 'normal'],
     default: 'normal'
+  },
+  // Eligibility Type: common for all departments or different for each department
+  eligibilityType: {
+    type: String,
+    enum: ['common', 'department-wise'],
+    default: 'common',
+    required: true
+  },
+  
+  // Common eligibility - applies to all departments
+  commonEligibility: {
+    tenth: { type: Number, min: 0, max: 100, default: 0 },
+    twelfth: { type: Number, min: 0, max: 100, default: 0 },
+    cgpa: { type: Number, min: 0, max: 10, default: 0 }
+  },
+  
+  // Department-wise eligibility - different criteria per department
+  departmentWiseEligibility: [
+    {
+      department: {
+        type: String,
+        enum: DEPARTMENT_CODES,
+        required: function() { return this.eligibilityType === 'department-wise'; }
+      },
+      tenth: { type: Number, min: 0, max: 100, default: 0 },
+      twelfth: { type: Number, min: 0, max: 100, default: 0 },
+      cgpa: { type: Number, min: 0, max: 10, default: 0 }
+    }
+  ],
+
+  // Legacy standardized eligibility field (kept for backward compatibility)
+  eligibility: {
+    type: {
+      type: String,
+      enum: ['all', 'specific'],
+      default: 'all',
+      required: true
+    },
+    departments: {
+      type: [String],
+      default: [],
+      validate: {
+        validator: function(departments) {
+          // If type is 'specific', departments array must not be empty
+          if (this.eligibility && this.eligibility.type === 'specific') {
+            if (!departments || departments.length === 0) {
+              return false;
+            }
+            // Validate all department codes are valid
+            const validation = validateDepartments(departments);
+            return validation.valid;
+          }
+          return true;
+        },
+        message: function(props) {
+          if (!props.value || props.value.length === 0) {
+            return 'Departments array cannot be empty when eligibility type is "specific"';
+          }
+          const validation = validateDepartments(props.value);
+          return `Invalid department codes: ${validation.invalidCodes.join(', ')}. Valid codes: ${DEPARTMENT_CODES.join(', ')}`;
+        }
+      }
+    }
   },
   // Comprehensive eligibility criteria
   eligibilityCriteria: {
@@ -349,6 +413,47 @@ jobSchema.methods.checkEligibility = function(studentData) {
     isEligible: issues.length === 0,
     issues: issues
   };
+};
+
+/**
+ * Check if a student is eligible based on the eligibility field (department-based)
+ * @param {Object} student - Student object with department field
+ * @returns {boolean} - True if eligible, false otherwise
+ */
+jobSchema.methods.checkStudentEligibility = function(student) {
+  // If eligibility type is 'all', all students are eligible
+  if (!this.eligibility || this.eligibility.type === 'all') {
+    return true;
+  }
+  
+  // If eligibility type is 'specific', check if student's department is in the list
+  if (this.eligibility.type === 'specific') {
+    const studentDept = student.department || student.branch;
+    return this.eligibility.departments.includes(studentDept);
+  }
+  
+  return false;
+};
+
+/**
+ * Static helper to check student eligibility (can be called without instance)
+ * @param {Object} job - Job object with eligibility field
+ * @param {Object} student - Student object with department field
+ * @returns {boolean} - True if eligible, false otherwise
+ */
+jobSchema.statics.checkStudentEligibility = function(job, student) {
+  // If eligibility type is 'all', all students are eligible
+  if (!job.eligibility || job.eligibility.type === 'all') {
+    return true;
+  }
+  
+  // If eligibility type is 'specific', check if student's department is in the list
+  if (job.eligibility.type === 'specific') {
+    const studentDept = student.department || student.branch;
+    return job.eligibility.departments.includes(studentDept);
+  }
+  
+  return false;
 };
 
 module.exports = mongoose.model('Job', jobSchema);
