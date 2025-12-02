@@ -70,7 +70,7 @@ export default function CreateJob() {
     { code: 'MECH', name: 'Mechanical Engineering' },
     { code: 'CIVIL', name: 'Civil Engineering' },
     { code: 'AIML', name: 'AI & Machine Learning' },
-    { code: 'AIDS', name: 'AI in Data Science' },
+    { code: 'AIML_DS', name: 'Artificial Intelligence and Data Science' },
   ];
 
   const handleChange = (e) => {
