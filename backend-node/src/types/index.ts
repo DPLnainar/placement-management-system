@@ -21,11 +21,16 @@ export interface IUser extends Document {
 export interface IAuthRequest extends Request {
   user?: {
     _id: string;
-    username: string;
+    username?: string;
+    name?: string;
     email: string;
     role: string;
-    collegeId?: string;
+    collegeId?: any;
+    status?: string;
   };
+  collegeId?: any;
+  college?: any;
+  isSuperAdmin?: boolean;
 }
 
 export interface IJWTPayload {
