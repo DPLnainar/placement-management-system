@@ -8,6 +8,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // Enable sending cookies with requests
 });
 
 // Add request interceptor to include token
@@ -24,10 +25,27 @@ api.interceptors.request.use(
   }
 );
 
+// Track if we're currently refreshing token to avoid multiple refresh attempts
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
 // Add response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
+
     // Handle network errors or no response
     if (!error.response) {
       console.error('Network error or no response:', error);
@@ -35,24 +53,62 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Handle authentication errors - but exclude login/register endpoints
+    // Handle authentication errors
     const isLoginEndpoint = error.config?.url?.includes('/auth/login') ||
-      error.config?.url?.includes('/auth/register');
+      error.config?.url?.includes('/auth/register') ||
+      error.config?.url?.includes('/auth/refresh-token');
 
-    if (error.response?.status === 401 && !isLoginEndpoint) {
-      console.warn('Authentication failed - redirecting to login');
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+    if (error.response?.status === 401 && !isLoginEndpoint && !originalRequest._retry) {
+      if (isRefreshing) {
+        // If already refreshing, queue this request
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then(token => {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return api(originalRequest);
+        }).catch(err => {
+          return Promise.reject(err);
+        });
+      }
 
-      // Create a custom error to prevent JSON parse issues
-      const authError = new Error('Session expired. Please login again.');
-      authError.isAuthError = true;
+      originalRequest._retry = true;
+      isRefreshing = true;
 
-      setTimeout(() => {
-        window.location.href = '/';
-      }, 100);
+      try {
+        // Attempt to refresh token
+        const response = await axios.post(`${API_BASE_URL}/auth/refresh-token`, {}, {
+          withCredentials: true
+        });
 
-      return Promise.reject(authError);
+        const { token } = response.data.data;
+        localStorage.setItem('token', token);
+        
+        // Update authorization header
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        originalRequest.headers.Authorization = `Bearer ${token}`;
+        
+        processQueue(null, token);
+        isRefreshing = false;
+        
+        return api(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        isRefreshing = false;
+        
+        // Clear auth data and redirect to login
+        console.warn('Token refresh failed - redirecting to login');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+
+        const authError = new Error('Session expired. Please login again.');
+        authError.isAuthError = true;
+
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 100);
+
+        return Promise.reject(authError);
+      }
     }
 
     // Handle JSON parse errors in response
@@ -78,7 +134,10 @@ export const authAPI = {
   register: (data) => api.post('/auth/register', data),
   registerInvited: (data) => api.post('/auth/register-invited', data),
   login: (data) => api.post('/auth/login', data),
+  logout: () => api.post('/auth/logout'),
   getCurrentUser: () => api.get('/auth/me'),
+  getCaptcha: () => api.get('/auth/captcha'),
+  refreshToken: () => api.post('/auth/refresh-token'),
   forgotPassword: (data) => api.post('/auth/forgot-password', data),
   resetPassword: (data) => api.post('/auth/reset-password', data),
   changePassword: (data) => api.put('/auth/change-password', data),

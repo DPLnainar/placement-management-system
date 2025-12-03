@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Lock, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
+import { Lock, Eye, EyeOff, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -16,6 +16,11 @@ export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [tokenValid, setTokenValid] = useState(true);
+  const [passwordStrength, setPasswordStrength] = useState({
+    isValid: false,
+    score: 0,
+    errors: []
+  });
 
   const [formData, setFormData] = useState({
     password: '',
@@ -31,17 +36,80 @@ export default function ResetPassword() {
     }
   }, [token]);
 
+  useEffect(() => {
+    validatePassword(formData.password);
+  }, [formData.password]);
+
+  const validatePassword = (pwd) => {
+    const errors = [];
+    let score = 0;
+
+    // Length check
+    if (pwd.length >= 8) {
+      score += 20;
+    } else {
+      errors.push('At least 8 characters');
+    }
+
+    // Uppercase check
+    if (/[A-Z]/.test(pwd)) {
+      score += 20;
+    } else {
+      errors.push('One uppercase letter');
+    }
+
+    // Lowercase check
+    if (/[a-z]/.test(pwd)) {
+      score += 20;
+    } else {
+      errors.push('One lowercase letter');
+    }
+
+    // Number check
+    if (/[0-9]/.test(pwd)) {
+      score += 20;
+    } else {
+      errors.push('One number');
+    }
+
+    // Special character check
+    if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd)) {
+      score += 20;
+    } else {
+      errors.push('One special character');
+    }
+
+    setPasswordStrength({
+      isValid: errors.length === 0,
+      score,
+      errors
+    });
+  };
+
+  const getStrengthColor = () => {
+    if (passwordStrength.score < 40) return 'bg-red-500';
+    if (passwordStrength.score < 80) return 'bg-yellow-500';
+    return 'bg-green-500';
+  };
+
+  const getStrengthText = () => {
+    if (passwordStrength.score < 40) return 'Weak';
+    if (passwordStrength.score < 80) return 'Medium';
+    return 'Strong';
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+    // Validate password strength
+    if (!passwordStrength.isValid) {
+      setError('Password does not meet strength requirements');
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters long');
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
       return;
     }
 
@@ -50,7 +118,7 @@ export default function ResetPassword() {
     try {
       await authAPI.resetPassword({
         token,
-        password: formData.password,
+        newPassword: formData.password,
       });
       setSuccess(true);
       setTimeout(() => {
@@ -59,7 +127,13 @@ export default function ResetPassword() {
     } catch (err) {
       console.error('Reset password error:', err);
       const errorMsg = err.response?.data?.message || err.message || 'Failed to reset password';
-      setError(errorMsg);
+      
+      // Handle validation errors from backend
+      if (err.response?.data?.errors) {
+        setError(err.response.data.errors.join(', '));
+      } else {
+        setError(errorMsg);
+      }
     } finally {
       setLoading(false);
     }
@@ -165,8 +239,38 @@ export default function ResetPassword() {
                   )}
                 </button>
               </div>
-              <p className="text-xs text-gray-500">Minimum 6 characters</p>
             </div>
+
+            {/* Password Strength Indicator */}
+            {formData.password && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">Password Strength:</span>
+                  <span className={`font-semibold ${passwordStrength.score >= 80 ? 'text-green-600' : passwordStrength.score >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
+                    {getStrengthText()}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className={`h-2 rounded-full transition-all ${getStrengthColor()}`}
+                    style={{ width: `${passwordStrength.score}%` }}
+                  />
+                </div>
+                {passwordStrength.errors.length > 0 && (
+                  <div className="text-xs text-gray-600 space-y-1">
+                    <p className="font-semibold">Requirements:</p>
+                    <ul className="list-none space-y-0.5">
+                      {passwordStrength.errors.map((err, idx) => (
+                        <li key={idx} className="flex items-center gap-1">
+                          <XCircle className="h-3 w-3 text-red-500" />
+                          {err}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm Password</Label>
@@ -193,6 +297,9 @@ export default function ResetPassword() {
                   )}
                 </button>
               </div>
+              {formData.confirmPassword && formData.password !== formData.confirmPassword && (
+                <p className="text-xs text-red-600">Passwords do not match</p>
+              )}
             </div>
 
             {error && (
@@ -201,7 +308,11 @@ export default function ResetPassword() {
               </div>
             )}
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={loading || !passwordStrength.isValid || formData.password !== formData.confirmPassword}
+            >
               {loading ? (
                 'Resetting...'
               ) : (

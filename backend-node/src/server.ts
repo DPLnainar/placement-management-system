@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { connectDB } from '@config/database';
 
 // Import middleware
@@ -66,6 +67,9 @@ app.use(
     allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
+
+// Cookie parser for handling httpOnly cookies
+app.use(cookieParser());
 
 // Body parser
 app.use(express.json({ limit: '10mb' }));

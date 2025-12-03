@@ -6,7 +6,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { LogIn, Eye, EyeOff, GraduationCap, Users, Shield, ArrowLeft, Building2 } from 'lucide-react';
+import { LogIn, Eye, EyeOff, GraduationCap, Users, Shield, ArrowLeft, Building2, RefreshCw } from 'lucide-react';
 
 export default function RoleLogin() {
   const { role } = useParams();
@@ -17,6 +17,9 @@ export default function RoleLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [colleges, setColleges] = useState([]);
   const [selectedCollege, setSelectedCollege] = useState('');
+  const [captcha, setCaptcha] = useState({ captchaId: '', captchaCode: '' });
+  const [captchaInput, setCaptchaInput] = useState('');
+  const [loadingCaptcha, setLoadingCaptcha] = useState(false);
 
   const [formData, setFormData] = useState({
     username: '',
@@ -38,6 +41,7 @@ export default function RoleLogin() {
 
   useEffect(() => {
     fetchColleges();
+    fetchCaptcha();
   }, []);
 
   const fetchColleges = async () => {
@@ -50,6 +54,24 @@ export default function RoleLogin() {
       setColleges(Array.isArray(collegesData) ? collegesData : []);
     } catch (error) {
       console.error('Error fetching colleges:', error);
+    }
+  };
+
+  const fetchCaptcha = async () => {
+    setLoadingCaptcha(true);
+    try {
+      const response = await authAPI.getCaptcha();
+      const captchaData = response.data.data;
+      setCaptcha({
+        captchaId: captchaData.captchaId,
+        captchaCode: captchaData.captchaCode
+      });
+      setCaptchaInput('');
+    } catch (error) {
+      console.error('Error fetching captcha:', error);
+      setError('Failed to load captcha. Please refresh the page.');
+    } finally {
+      setLoadingCaptcha(false);
     }
   };
 
@@ -86,10 +108,19 @@ export default function RoleLogin() {
     setLoading(true);
 
     try {
+      // Validate captcha input
+      if (!captchaInput || captchaInput.trim().length !== 4) {
+        setError('Please enter the 4-digit captcha');
+        setLoading(false);
+        return;
+      }
+
       const loginData = {
         username: formData.username,
         password: formData.password,
-        collegeId: selectedCollege || undefined
+        collegeId: selectedCollege || undefined,
+        captchaId: captcha.captchaId,
+        captchaInput: captchaInput.trim()
       };
 
       const response = await authAPI.login(loginData);
@@ -110,6 +141,7 @@ export default function RoleLogin() {
       if (userRole !== expectedRole && !(userRole === 'superadmin' && expectedRole === 'admin')) {
         setError(`Incorrect username or password`);
         setLoading(false);
+        fetchCaptcha(); // Refresh captcha on error
         return;
       }
 
@@ -134,6 +166,7 @@ export default function RoleLogin() {
       console.error('Login error:', err);
       const errorMsg = err.response?.data?.message || err.message || 'Login failed';
       setError(errorMsg);
+      fetchCaptcha(); // Refresh captcha on error
     } finally {
       setLoading(false);
     }
@@ -234,6 +267,41 @@ export default function RoleLogin() {
               </div>
             </div>
 
+            {/* Captcha Section */}
+            <div className="space-y-2">
+              <Label htmlFor="captcha">Security Code</Label>
+              <div className="flex gap-2 items-start">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3 rounded-lg font-bold text-2xl tracking-widest select-none">
+                      {loadingCaptcha ? '....' : captcha.captchaCode}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={fetchCaptcha}
+                      disabled={loadingCaptcha}
+                      title="Refresh captcha"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${loadingCaptcha ? 'animate-spin' : ''}`} />
+                    </Button>
+                  </div>
+                  <Input
+                    id="captcha"
+                    type="text"
+                    value={captchaInput}
+                    onChange={(e) => setCaptchaInput(e.target.value)}
+                    placeholder="Enter 4-digit code"
+                    maxLength={4}
+                    pattern="[0-9]{4}"
+                    required
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-gray-500">Enter the 4-digit code shown above</p>
+            </div>
+
             <div className="flex items-center justify-end">
               <Link to="/forgot-password" className="text-sm text-indigo-600 hover:text-indigo-500">
                 Forgot password?
@@ -249,7 +317,7 @@ export default function RoleLogin() {
             <Button
               type="submit"
               className={`w-full bg-gradient-to-r ${config.color}`}
-              disabled={loading || !formData.username || !formData.password}
+              disabled={loading || !formData.username || !formData.password || !captchaInput}
             >
               {loading ? (
                 'Signing in...'

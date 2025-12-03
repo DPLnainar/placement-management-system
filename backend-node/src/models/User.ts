@@ -18,6 +18,11 @@ export interface IUser extends Document {
   department?: string;
   resetPasswordToken?: string;
   resetPasswordExpire?: Date;
+  lastLogin?: Date;
+  failedAttempts: number;
+  accountLockedUntil?: Date;
+  isActive: boolean;
+  refreshToken?: string;
   primaryEmail?: string;
   secondaryEmail?: string;
   primaryPhone?: string;
@@ -106,6 +111,27 @@ const userSchema = new Schema<IUser>(
     },
     resetPasswordExpire: {
       type: Date,
+      default: undefined,
+    },
+    lastLogin: {
+      type: Date,
+      default: undefined,
+    },
+    failedAttempts: {
+      type: Number,
+      default: 0,
+    },
+    accountLockedUntil: {
+      type: Date,
+      default: undefined,
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    refreshToken: {
+      type: String,
+      select: false, // Don't return refresh token by default
       default: undefined,
     },
     primaryEmail: { type: String, trim: true, default: '' },
