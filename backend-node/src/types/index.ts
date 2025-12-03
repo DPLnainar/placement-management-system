@@ -1,4 +1,5 @@
 import { Document } from 'mongoose';
+import { Request } from 'express';
 
 export interface IUser extends Document {
   username: string;
@@ -14,10 +15,17 @@ export interface IUser extends Document {
   updatedAt: Date;
 }
 
-export interface IAuthRequest {
-  username: string;
-  email?: string;
-  password: string;
+/**
+ * Extended Express Request with authenticated user
+ */
+export interface IAuthRequest extends Request {
+  user?: {
+    _id: string;
+    username: string;
+    email: string;
+    role: string;
+    collegeId?: string;
+  };
 }
 
 export interface IJWTPayload {
@@ -41,6 +49,7 @@ export interface IApiResponse<T = any> {
   success: boolean;
   message: string;
   data?: T;
+  count?: number;
   error?: string;
   statusCode?: number;
 }
