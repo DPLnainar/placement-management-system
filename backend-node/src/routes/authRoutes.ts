@@ -1,5 +1,6 @@
 import { Router } from 'express';
-// import { authenticate, requireRole, requireSameCollege } from '@middleware/auth';
+import { authenticate } from '@middleware/auth';
+import * as authController from '@controllers/authController';
 
 const router = Router();
 
@@ -14,14 +15,14 @@ const router = Router();
  * PUT /api/auth/change-password - Change password
  */
 
-// Public routes - Temporarily disabled until authController is migrated
-// router.post('/login', login);
-// router.post('/register-invited', registerInvited);
-// router.post('/forgot-password', forgotPassword);
-// router.post('/reset-password', resetPassword);
+// Public routes
+router.post('/login', authController.login);
+router.post('/register-invited', authController.registerInvited);
+router.post('/forgot-password', authController.forgotPassword);
+router.post('/reset-password', authController.resetPassword);
 
 // Protected routes (require authentication)
-// router.get('/profile', authenticate, getProfile);
-// router.put('/change-password', authenticate, changePassword);
+router.get('/profile', authenticate, authController.getProfile);
+router.put('/change-password', authenticate, authController.changePassword);
 
 export default router;
