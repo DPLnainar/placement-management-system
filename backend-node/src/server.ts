@@ -52,7 +52,7 @@ const PORT = process.env.PORT || 8000;
 // ==========================================
 
 // Request logging
-app.use((req: Request, res: Response, next: NextFunction) => {
+app.use((req: Request, _res: Response, next: NextFunction): void => {
   console.log(`\n📨 [${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
@@ -90,7 +90,7 @@ app.use('/api/', generalLimiter);
 // ==========================================
 
 // Health check endpoint
-app.get('/', (req: Request, res: Response) => {
+app.get('/', (_req: Request, res: Response): void => {
   res.json({
     success: true,
     message: 'College Placement Management API',
@@ -137,16 +137,16 @@ app.use('/api/export', exportRoutes);
 // ==========================================
 
 // 404 handler
-app.use((req: Request, res: Response) => {
+app.use((_req: Request, res: Response): void => {
   res.status(404).json({
     success: false,
     message: 'Route not found',
-    path: req.path,
+    path: _req.path,
   });
 });
 
 // Global error handler
-app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+app.use((err: any, _req: Request, res: Response, _next: NextFunction): void => {
   console.error('\n❌ ERROR:', err.message);
 
   if (process.env.NODE_ENV !== 'production') {
@@ -156,35 +156,39 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   // MongoDB duplicate key error
   if (err.code === 11000) {
     const field = Object.keys(err.keyPattern)[0];
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       message: `${field} already exists`,
     });
+    return;
   }
 
   // MongoDB validation error
   if (err.name === 'ValidationError') {
     const errors = Object.values(err.errors).map((e: any) => e.message);
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       message: 'Validation error',
       errors,
     });
+    return;
   }
 
   // JWT errors
   if (err.name === 'JsonWebTokenError') {
-    return res.status(401).json({
+    res.status(401).json({
       success: false,
       message: 'Invalid token',
     });
+    return;
   }
 
   if (err.name === 'TokenExpiredError') {
-    return res.status(401).json({
+    res.status(401).json({
       success: false,
       message: 'Token expired',
     });
+    return;
   }
 
   // Default error response
