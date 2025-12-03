@@ -1,6 +1,6 @@
 import { Router } from 'express';
-// Commented out until jobController is migrated
-// import { authenticate, requireRole, requireSameCollege } from '@middleware/auth';
+import { authenticate, requireRole, requireSameCollege } from '@middleware/auth';
+import * as jobController from '@controllers/jobController';
 
 const router = Router();
 
@@ -9,55 +9,48 @@ const router = Router();
  * 
  * All routes require authentication
  * Jobs are scoped to user's college
- * 
- * POST /api/jobs - Create job (admin/moderator)
- * GET /api/jobs - Get all jobs in user's college (all roles)
- * GET /api/jobs/:id - Get specific job (all roles)
- * PUT /api/jobs/:id - Update job (admin/moderator)
- * DELETE /api/jobs/:id - Delete job (admin/moderator)
  */
 
 // All routes require authentication
-// router.use(authenticate);
+router.use(authenticate);
 
 // All routes check college association
-// router.use(requireSameCollege);
+router.use(requireSameCollege);
 
-// Temporarily disabled until jobController is migrated
 // Admin and Moderator: Create job
-// router.post('/', requireRole(['admin', 'moderator']), createJob);
+router.post('/', requireRole(['admin', 'moderator']), jobController.createJob);
 
 // All roles: View jobs from their college
-// router.get('/', getJobs);
+router.get('/', jobController.getJobs);
 
 // All roles: View specific job from their college
-// router.get('/:id', getJobById);
+router.get('/:id', jobController.getJobById);
 
 // Admin and Moderator: Update job
-// router.put('/:id', requireRole(['admin', 'moderator']), updateJob);
+router.put('/:id', requireRole(['admin', 'moderator']), jobController.updateJob);
 
 // Admin and Moderator: Change job status
-// router.put('/:id/status', requireRole(['admin', 'moderator']), changeJobStatus);
+router.put('/:id/status', requireRole(['admin', 'moderator']), jobController.changeJobStatus);
 
 // Admin and Moderator: Delete job
-// router.delete('/:id', requireRole(['admin', 'moderator']), deleteJob);
+router.delete('/:id', requireRole(['admin', 'moderator']), jobController.deleteJob);
 
 // Admin and Moderator: Extend job deadline
-// router.put('/:id/extend-deadline', requireRole(['admin', 'moderator']), extendDeadline);
+router.put('/:id/extend-deadline', requireRole(['admin', 'moderator']), jobController.extendDeadline);
 
 // All roles: Check eligibility for a job
-// router.get('/:id/check-eligibility', checkEligibility);
+router.get('/:id/check-eligibility', jobController.checkEligibility);
 
 // Admin and Moderator: Get job statistics
-// router.get('/:id/statistics', requireRole(['admin', 'moderator']), getJobStatistics);
+router.get('/:id/statistics', requireRole(['admin', 'moderator']), jobController.getJobStatistics);
 
 // Admin: Bulk update job status
-// router.post('/bulk/update-status', requireRole(['admin']), bulkUpdateStatus);
+router.post('/bulk/update-status', requireRole(['admin']), jobController.bulkUpdateStatus);
 
 // Admin and Moderator: Close expired jobs
-// router.post('/bulk/close-expired', requireRole(['admin', 'moderator']), closeExpiredJobs);
+router.post('/bulk/close-expired', requireRole(['admin', 'moderator']), jobController.closeExpiredJobs);
 
 // All roles: Get jobs closing soon
-// router.get('/special/closing-soon', getJobsClosingSoon);
+router.get('/special/closing-soon', jobController.getJobsClosingSoon);
 
 export default router;
