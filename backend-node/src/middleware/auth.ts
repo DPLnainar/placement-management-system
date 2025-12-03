@@ -60,12 +60,13 @@ export const authenticate = async (
         return;
       }
 
-      // Attach user to request object
+      // Attach user to request object with complete information
       req.user = {
         _id: user._id.toString(),
         email: user.email,
         role: user.role,
         collegeId: user.collegeId,
+        department: (user as any).department || undefined,
         name: (user as any).name || (user as any).fullName || user.username,
         status: user.status
       };
@@ -286,3 +287,153 @@ export const verifyCollegeAdmin = (
 // Aliases for consistency with other routes
 export const protect = authenticate;
 export const authorize = requireRole;
+
+/**
+ * Alias for authenticate middleware
+ * Usage: requireAuth as the first middleware in protected routes
+ */
+export const requireAuth = authenticate;
+
+/**
+ * Middleware to ensure college admin only manages their assigned college
+ * 
+ * Usage: requireCollegeAdminOf('collegeId')
+ * 
+ * Checks if the college admin is trying to access/modify a resource
+ * that belongs to their college. Parameter name specifies which req param contains the college ID.
+ * 
+ * SuperAdmin bypasses this check.
+ */
+export const requireCollegeAdminOf = (collegeIdParam: string = 'collegeId') => {
+  return (req: IAuthRequest, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+      return;
+    }
+
+    // SuperAdmin can manage any college
+    if (req.user.role === 'superadmin') {
+      next();
+      return;
+    }
+
+    // Must be an admin
+    if (req.user.role !== 'admin') {
+      res.status(403).json({
+        success: false,
+        message: 'Access denied. Only administrators can perform this action.'
+      });
+      return;
+    }
+
+    // Get the college ID from params, body, or query
+    const targetCollegeId = 
+      req.params[collegeIdParam] || 
+      req.body[collegeIdParam] || 
+      req.query[collegeIdParam];
+
+    // If no college ID specified, allow (will default to admin's own college)
+    if (!targetCollegeId) {
+      next();
+      return;
+    }
+
+    // Get admin's college ID
+    const adminCollegeId = (req.user.collegeId as any)?._id?.toString() || 
+                          (req.user.collegeId as any)?.toString() ||
+                          req.user.collegeId;
+
+    if (!adminCollegeId) {
+      res.status(403).json({
+        success: false,
+        message: 'Admin account not properly configured. No college assigned.'
+      });
+      return;
+    }
+
+    // Check if target college matches admin's college
+    if (targetCollegeId.toString() !== adminCollegeId) {
+      res.status(403).json({
+        success: false,
+        message: 'Access denied. You can only manage resources in your assigned college.'
+      });
+      return;
+    }
+
+    next();
+  };
+};
+
+/**
+ * Middleware to ensure moderator controls only their department
+ * 
+ * Usage: requireModeratorOfDept('department')
+ * 
+ * Checks if the moderator is trying to access/modify a resource
+ * that belongs to their department. Parameter name specifies which req param contains the department.
+ * 
+ * SuperAdmin and Admin bypass this check.
+ */
+export const requireModeratorOfDept = (deptParam: string = 'department') => {
+  return (req: IAuthRequest, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+      return;
+    }
+
+    // SuperAdmin and Admin can manage any department
+    if (req.user.role === 'superadmin' || req.user.role === 'admin') {
+      next();
+      return;
+    }
+
+    // Must be a moderator
+    if (req.user.role !== 'moderator') {
+      res.status(403).json({
+        success: false,
+        message: 'Access denied. Only moderators can perform this action.'
+      });
+      return;
+    }
+
+    // Get the target department from params, body, or query
+    const targetDepartment = 
+      req.params[deptParam] || 
+      req.body[deptParam] || 
+      req.query[deptParam];
+
+    // If no department specified, allow (will default to moderator's own department)
+    if (!targetDepartment) {
+      next();
+      return;
+    }
+
+    // Get moderator's department
+    const moderatorDept = req.user.department;
+
+    if (!moderatorDept) {
+      res.status(403).json({
+        success: false,
+        message: 'Moderator account not properly configured. No department assigned.'
+      });
+      return;
+    }
+
+    // Check if target department matches moderator's department (case-insensitive)
+    if (targetDepartment.toLowerCase() !== moderatorDept.toLowerCase()) {
+      res.status(403).json({
+        success: false,
+        message: 'Access denied. You can only manage resources in your assigned department.'
+      });
+      return;
+    }
+
+    next();
+  };
+};

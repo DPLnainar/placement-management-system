@@ -26,6 +26,7 @@ export interface IAuthRequest extends Request {
     email: string;
     role: string;
     collegeId?: any;
+    department?: string;
     status?: string;
   };
   collegeId?: any;
