@@ -1,17 +1,18 @@
 import { Router } from 'express';
-// import { authenticate } from '@middleware/auth';
+import { previewPdf } from '../controllers/uploadController';
 
 const router = Router();
 
 /**
  * Upload Routes
  * File upload handling with Cloudinary
- * Temporarily disabled until uploadController is migrated
  */
 
-// router.use(authenticate);
+// PDF Preview endpoint (no auth required for viewing uploaded PDFs)
+router.get('/preview-pdf', previewPdf);
 
-// Upload routes
+// Authenticated routes would go here
+// router.use(authenticate);
 // router.post('/resume', uploadResume);
 // router.post('/profile-photo', uploadProfilePhoto);
 // router.post('/document', uploadDocument);

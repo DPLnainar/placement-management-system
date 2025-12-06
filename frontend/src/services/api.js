@@ -82,19 +82,19 @@ api.interceptors.response.use(
 
         const { token } = response.data.data;
         localStorage.setItem('token', token);
-        
+
         // Update authorization header
         api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         originalRequest.headers.Authorization = `Bearer ${token}`;
-        
+
         processQueue(null, token);
         isRefreshing = false;
-        
+
         return api(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
         isRefreshing = false;
-        
+
         // Clear auth data and redirect to login
         console.warn('Token refresh failed - redirecting to login');
         localStorage.removeItem('token');
@@ -265,10 +265,25 @@ export const uploadAPI = {
 // Eligibility Management API (Admin/Moderator)
 export const eligibilityManagementAPI = {
   getStudentEligibilityStatus: (studentId) => api.get(`/eligibility/student/${studentId}/status`),
-  verifyPersonalInfo: (studentId, verified = true, notes = '') => 
+  verifyPersonalInfo: (studentId, verified = true, notes = '') =>
     api.post(`/eligibility/student/${studentId}/verify/personal`, { verified, notes }),
-  verifyAcademicInfo: (studentId, verified = true, notes = '') => 
+  verifyAcademicInfo: (studentId, verified = true, notes = '') =>
     api.post(`/eligibility/student/${studentId}/verify/academic`, { verified, notes }),
+};
+
+// Student API
+export const studentAPI = {
+  getProfile: () => api.get('/students/profile'),
+  updateProfile: (data) => api.put('/students/profile', data),
+  uploadPhoto: (formData) => api.post('/students/photo', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  uploadResume: (formData) => api.post('/students/resume/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  generateResume: () => api.post('/students/resume/generate'),
+  getEligibleJobs: () => api.get('/students/jobs/eligible'),
+  getApplications: () => api.get('/students/applications'),
 };
 
 export default api;

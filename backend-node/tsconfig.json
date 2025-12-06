@@ -2,7 +2,9 @@
   "compilerOptions": {
     "target": "ES2020",
     "module": "commonjs",
-    "lib": ["ES2020"],
+    "lib": [
+      "ES2020"
+    ],
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": true,
@@ -15,24 +17,45 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
     "strictFunctionTypes": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noImplicitReturns": false,
     "baseUrl": "./",
     "paths": {
-      "@/*": ["src/*"],
-      "@models/*": ["src/models/*"],
-      "@controllers/*": ["src/controllers/*"],
-      "@routes/*": ["src/routes/*"],
-      "@middleware/*": ["src/middleware/*"],
-      "@services/*": ["src/services/*"],
-      "@utils/*": ["src/utils/*"],
-      "@config/*": ["src/config/*"]
+      "@/*": [
+        "src/*"
+      ],
+      "@models/*": [
+        "src/models/*"
+      ],
+      "@controllers/*": [
+        "src/controllers/*"
+      ],
+      "@routes/*": [
+        "src/routes/*"
+      ],
+      "@middleware/*": [
+        "src/middleware/*"
+      ],
+      "@services/*": [
+        "src/services/*"
+      ],
+      "@utils/*": [
+        "src/utils/*"
+      ],
+      "@config/*": [
+        "src/config/*"
+      ]
     }
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
 }

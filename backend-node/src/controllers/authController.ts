@@ -73,22 +73,24 @@ export const login = async (req: IAuthRequest, res: Response): Promise<void> => 
       return;
     }
 
-    // Validate captcha
-    if (!captchaId || !captchaInput) {
-      res.status(400).json({
-        success: false,
-        message: 'Please provide captcha'
-      });
-      return;
-    }
+    // Validate captcha (temporarily disabled for development)
+    if (process.env.NODE_ENV === 'production') {
+      if (!captchaId || !captchaInput) {
+        res.status(400).json({
+          success: false,
+          message: 'Please provide captcha'
+        });
+        return;
+      }
 
-    const isCaptchaValid = validateCaptcha(captchaId, captchaInput);
-    if (!isCaptchaValid) {
-      res.status(400).json({
-        success: false,
-        message: 'Invalid or expired captcha. Please try again.'
-      });
-      return;
+      const isCaptchaValid = validateCaptcha(captchaId, captchaInput);
+      if (!isCaptchaValid) {
+        res.status(400).json({
+          success: false,
+          message: 'Invalid or expired captcha. Please try again.'
+        });
+        return;
+      }
     }
 
     // Find user by username or email
@@ -578,7 +580,7 @@ export const getPublicColleges = async (_req: IAuthRequest, res: Response): Prom
 
     res.json({
       success: true,
-      colleges
+      data: colleges
     });
 
   } catch (error: any) {
@@ -745,6 +747,105 @@ export const registerInvited = async (_req: IAuthRequest, res: Response): Promis
     res.status(500).json({
       success: false,
       message: 'Server error during registration'
+    });
+  }
+};
+
+/**
+ * Register User (Admin/Student/Moderator)
+ * 
+ * Allows creating a new user account.
+ * For Admin creation during setup.
+ */
+export const register = async (req: IAuthRequest, res: Response): Promise<void> => {
+  try {
+    const { username, email, password, fullName, role, collegeId, department } = req.body;
+
+    // Validate required fields
+    if (!username || !email || !password || !fullName || !role) {
+      res.status(400).json({
+        success: false,
+        message: 'Please provide all required fields'
+      });
+      return;
+    }
+
+    // Validate password strength
+    const passwordValidation = validatePasswordStrength(password);
+    if (!passwordValidation.isValid) {
+      res.status(400).json({
+        success: false,
+        message: 'Password does not meet strength requirements',
+        errors: passwordValidation.errors
+      });
+      return;
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({
+      $or: [
+        { username: username.toLowerCase() },
+        { email: email.toLowerCase() }
+      ]
+    });
+
+    if (existingUser) {
+      res.status(400).json({
+        success: false,
+        message: 'Username or email already exists'
+      });
+      return;
+    }
+
+    // Create user
+    const user = await User.create({
+      username: username.toLowerCase(),
+      email: email.toLowerCase(),
+      password, // Will be hashed by pre-save hook
+      fullName,
+      role,
+      collegeId: collegeId || undefined,
+      department: department || undefined,
+      status: 'active',
+      isActive: true
+    });
+
+    // Generate tokens
+    const token = generateToken(user);
+    const refreshToken = generateRefreshToken(user);
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
+
+    // Set refresh token cookie
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'User registered successfully',
+      data: {
+        token,
+        user: {
+          id: user._id,
+          username: user.username,
+          email: user.email,
+          fullName: (user as any).fullName,
+          role: user.role,
+          collegeId: user.collegeId
+        }
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Register error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during registration',
+      error: error.message
     });
   }
 };

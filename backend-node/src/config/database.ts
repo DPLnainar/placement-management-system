@@ -6,7 +6,8 @@ import mongoose from 'mongoose';
  */
 export const connectDB = async (): Promise<void> => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI);
+    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/placement';
+    const conn = await mongoose.connect(mongoUri);
 
     console.info(`✓ MongoDB Connected: ${conn.connection.host}`);
     console.info(`✓ Database Name: ${conn.connection.name}`);

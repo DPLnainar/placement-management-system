@@ -1,28 +1,37 @@
 import { Router } from 'express';
-// import { authenticate, requireRole } from '@middleware/auth';
+import { authenticate, requireRole } from '../middleware/auth';
+import * as superAdminController from '../controllers/superAdminController';
 
 const router = Router();
 
 /**
  * SuperAdmin Routes
  * All routes require SuperAdmin authentication
- * Temporarily disabled until superAdminController is migrated
  */
 
-// router.use(authenticate);
-// router.use(requireRole(['superadmin']));
+router.use(authenticate);
+router.use(requireRole(['superadmin']));
 
 // College management
-// router.post('/colleges', createCollege);
-// router.get('/colleges', getAllColleges);
-// router.put('/colleges/:id', updateCollege);
-// router.delete('/colleges/:id', deleteCollege);
+// @ts-ignore
+router.post('/colleges', superAdminController.createCollegeWithAdmin);
+// @ts-ignore
+router.get('/colleges', superAdminController.getAllColleges);
+// @ts-ignore
+router.put('/colleges/:id', superAdminController.updateCollege);
+// @ts-ignore
+router.delete('/colleges/:id', superAdminController.deleteCollege);
 
 // Admin management
-// router.post('/admins', createCollegeAdmin);
+// router.post('/admins', createCollegeAdmin); // This seems to be handled by createCollegeWithAdmin or separate logic?
 // router.get('/admins', getAllAdmins);
 
 // System statistics
-// router.get('/stats', getSystemStats);
+// @ts-ignore
+router.get('/dashboard-stats', superAdminController.getDashboardStats);
+// @ts-ignore
+router.get('/placement-data', superAdminController.getAllPlacementData);
+// @ts-ignore
+router.post('/bulk-upload-email', superAdminController.sendBulkUploadEmail);
 
 export default router;

@@ -1,6 +1,6 @@
 import { Router } from 'express';
-// Commented out until userController is migrated
-// import { authenticate, requireRole, requireSameCollege, requireAdminForAssignment, verifyCollegeAdmin } from '@middleware/auth';
+import { authenticate, requireRole } from '@middleware/auth';
+import * as userController from '@controllers/userController';
 
 const router = Router();
 
@@ -21,28 +21,9 @@ const router = Router();
  */
 
 // All routes require authentication
-// router.use(authenticate);
-
-// Temporarily disabled until userController is migrated
-// Admin and Moderator: Create user
-// router.post('/', requireRole(['admin', 'moderator']), requireSameCollege, createUser);
+router.use(authenticate);
 
 // Admin and Moderator: View users in their college
-// router.get('/', requireRole(['admin', 'moderator']), requireSameCollege, getCollegeUsers);
-
-// Admin, Moderator, and Student: View specific user
-// router.get('/:id', requireRole(['admin', 'moderator', 'student']), getUserById);
-
-// Admin, Moderator, and Student: Update user details
-// router.put('/:id', requireRole(['admin', 'moderator', 'student']), updateUser);
-
-// Admin and Moderator: Update user status
-// router.put('/:id/status', requireRole(['admin', 'moderator']), updateUserStatus);
-
-// Admin only: Update user approval
-// router.put('/:id/approve', requireRole(['admin']), updateUserApproval);
-
-// Admin only: Delete user
-// router.delete('/:id', requireRole(['admin']), deleteUser);
+router.get('/', requireRole(['admin', 'moderator']), userController.getCollegeUsers);
 
 export default router;

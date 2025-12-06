@@ -2,6 +2,8 @@ import 'dotenv/config';
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
+import compression from 'compression';
 import { connectDB } from '@config/database';
 
 // Import middleware
@@ -30,6 +32,11 @@ import workflowRoutes from '@routes/workflowRoutes';
 import companyRoutes from '@routes/companyRoutes';
 import searchRoutes from '@routes/searchRoutes';
 import exportRoutes from '@routes/exportRoutes';
+import analyticsRoutes from '@routes/analyticsRoutes';
+import s3Routes from './routes/s3Routes';
+
+// Import scheduler service
+import { startAllSchedulers } from '@services/schedulerService';
 
 const app: Express = express();
 const PORT = process.env.PORT || 8000;
@@ -51,6 +58,22 @@ const PORT = process.env.PORT || 8000;
 // ==========================================
 // MIDDLEWARE SETUP
 // ==========================================
+
+// Security headers (Helmet.js)
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+}));
+
+// Gzip compression for responses
+app.use(compression());
 
 // Request logging
 app.use((req: Request, _res: Response, next: NextFunction): void => {
@@ -106,6 +129,7 @@ app.get('/', (_req: Request, res: Response): void => {
       jobs: '/api/jobs',
       applications: '/api/applications',
       eligibility: '/api/eligibility',
+      s3: '/api/s3',
     },
   });
 });
@@ -135,6 +159,8 @@ app.use('/api/workflow', workflowRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/export', exportRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/s3', s3Routes);
 
 // ==========================================
 // ERROR HANDLING
@@ -222,6 +248,9 @@ const startServer = async (): Promise<void> => {
 📦 TypeScript enabled
 ============================================================
 `);
+
+      // Start schedulers after server is running
+      startAllSchedulers();
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -234,3 +263,4 @@ const startServer = async (): Promise<void> => {
 void startServer();
 
 export default app;
+// Trigger restart 2

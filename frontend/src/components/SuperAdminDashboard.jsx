@@ -596,7 +596,7 @@ Harvard University,HARVARD,"Cambridge, MA",trial,Bob Wilson,admin@harvard.edu,ad
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Colleges</CardTitle>
@@ -619,16 +619,6 @@ Harvard University,HARVARD,"Cambridge, MA",trial,Bob Wilson,admin@harvard.edu,ad
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Jobs</CardTitle>
-            <Briefcase className="h-4 w-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalJobs}</div>
-            <p className="text-xs text-muted-foreground">Posted opportunities</p>
-          </CardContent>
-        </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -868,8 +858,8 @@ Harvard University,HARVARD,"Cambridge, MA",trial,Bob Wilson,admin@harvard.edu,ad
                     <td className="p-4 text-center">{college.stats.jobs}</td>
                     <td className="p-4">
                       <span className={`px-2 py-1 rounded text-sm ${college.subscriptionStatus === 'active' ? 'bg-green-100 text-green-800' :
-                          college.subscriptionStatus === 'trial' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-red-100 text-red-800'
+                        college.subscriptionStatus === 'trial' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
                         }`}>
                         {college.subscriptionStatus}
                       </span>
@@ -946,8 +936,8 @@ Harvard University,HARVARD,"Cambridge, MA",trial,Bob Wilson,admin@harvard.edu,ad
                   <Label className="text-sm font-semibold text-gray-600">Subscription Status</Label>
                   <p>
                     <span className={`px-3 py-1 rounded text-sm ${selectedCollege.subscriptionStatus === 'active' ? 'bg-green-100 text-green-800' :
-                        selectedCollege.subscriptionStatus === 'trial' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-red-100 text-red-800'
+                      selectedCollege.subscriptionStatus === 'trial' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-red-100 text-red-800'
                       }`}>
                       {selectedCollege.subscriptionStatus}
                     </span>

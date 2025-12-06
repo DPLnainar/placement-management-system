@@ -76,10 +76,15 @@ export default function ModeratorDashboard() {
       const response = await userAPI.getAll('student');
       // Handle API response structure - users are nested in .data.users or .data
       const studentsData = Array.isArray(response.data) ? response.data : (response.data.users || []);
+
+      // Get department from moderatorDepartment variable (has fallback logic)
+      const dept = moderatorDepartment || user?.department;
+
       // Filter students by moderator's department
-      const deptStudents = studentsData.filter(
-        (s) => s.department === user?.department
-      );
+      const deptStudents = dept ? studentsData.filter(
+        (s) => s.department === dept
+      ) : studentsData;
+
       setStudents(deptStudents);
       setStats((prev) => ({
         ...prev,
@@ -95,10 +100,15 @@ export default function ModeratorDashboard() {
     try {
       const response = await applicationAPI.getAll();
       const applicationsData = Array.isArray(response.data) ? response.data : (response.data.data || []);
+
+      // Get department from moderatorDepartment variable (has fallback logic)
+      const dept = moderatorDepartment || user?.department;
+
       // Filter applications by department - only show applications from students in moderator's department
-      const deptApplications = applicationsData.filter(
-        (app) => app.student?.department === user?.department
-      );
+      const deptApplications = dept ? applicationsData.filter(
+        (app) => app.student?.department === dept
+      ) : applicationsData;
+
       setApplications(deptApplications);
       setStats((prev) => ({
         ...prev,
@@ -310,8 +320,8 @@ export default function ModeratorDashboard() {
                   setIsMobileMenuOpen(false);
                 }}
                 className={`w-full text-left px-4 py-3 rounded-md transition-colors ${activeTab === 'jobs'
-                    ? 'bg-indigo-50 text-indigo-600 font-medium'
-                    : 'text-gray-700 hover:bg-gray-50'
+                  ? 'bg-indigo-50 text-indigo-600 font-medium'
+                  : 'text-gray-700 hover:bg-gray-50'
                   }`}
               >
                 <Briefcase className="inline-block mr-2 h-4 w-4" />
@@ -323,8 +333,8 @@ export default function ModeratorDashboard() {
                   setIsMobileMenuOpen(false);
                 }}
                 className={`w-full text-left px-4 py-3 rounded-md transition-colors ${activeTab === 'students'
-                    ? 'bg-indigo-50 text-indigo-600 font-medium'
-                    : 'text-gray-700 hover:bg-gray-50'
+                  ? 'bg-indigo-50 text-indigo-600 font-medium'
+                  : 'text-gray-700 hover:bg-gray-50'
                   }`}
               >
                 <Users className="inline-block mr-2 h-4 w-4" />
@@ -336,8 +346,8 @@ export default function ModeratorDashboard() {
                   setIsMobileMenuOpen(false);
                 }}
                 className={`w-full text-left px-4 py-3 rounded-md transition-colors ${activeTab === 'invitations'
-                    ? 'bg-indigo-50 text-indigo-600 font-medium'
-                    : 'text-gray-700 hover:bg-gray-50'
+                  ? 'bg-indigo-50 text-indigo-600 font-medium'
+                  : 'text-gray-700 hover:bg-gray-50'
                   }`}
               >
                 <Mail className="inline-block mr-2 h-4 w-4" />
@@ -349,8 +359,8 @@ export default function ModeratorDashboard() {
                   setIsMobileMenuOpen(false);
                 }}
                 className={`w-full text-left px-4 py-3 rounded-md transition-colors ${activeTab === 'applications'
-                    ? 'bg-indigo-50 text-indigo-600 font-medium'
-                    : 'text-gray-700 hover:bg-gray-50'
+                  ? 'bg-indigo-50 text-indigo-600 font-medium'
+                  : 'text-gray-700 hover:bg-gray-50'
                   }`}
               >
                 <FileCheck className="inline-block mr-2 h-4 w-4" />
@@ -424,8 +434,8 @@ export default function ModeratorDashboard() {
               <button
                 onClick={() => setActiveTab('jobs')}
                 className={`${activeTab === 'jobs'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                   } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
               >
                 Job Postings
@@ -433,8 +443,8 @@ export default function ModeratorDashboard() {
               <button
                 onClick={() => setActiveTab('students')}
                 className={`${activeTab === 'students'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                   } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
               >
                 My Students ({user?.department})
@@ -442,8 +452,8 @@ export default function ModeratorDashboard() {
               <button
                 onClick={() => setActiveTab('invitations')}
                 className={`${activeTab === 'invitations'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                   } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
               >
                 Invite Students
@@ -451,8 +461,8 @@ export default function ModeratorDashboard() {
               <button
                 onClick={() => setActiveTab('applications')}
                 className={`${activeTab === 'applications'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                   } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
               >
                 Applications ({stats.applications})
@@ -686,9 +696,9 @@ export default function ModeratorDashboard() {
                             <div className="flex items-center gap-3 mb-2">
                               <h4 className="font-semibold text-lg">{application.student?.fullName || 'Unknown Student'}</h4>
                               <span className={`px-3 py-1 rounded-full text-xs font-semibold ${application.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                  application.status === 'accepted' ? 'bg-green-100 text-green-800' :
-                                    application.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                                      'bg-gray-100 text-gray-800'
+                                application.status === 'accepted' ? 'bg-green-100 text-green-800' :
+                                  application.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                                    'bg-gray-100 text-gray-800'
                                 }`}>
                                 {application.status?.toUpperCase()}
                               </span>
@@ -1562,8 +1572,8 @@ export default function ModeratorDashboard() {
                   <div>
                     <p className="text-gray-500 text-xs">Resume</p>
                     {viewingStudent.resumeLink ? (
-                      <a 
-                        href="#" 
+                      <a
+                        href="#"
                         onClick={(e) => {
                           e.preventDefault();
                           let url = viewingStudent.resumeLink;

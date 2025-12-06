@@ -1,5 +1,7 @@
 import { Response } from 'express';
 import { Job } from '@models/index';
+import StudentData from '../models/StudentData';
+import { checkEligibility as checkEligibilityService } from '../services/eligibilityService';
 import type { IAuthRequest } from '../types/index';
 
 /**
@@ -12,15 +14,15 @@ export const createJob = async (req: IAuthRequest, res: Response): Promise<void>
     const jobData = req.body;
 
     if (!jobData.title || !jobData.company || !jobData.description || !jobData.location || !jobData.deadline) {
-      res.status(400).json({ 
-        success: false, 
-        message: 'Please provide all required fields: title, company, description, location, deadline' 
+      res.status(400).json({
+        success: false,
+        message: 'Please provide all required fields: title, company, description, location, deadline'
       });
       return;
     }
 
     let eligibilityToSave: any = {};
-    
+
     if (jobData.eligibilityType) {
       eligibilityToSave.eligibilityType = jobData.eligibilityType;
 
@@ -54,7 +56,7 @@ export const createJob = async (req: IAuthRequest, res: Response): Promise<void>
     }
 
     const collegeId = (req.user?.collegeId as any)?._id || req.user?.collegeId;
-    
+
     const newJob = new Job({
       ...jobData,
       ...eligibilityToSave,
@@ -75,19 +77,19 @@ export const createJob = async (req: IAuthRequest, res: Response): Promise<void>
 
   } catch (error: any) {
     console.error('Create job error:', error);
-    
+
     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map((err: any) => err.message);
-      res.status(400).json({ 
-        success: false, 
-        message: messages.join(', ') 
+      res.status(400).json({
+        success: false,
+        message: messages.join(', ')
       });
       return;
     }
 
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error creating job' 
+    res.status(500).json({
+      success: false,
+      message: 'Server error creating job'
     });
   }
 };
@@ -98,7 +100,7 @@ export const createJob = async (req: IAuthRequest, res: Response): Promise<void>
 export const getJobs = async (req: IAuthRequest, res: Response): Promise<void> => {
   try {
     const { status, jobType, jobCategory, priority, includeExpired } = req.query;
-    
+
     const collegeId = (req.user?.collegeId as any)?._id || req.user?.collegeId;
     const filter: any = { collegeId };
 
@@ -106,7 +108,7 @@ export const getJobs = async (req: IAuthRequest, res: Response): Promise<void> =
     if (jobType) filter.jobType = jobType;
     if (jobCategory) filter.jobCategory = jobCategory;
     if (priority) filter.priority = priority;
-    
+
     if (!includeExpired) {
       filter.deadline = { $gte: new Date() };
     }
@@ -131,9 +133,9 @@ export const getJobs = async (req: IAuthRequest, res: Response): Promise<void> =
 
   } catch (error: any) {
     console.error('Get jobs error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error fetching jobs' 
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching jobs'
     });
   }
 };
@@ -151,9 +153,9 @@ export const getJobById = async (req: IAuthRequest, res: Response): Promise<void
       .populate('collegeId', 'name code location');
 
     if (!job) {
-      res.status(404).json({ 
-        success: false, 
-        message: 'Job not found or does not belong to your college' 
+      res.status(404).json({
+        success: false,
+        message: 'Job not found or does not belong to your college'
       });
       return;
     }
@@ -165,9 +167,9 @@ export const getJobById = async (req: IAuthRequest, res: Response): Promise<void
 
   } catch (error: any) {
     console.error('Get job by ID error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error fetching job' 
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching job'
     });
   }
 };
@@ -184,9 +186,9 @@ export const updateJob = async (req: IAuthRequest, res: Response): Promise<void>
     const job = await Job.findOne({ _id: id, collegeId });
 
     if (!job) {
-      res.status(404).json({ 
-        success: false, 
-        message: 'Job not found or does not belong to your college' 
+      res.status(404).json({
+        success: false,
+        message: 'Job not found or does not belong to your college'
       });
       return;
     }
@@ -208,9 +210,9 @@ export const updateJob = async (req: IAuthRequest, res: Response): Promise<void>
 
   } catch (error: any) {
     console.error('Update job error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error updating job' 
+    res.status(500).json({
+      success: false,
+      message: 'Server error updating job'
     });
   }
 };
@@ -226,9 +228,9 @@ export const deleteJob = async (req: IAuthRequest, res: Response): Promise<void>
     const job = await Job.findOne({ _id: id, collegeId });
 
     if (!job) {
-      res.status(404).json({ 
-        success: false, 
-        message: 'Job not found or does not belong to your college' 
+      res.status(404).json({
+        success: false,
+        message: 'Job not found or does not belong to your college'
       });
       return;
     }
@@ -242,9 +244,9 @@ export const deleteJob = async (req: IAuthRequest, res: Response): Promise<void>
 
   } catch (error: any) {
     console.error('Delete job error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error deleting job' 
+    res.status(500).json({
+      success: false,
+      message: 'Server error deleting job'
     });
   }
 };
@@ -277,7 +279,7 @@ export const extendDeadline = async (req: IAuthRequest, res: Response): Promise<
     }
 
     const newDeadlineDate = new Date(newDeadline);
-    
+
     if (newDeadlineDate <= new Date()) {
       res.status(400).json({
         success: false,
@@ -292,7 +294,7 @@ export const extendDeadline = async (req: IAuthRequest, res: Response): Promise<
       (job as any).deadline = newDeadlineDate;
       (job as any).deadlineExtended = true;
     }
-    
+
     await job.save();
 
     res.json({
@@ -319,11 +321,29 @@ export const extendDeadline = async (req: IAuthRequest, res: Response): Promise<
 /**
  * Check Eligibility
  */
-export const checkEligibility = async (_req: IAuthRequest, res: Response): Promise<void> => {
+export const checkEligibility = async (req: IAuthRequest, res: Response): Promise<void> => {
   try {
-    res.status(501).json({
-      success: false,
-      message: 'Eligibility check not yet implemented'
+    const { id } = req.params;
+    const userId = req.user?._id;
+
+    const job = await Job.findById(id);
+    if (!job) {
+      res.status(404).json({ success: false, message: 'Job not found' });
+      return;
+    }
+
+    const student = await StudentData.findOne({ userId });
+    if (!student) {
+      res.status(404).json({ success: false, message: 'Student profile not found' });
+      return;
+    }
+
+    const result = checkEligibilityService(student, job);
+
+    res.json({
+      success: true,
+      eligible: result.eligible,
+      reasons: result.reasons
     });
 
   } catch (error: any) {

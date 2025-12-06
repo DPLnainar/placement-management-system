@@ -2,8 +2,14 @@ import { Document, Schema, model } from 'mongoose';
 
 /**
  * Application Status Types
+ * Simplified status tracking for job applications
  */
 export type ApplicationStatus =
+  | 'APPLIED'
+  | 'SHORTLISTED'
+  | 'REJECTED'
+  | 'OFFERED'
+  | 'PLACED'
   | 'pending'
   | 'under_review'
   | 'shortlisted'
@@ -99,6 +105,7 @@ export interface IApplication extends Document {
   collegeId: Schema.Types.ObjectId;
   status: ApplicationStatus;
   currentRound: RoundType;
+  currentRoundIndex: number;
   rounds: IRound[];
   eligibilityCheck: IEligibilityCheck;
   selectionDetails: ISelectionDetails;
@@ -112,6 +119,8 @@ export interface IApplication extends Document {
   resumeSubmitted?: string;
   additionalDocuments: IAdditionalDocument[];
   appliedAt: Date;
+  /** Reason for rejection if status is rejected */
+  rejectionReason?: string;
   lastUpdatedBy?: Schema.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -148,6 +157,11 @@ const applicationSchema = new Schema<IApplication>(
     status: {
       type: String,
       enum: [
+        'APPLIED',
+        'SHORTLISTED',
+        'REJECTED',
+        'OFFERED',
+        'PLACED',
         'pending',
         'under_review',
         'shortlisted',
@@ -174,6 +188,10 @@ const applicationSchema = new Schema<IApplication>(
       type: String,
       enum: ['application', 'aptitude', 'technical', 'hr', 'final'],
       default: 'application',
+    },
+    currentRoundIndex: {
+      type: Number,
+      default: 0,
     },
     rounds: [
       {
@@ -242,6 +260,7 @@ const applicationSchema = new Schema<IApplication>(
       },
     ],
     appliedAt: { type: Date, default: Date.now },
+    rejectionReason: { type: String, default: null },
     lastUpdatedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
   },
   {
@@ -256,6 +275,10 @@ applicationSchema.index({ collegeId: 1, status: 1 });
 applicationSchema.index({ jobId: 1, status: 1 });
 applicationSchema.index({ studentId: 1, status: 1 });
 applicationSchema.index({ collegeId: 1, currentRound: 1 });
+
+// Performance-critical compound indexes
+applicationSchema.index({ studentId: 1, status: 1, appliedAt: -1 }); // Student's applications
+applicationSchema.index({ collegeId: 1, status: 1, appliedAt: -1 }); // College applications
 
 /**
  * Update application status

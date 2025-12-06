@@ -6,22 +6,47 @@ import bcrypt from 'bcryptjs';
  * Represents a user in the placement system
  */
 export interface IUser extends Document {
+  /** Unique username for login */
   username: string;
+  /** User's email address */
   email: string;
+  /** Hashed password (stored securely, never plain text) */
   password: string;
+  /** Full name of the user */
   fullName: string;
+  /** User role in the system */
   role: 'superadmin' | 'admin' | 'moderator' | 'student';
+  /** Reference to college (required for non-superadmin users) */
   collegeId?: Schema.Types.ObjectId;
+  /** User who assigned/created this user */
   assignedBy?: Schema.Types.ObjectId | null;
+  /** Account status */
   status: 'active' | 'inactive' | 'pending';
+  /** Whether user is approved by admin */
   isApproved: boolean;
+  /** Department/branch (for students and moderators) */
   department?: string;
+  /** Primary phone number */
+  phone?: string;
+  /** Profile photo URL (Cloudinary or other storage) */
+  photoUrl?: string;
+  /** Reference to academic profile (StudentData) */
+  academicProfileId?: Schema.Types.ObjectId;
+  /** Reference to personal profile (StudentData) - same as academic for students */
+  personalProfileId?: Schema.Types.ObjectId;
+  /** Password reset token */
   resetPasswordToken?: string;
+  /** Password reset token expiry */
   resetPasswordExpire?: Date;
+  /** Last login timestamp */
   lastLogin?: Date;
+  /** Failed login attempts counter */
   failedAttempts: number;
+  /** Account lock timestamp */
   accountLockedUntil?: Date;
+  /** Whether account is active */
   isActive: boolean;
+  /** Refresh token for JWT */
   refreshToken?: string;
   primaryEmail?: string;
   secondaryEmail?: string;
@@ -32,7 +57,9 @@ export interface IUser extends Document {
   nationality?: string;
   address?: string;
   passportNumber?: string;
+  /** Record creation timestamp */
   createdAt: Date;
+  /** Last update timestamp */
   updatedAt: Date;
   // Methods
   matchPassword(enteredPassword: string): Promise<boolean>;
@@ -52,17 +79,7 @@ const userSchema = new Schema<IUser>(
       lowercase: true,
       minlength: [3, 'Username must be at least 3 characters'],
     },
-    email: {
-      type: String,
-      required: [true, 'Email is required'],
-      unique: true,
-      trim: true,
-      lowercase: true,
-      match: [
-        /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/,
-        'Please enter a valid email',
-      ],
-    },
+    email: { type: String, required: true, index: true },
     password: {
       type: String,
       required: [true, 'Password is required'],
@@ -104,6 +121,27 @@ const userSchema = new Schema<IUser>(
       type: String,
       trim: true,
       default: '',
+    },
+    phone: {
+      type: String,
+      trim: true,
+      match: [/^[0-9+\-\s()]+$/, 'Please enter a valid phone number'],
+      default: '',
+    },
+    photoUrl: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    academicProfileId: {
+      type: Schema.Types.ObjectId,
+      ref: 'StudentData',
+      default: null,
+    },
+    personalProfileId: {
+      type: Schema.Types.ObjectId,
+      ref: 'StudentData',
+      default: null,
     },
     resetPasswordToken: {
       type: String,
@@ -150,6 +188,15 @@ const userSchema = new Schema<IUser>(
 );
 
 /**
+ * Indexes for efficient queries
+ */
+userSchema.index({ email: 1 });
+userSchema.index({ username: 1 });
+userSchema.index({ collegeId: 1 });
+userSchema.index({ role: 1 });
+userSchema.index({ collegeId: 1, role: 1 });
+
+/**
  * Middleware: Hash password before saving
  */
 userSchema.pre('save', async function (next) {
@@ -172,6 +219,17 @@ userSchema.pre('save', async function (next) {
  * Method: Compare passwords
  */
 userSchema.methods.matchPassword = async function (
+  this: IUser,
+  enteredPassword: string
+): Promise<boolean> {
+  return bcrypt.compare(enteredPassword, this.password);
+};
+
+/**
+ * Method: Compare passwords (alias for matchPassword)
+ * Used by authController
+ */
+userSchema.methods.comparePassword = async function (
   this: IUser,
   enteredPassword: string
 ): Promise<boolean> {

@@ -1,27 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { jobAPI, applicationAPI, userAPI, uploadAPI, eligibilityAPI } from '../services/api';
+import { jobAPI, applicationAPI, userAPI, uploadAPI, eligibilityAPI, studentAPI } from '../services/api';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
-import { Briefcase, LogOut, MapPin, Calendar, User, Save, Upload, Plus, Trash2, FileText, Download, Menu, X, Printer, ExternalLink } from 'lucide-react';
+import { Briefcase, LogOut, MapPin, Calendar, User, Save, Upload, Plus, Trash2, FileText, Download, Menu, X, Printer, ExternalLink, Clock } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import html2pdf from 'html2pdf.js';
 import { ResumeTemplate } from './ResumeTemplate';
+import ApplicationTracker from './ApplicationTracker';
 
 // Helper function to get inline viewable URL for PDFs
 const getInlineViewUrl = (url) => {
   if (!url) return url;
-  
+
   // For any cloudinary PDF, use backend proxy with correct headers
   if (url.includes('cloudinary.com')) {
     // Use backend proxy endpoint with absolute URL
     const backendUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
     return `${backendUrl}/api/upload/preview-pdf?url=${encodeURIComponent(url)}`;
   }
-  
+
   // For Google Drive links, ensure they use preview format
   if (url.includes('drive.google.com') && url.includes('/file/d/')) {
     const fileId = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/)?.[1];
@@ -29,12 +30,13 @@ const getInlineViewUrl = (url) => {
       return `https://drive.google.com/file/d/${fileId}/preview`;
     }
   }
-  
+
   return url;
 };
 
 export default function StudentDash() {
   const { user, logout } = useAuth();
+  const fileInputRef = useRef(null); // Ref for file upload input
   const [jobs, setJobs] = useState([]);
   const [filteredJobs, setFilteredJobs] = useState([]);
   const [appliedJobs, setAppliedJobs] = useState(new Set());
@@ -50,6 +52,12 @@ export default function StudentDash() {
   const [missingProfileFields, setMissingProfileFields] = useState([]);
 
   const [profileData, setProfileData] = useState({
+    // NEW: Identity Fields
+    rollNumber: '',
+    firstName: '',
+    lastName: '',
+    fullName: '', // Auto-computed
+
     // Personal Information
     primaryEmail: '',
     secondaryEmail: '',
@@ -59,6 +67,32 @@ export default function StudentDash() {
     dateOfBirth: '',
     gender: '',
     nationality: '',
+    fatherName: '',
+    motherName: '',
+    aadhaarNumber: '',
+    permanentAddress: '',
+    photoUrl: '',
+
+    // NEW: Academic Fields
+    course: '',
+    courseOther: '',
+    passedOutYear: '',
+    careerPath: '',
+    disabilityStatus: 'none',
+
+    // NEW: Contact Information
+    communicationEmail: '',
+    instituteEmail: '',
+    personalEmail: '',
+    alternateEmail: '',
+    whatsappNumber: '',
+    linkedInUrl: '',
+
+    // NEW: Extended Family Details
+    fatherPhone: '',
+    fatherOccupation: '',
+    motherPhone: '',
+    motherOccupation: '',
 
     // Passport Details (Optional)
     passportNumber: '',
@@ -147,7 +181,7 @@ export default function StudentDash() {
   const handleDownloadPDF = async () => {
     try {
       const element = resumeRef.current;
-      
+
       if (!element) {
         alert('Resume content not found');
         return;
@@ -215,116 +249,166 @@ export default function StudentDash() {
 
   const fetchProfile = async () => {
     try {
-      const userId = user?.id;
-      if (!userId) {
-        return;
-      }
+      const response = await studentAPI.getProfile();
+      const student = response.data.student;
 
-      const response = await userAPI.getById(userId);
-
-      const currentUser = response.data.data || response.data;
-
-      if (currentUser) {
-
-        // Check if critical data is already filled (data is locked after first save)
-        // Check if critical data is already filled (data is locked after first save)
-        const hasPersonalData = currentUser.primaryEmail || currentUser.dateOfBirth || currentUser.gender;
-        const hasAcademicData = currentUser.cgpa || currentUser.tenthPercentage || currentUser.twelfthPercentage || currentUser.branch;
+      if (student) {
+        // Check locked status
+        const hasPersonalData = student.personal?.email || student.personal?.dob || student.personal?.gender;
+        const hasAcademicData = student.education?.graduation?.cgpa || student.education?.tenth?.percentage || student.education?.twelfth?.percentage;
 
         setIsPersonalLocked(!!hasPersonalData);
         setIsAcademicLocked(!!hasAcademicData);
 
-        // Populate profile data
+        // Populate profile data from nested structure
         setProfileData({
-          fullName: currentUser.fullName || '',
-          email: currentUser.email || '',
-          primaryEmail: currentUser.primaryEmail || currentUser.email || '',
-          secondaryEmail: currentUser.secondaryEmail || '',
-          primaryPhone: currentUser.primaryPhone || '',
-          secondaryPhone: currentUser.secondaryPhone || '',
-          dateOfBirth: currentUser.dateOfBirth ? currentUser.dateOfBirth.split('T')[0] : '',
-          gender: currentUser.gender || '',
-          nationality: currentUser.nationality || '',
-          address: currentUser.address || '',
-          passportNumber: currentUser.passportNumber || '',
-          passportPlaceOfIssue: currentUser.passportPlaceOfIssue || '',
-          passportIssueDate: currentUser.passportIssueDate ? currentUser.passportIssueDate.split('T')[0] : '',
-          passportExpiryDate: currentUser.passportExpiryDate ? currentUser.passportExpiryDate.split('T')[0] : '',
-          tenthInstitution: currentUser.tenthInstitution || '',
-          tenthPercentage: currentUser.tenthPercentage || '',
-          tenthBoard: currentUser.tenthBoard || '',
-          tenthYear: currentUser.tenthYear || '',
-          twelfthInstitution: currentUser.twelfthInstitution || '',
-          twelfthPercentage: currentUser.twelfthPercentage || '',
-          twelfthBoard: currentUser.twelfthBoard || '',
-          twelfthYear: currentUser.twelfthYear || '',
-          currentInstitution: currentUser.currentInstitution || '',
-          degree: currentUser.degree || '',
-          branch: currentUser.branch || '',
-          semester: currentUser.semester || '',
-          cgpa: currentUser.cgpa || '',
-          backlogs: currentUser.backlogs || '',
-          github: currentUser.github || '',
-          linkedin: currentUser.linkedin || '',
-          portfolio: currentUser.portfolio || '',
-          resumeLink: currentUser.resumeLink || '',
+          // NEW: Identity Fields
+          rollNumber: student.personal?.rollNumber || '',
+          firstName: student.personal?.firstName || '',
+          lastName: student.personal?.lastName || '',
+          fullName: student.personal?.fullName || student.personal?.name || user?.fullName || '',
+
+          // Basic Information
+          email: student.personal?.email || user?.email || '',
+          primaryEmail: student.personal?.email || '',
+          secondaryEmail: student.personal?.secondaryEmail || '',
+          primaryPhone: student.personal?.phone || '',
+          secondaryPhone: student.personal?.secondaryPhone || '',
+          dateOfBirth: student.personal?.dob ? student.personal.dob.split('T')[0] : '',
+          gender: student.personal?.gender || '',
+          nationality: student.personal?.nationality || 'Indian',
+          fatherName: student.personal?.fatherName || '',
+          motherName: student.personal?.motherName || '',
+          aadhaarNumber: student.personal?.aadhaar || '',
+          permanentAddress: student.personal?.permanentAddress || '',
+          address: student.personal?.address || '',
+          photoUrl: student.personal?.photoUrl || '',
+
+          // NEW: Academic Fields
+          course: student.personal?.course || '',
+          courseOther: student.personal?.courseOther || '',
+          passedOutYear: student.personal?.passedOutYear || '',
+          careerPath: student.personal?.careerPath || '',
+          disabilityStatus: student.personal?.disabilityStatus || 'none',
+
+          // NEW: Contact Information
+          communicationEmail: student.personal?.communicationEmail || '',
+          instituteEmail: student.personal?.instituteEmail || '',
+          personalEmail: student.personal?.personalEmail || '',
+          alternateEmail: student.personal?.alternateEmail || '',
+          whatsappNumber: student.personal?.whatsappNumber || '',
+          linkedInUrl: student.personal?.linkedInUrl || '',
+
+          // NEW: Extended Family Details
+          fatherPhone: student.personal?.fatherPhone || '',
+          fatherOccupation: student.personal?.fatherOccupation || '',
+          motherPhone: student.personal?.motherPhone || '',
+          motherOccupation: student.personal?.motherOccupation || '',
+
+          // Passport
+          passportNumber: student.personal?.passportNo || '',
+          passportPlaceOfIssue: '', // Not in new schema, maybe keep empty or map if added
+          passportIssueDate: '',
+          passportExpiryDate: '',
+
+          // Academic - 10th
+          tenthInstitution: student.education?.tenth?.institution || '',
+          tenthPercentage: student.education?.tenth?.percentage || '',
+          tenthBoard: student.education?.tenth?.board || '',
+          tenthYear: student.education?.tenth?.yearOfPassing || '',
+
+          // Academic - 12th
+          twelfthInstitution: student.education?.twelfth?.institution || '',
+          twelfthPercentage: student.education?.twelfth?.percentage || '',
+          twelfthBoard: student.education?.twelfth?.board || '',
+          twelfthYear: student.education?.twelfth?.yearOfPassing || '',
+
+          // Academic - Graduation
+          currentInstitution: 'University Institute of Technology', // Default or from schema if added
+          degree: student.education?.graduation?.degree || '',
+          branch: student.education?.graduation?.branch || '',
+          semester: student.education?.graduation?.currentSemester || '',
+          cgpa: student.education?.graduation?.cgpa || '',
+          backlogs: student.currentBacklogs || '',
+
+          // Links
+          github: student.socialLinks?.github || '',
+          linkedin: student.socialLinks?.linkedin || '',
+          portfolio: student.socialLinks?.portfolio || '',
+          resumeLink: student.resume?.resumeUrl || '',
         });
 
-        // Populate semester-wise GPA
-        if (currentUser.semesterWiseGPA && Array.isArray(currentUser.semesterWiseGPA) && currentUser.semesterWiseGPA.length > 0) {
-          setSemesterWiseGPA(currentUser.semesterWiseGPA);
-        }
-
-        // Populate arrear data
-        setCurrentArrears(currentUser.currentArrears || '');
-        setArrearHistory(currentUser.arrearHistory || '');
-
-        // Populate skills
-        if (currentUser.skills && Array.isArray(currentUser.skills) && currentUser.skills.length > 0) {
-          setSkills(currentUser.skills.map((skill, idx) => ({
-            ...skill,
-            id: skill._id || idx
+        // Populate complex arrays
+        if (student.education?.graduation?.semesterResults) {
+          setSemesterWiseGPA(student.education.graduation.semesterResults.map(sem => ({
+            semester: sem.semester,
+            sgpa: sem.sgpa,
+            cgpa: sem.cgpa || '' // Calculate if missing
           })));
         }
 
-        // Populate internships
-        if (currentUser.internships && Array.isArray(currentUser.internships) && currentUser.internships.length > 0) {
-          setInternships(currentUser.internships.map((intern, idx) => ({
-            ...intern,
-            id: intern._id || idx
+        // Arrears
+        setCurrentArrears(student.currentBacklogs || '');
+        setArrearHistory(student.arrearsHistory?.map(a => `${a.subject} (${a.status})`).join('\n') || '');
+
+        // Skills
+        if (student.skills) {
+          const allSkills = [
+            ...(student.skills.technical || []).map(s => ({ name: s.name, category: 'technical', level: s.level, id: Date.now() + Math.random() })),
+            ...(student.skills.soft || []).map(s => ({ name: s, category: 'soft', id: Date.now() + Math.random() })),
+            ...(student.skills.tools || []).map(s => ({ name: s, category: 'tools', id: Date.now() + Math.random() })),
+            ...(student.skills.languages || []).map(s => ({ name: s, category: 'languages', id: Date.now() + Math.random() }))
+          ];
+          setSkills(allSkills);
+        }
+
+        // Internships (Experience)
+        if (student.experience) {
+          setInternships(student.experience.map((exp, idx) => ({
+            company: exp.companyName,
+            role: exp.role,
+            duration: `${exp.startDate ? exp.startDate.split('T')[0] : ''} - ${exp.endDate ? exp.endDate.split('T')[0] : 'Present'}`,
+            description: exp.description,
+            location: exp.location,
+            id: idx
           })));
         }
 
-        // Populate extracurricular
-        if (currentUser.extracurricular && Array.isArray(currentUser.extracurricular) && currentUser.extracurricular.length > 0) {
-          setExtracurricular(currentUser.extracurricular.map((activity, idx) => ({
-            ...activity,
-            id: activity._id || idx
+        // Projects
+        if (student.projects) {
+          setProjects(student.projects.map((proj, idx) => ({
+            title: proj.title,
+            techStack: proj.technologies?.join(', ') || '',
+            date: '', // Not in schema
+            link: proj.url,
+            description: proj.description,
+            id: idx
           })));
         }
 
-        // Populate projects
-        if (currentUser.projects && Array.isArray(currentUser.projects) && currentUser.projects.length > 0) {
-          setProjects(currentUser.projects.map((project, idx) => ({
-            ...project,
-            id: project._id || idx
+        // Extracurricular (Achievements/Certifications)
+        // Mapping achievements to extracurricular for now
+        if (student.achievements) {
+          setExtracurricular(student.achievements.map((ach, idx) => ({
+            title: ach.title,
+            role: '',
+            duration: ach.date ? ach.date.split('T')[0] : '',
+            description: ach.description,
+            id: idx
           })));
         }
 
-        // Check profile completion
-        checkProfileCompletion(currentUser);
+        checkProfileCompletion(student); // You might need to update checkProfileCompletion to handle nested object
 
-        // Set resume file state if exists
-        if (currentUser.resumeFile) {
+        if (student.resume?.resumeUrl) {
           setResumeFile({
-            name: 'Current Resume (Uploaded)',
-            url: currentUser.resumeFile
+            name: 'Current Resume',
+            url: student.resume.resumeUrl
           });
         }
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
-      // Don't show alert for profile fetch errors, just log it
     }
   };
 
@@ -337,92 +421,147 @@ export default function StudentDash() {
   const handleSaveProfile = async (e) => {
     e.preventDefault();
     try {
-      const userId = user?.id;
-      if (!userId) {
-        alert('User not found. Please login again.');
-        return;
-      }
-
-      // Prepare profile data
+      // Map flat state to nested backend schema
       const profileUpdateData = {
-        fullName: profileData.fullName,
-        email: profileData.email,
-        primaryEmail: profileData.primaryEmail,
-        secondaryEmail: profileData.secondaryEmail,
-        primaryPhone: profileData.primaryPhone,
-        secondaryPhone: profileData.secondaryPhone,
-        dateOfBirth: profileData.dateOfBirth,
-        gender: profileData.gender,
-        nationality: profileData.nationality,
-        address: profileData.address,
+        personal: {
+          // NEW: Identity Fields
+          rollNumber: profileData.rollNumber,
+          firstName: profileData.firstName,
+          lastName: profileData.lastName,
 
-        // Passport details
-        passportNumber: profileData.passportNumber,
-        passportPlaceOfIssue: profileData.passportPlaceOfIssue,
-        passportIssueDate: profileData.passportIssueDate,
-        passportExpiryDate: profileData.passportExpiryDate,
+          // Basic Information
+          name: profileData.fullName,
+          email: profileData.primaryEmail,
+          phone: profileData.primaryPhone,
+          dob: profileData.dateOfBirth,
+          gender: profileData.gender,
+          nationality: profileData.nationality,
 
-        // Academic details
-        tenthInstitution: profileData.tenthInstitution,
-        tenthPercentage: profileData.tenthPercentage,
-        tenthBoard: profileData.tenthBoard,
-        tenthYear: profileData.tenthYear,
-        twelfthInstitution: profileData.twelfthInstitution,
-        twelfthPercentage: profileData.twelfthPercentage,
-        twelfthBoard: profileData.twelfthBoard,
-        twelfthYear: profileData.twelfthYear,
-        currentInstitution: profileData.currentInstitution,
-        degree: profileData.degree,
-        branch: profileData.branch,
-        semester: profileData.semester,
-        cgpa: profileData.cgpa,
-        backlogs: profileData.backlogs,
+          // NEW: Academic Fields
+          course: profileData.course,
+          courseOther: profileData.courseOther,
+          branch: profileData.branch,
+          passedOutYear: profileData.passedOutYear ? parseInt(profileData.passedOutYear) : undefined,
+          careerPath: profileData.careerPath,
+          disabilityStatus: profileData.disabilityStatus,
 
-        // Semester-wise CGPA
-        semesterWiseGPA: semesterWiseGPA,
+          // NEW: Contact Information
+          communicationEmail: profileData.communicationEmail,
+          instituteEmail: profileData.instituteEmail,
+          personalEmail: profileData.personalEmail,
+          alternateEmail: profileData.alternateEmail,
+          whatsappNumber: profileData.whatsappNumber,
+          linkedInUrl: profileData.linkedInUrl,
 
-        // Arrear data
-        currentArrears: currentArrears,
-        arrearHistory: arrearHistory,
+          // Family Details
+          fatherName: profileData.fatherName,
+          motherName: profileData.motherName,
+          fatherPhone: profileData.fatherPhone,
+          fatherOccupation: profileData.fatherOccupation,
+          motherPhone: profileData.motherPhone,
+          motherOccupation: profileData.motherOccupation,
 
-        // Skills
-        skills: skills,
+          // Secure & Address
+          aadhaar: profileData.aadhaarNumber,
+          permanentAddress: profileData.permanentAddress,
+          address: profileData.address,
+          passportNo: profileData.passportNumber,
+        },
+        education: {
+          tenth: {
+            institution: profileData.tenthInstitution,
+            board: profileData.tenthBoard,
+            percentage: parseFloat(profileData.tenthPercentage),
+            yearOfPassing: parseInt(profileData.tenthYear),
+          },
+          twelfth: {
+            institution: profileData.twelfthInstitution,
+            board: profileData.twelfthBoard,
+            percentage: parseFloat(profileData.twelfthPercentage),
+            yearOfPassing: parseInt(profileData.twelfthYear),
+          },
+          graduation: {
+            degree: profileData.degree,
+            branch: profileData.branch,
+            cgpa: parseFloat(profileData.cgpa),
+            currentSemester: parseInt(profileData.semester),
+            semesterResults: semesterWiseGPA.map(sem => ({
+              semester: sem.semester,
+              sgpa: parseFloat(sem.sgpa) || 0,
+              cgpa: parseFloat(sem.cgpa) || 0
+            }))
+          }
+        },
+        currentBacklogs: parseInt(profileData.backlogs) || 0,
 
-        // Professional links
-        github: profileData.github,
-        linkedin: profileData.linkedin,
-        portfolio: profileData.portfolio,
+        skills: {
+          technical: skills.filter(s => s.category === 'technical').map(s => ({ name: s.name, level: 'Intermediate' })),
+          soft: skills.filter(s => s.category === 'soft').map(s => s.name),
+          tools: skills.filter(s => s.category === 'tools').map(s => s.name),
+          languages: skills.filter(s => s.category === 'languages').map(s => s.name),
+        },
 
-        // Internships and extracurricular
-        internships: internships,
-        extracurricular: extracurricular,
-        projects: projects,
+        experience: internships.map(i => ({
+          companyName: i.company,
+          role: i.role,
+          description: i.description,
+          location: i.location,
+        })),
 
-        // Resume
-        resumeLink: profileData.resumeLink,
+        projects: projects.map(p => ({
+          title: p.title,
+          description: p.description,
+          technologies: p.techStack ? p.techStack.split(',').map(t => t.trim()) : [],
+          url: p.link
+        })),
+
+        socialLinks: {
+          github: profileData.github,
+          linkedin: profileData.linkedin,
+          portfolio: profileData.portfolio
+        }
       };
 
-      // Call API to update user profile
-      const response = await userAPI.update(userId, profileUpdateData);
+      const response = await studentAPI.updateProfile(profileUpdateData);
 
-      // Check if backend returned a locked field error
-      if (response.data && response.data.lockedFields) {
-        alert(`Cannot update: ${response.data.message}\n\nLocked fields: ${response.data.lockedFields.join(', ')}`);
+      if (response.data.success) {
+        if (profileTab === 'personal') setIsPersonalLocked(true);
+        if (profileTab === 'academic') setIsAcademicLocked(true);
+        alert('Profile saved successfully!');
+        fetchProfile(); // Refresh data
+      }
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      alert(error.response?.data?.message || 'Error saving profile. Please try again.');
+    }
+  };
+
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) { // 2MB limit
+        alert('File size should be less than 2MB');
+        return;
+      }
+      if (!file.type.startsWith('image/')) {
+        alert('Only image files are allowed');
         return;
       }
 
-      // Set data as locked after first successful save based on active tab
-      if (profileTab === 'personal') {
-        setIsPersonalLocked(true);
-      } else if (profileTab === 'academic') {
-        setIsAcademicLocked(true);
-      }
+      try {
+        const formData = new FormData();
+        formData.append('photo', file);
 
-      alert('Profile saved successfully!');
-    } catch (error) {
-      console.error('Error saving profile:', error);
-      console.error('Error response:', error.response?.data);
-      alert(error.response?.data?.message || 'Error saving profile. Please try again.');
+        const response = await studentAPI.uploadPhoto(formData);
+
+        if (response.data.success) {
+          alert('Photo uploaded successfully!');
+          fetchProfile();
+        }
+      } catch (error) {
+        console.error('Error uploading photo:', error);
+        alert(error.response?.data?.message || 'Error uploading photo');
+      }
     }
   };
 
@@ -442,12 +581,11 @@ export default function StudentDash() {
         const formData = new FormData();
         formData.append('resume', file);
 
-        const response = await uploadAPI.uploadResume(formData);
+        const response = await studentAPI.uploadResume(formData);
 
         if (response.data.success) {
           setResumeFile(file);
           alert('Resume uploaded successfully!');
-          // Refresh profile to get updated URL if needed
           fetchProfile();
         }
       } catch (error) {
@@ -539,53 +677,44 @@ export default function StudentDash() {
     setExtracurricular(extracurricular.filter(item => item.id !== id));
   };
 
-  const generateResume = () => {
-    alert('Resume builder coming soon! This will generate a professional resume based on your profile data.');
-    // TODO: Implement resume generation functionality
+  const generateResume = async () => {
+    try {
+      alert('Generating resume... This may take a few seconds.');
+      const response = await studentAPI.generateResume();
+      if (response.data.success) {
+        alert('Resume generated successfully!');
+        fetchProfile();
+      }
+    } catch (error) {
+      console.error('Error generating resume:', error);
+      alert('Failed to generate resume. Please ensure your profile is complete.');
+    }
   };
 
   const fetchJobs = async () => {
     try {
-      const response = await jobAPI.getAll('active');
-      // Handle API response structure - jobs are nested in .data.jobs or .data
-      const jobsData = Array.isArray(response.data) ? response.data : (response.data.jobs || []);
+      const response = await studentAPI.getEligibleJobs();
+      const jobsData = response.data.jobs || [];
       setJobs(jobsData);
       setFilteredJobs(jobsData);
-      
-      // Check eligibility for each job
-      checkEligibilityForAllJobs(jobsData);
+
+      // Populate jobEligibility map for UI consistency
+      const eligibilityMap = {};
+      jobsData.forEach(job => {
+        eligibilityMap[job._id] = {
+          isEligible: job.isEligible !== false,
+          issues: job.eligibilityIssues || []
+        };
+      });
+      setJobEligibility(eligibilityMap);
+
     } catch (error) {
       console.error('Error fetching jobs:', error);
       alert('Error loading jobs. Please refresh the page.');
     }
   };
 
-  const checkEligibilityForAllJobs = async (jobsList) => {
-    try {
-      const eligibilityMap = {};
-      
-      for (const job of jobsList) {
-        const jobId = job._id || job.id;
-        try {
-          const response = await eligibilityAPI.checkEligibility(jobId);
-          eligibilityMap[jobId] = {
-            isEligible: response.data?.isEligible || false,
-            issues: response.data?.issues || []
-          };
-        } catch (error) {
-          // If eligibility check fails, mark as not eligible
-          eligibilityMap[jobId] = {
-            isEligible: false,
-            issues: [error.response?.data?.message || 'Unable to verify eligibility']
-          };
-        }
-      }
-      
-      setJobEligibility(eligibilityMap);
-    } catch (error) {
-      console.error('Error checking eligibility for jobs:', error);
-    }
-  };
+
 
   const fetchApplications = async () => {
     try {
@@ -614,10 +743,10 @@ export default function StudentDash() {
       // Check if it's an eligibility error
       if (error.response?.data?.notEligible) {
         const issues = error.response?.data?.eligibilityIssues || [];
-        const issuesText = issues.length > 0 
-          ? issues.join('\n') 
+        const issuesText = issues.length > 0
+          ? issues.join('\n')
           : 'You do not meet the eligibility criteria for this job.';
-        
+
         alert(`You are not eligible for this job.\n\nReasons:\n${issuesText}`);
       }
       // Check if it's a profile incomplete error with section info
@@ -705,6 +834,19 @@ export default function StudentDash() {
               <nav className="flex flex-col space-y-2">
                 <button
                   onClick={() => {
+                    setActiveTab('applications');
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`${activeTab === 'applications'
+                    ? 'bg-indigo-50 text-indigo-600 border-l-4 border-indigo-600'
+                    : 'text-gray-600 hover:bg-gray-50'
+                    } px-4 py-3 text-left font-medium text-sm flex items-center gap-3 rounded-r`}
+                >
+                  <Clock className="h-5 w-5" />
+                  My Applications
+                </button>
+                <button
+                  onClick={() => {
                     setActiveTab('jobs');
                     setIsMobileMenuOpen(false);
                   }}
@@ -752,6 +894,16 @@ export default function StudentDash() {
         {/* Desktop Tabs */}
         <div className="mb-6 border-b border-gray-200 hidden lg:block">
           <nav className="-mb-px flex space-x-8">
+            <button
+              onClick={() => setActiveTab('applications')}
+              className={`${activeTab === 'applications'
+                ? 'border-indigo-500 text-indigo-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2`}
+            >
+              <Clock className="h-4 w-4" />
+              My Applications
+            </button>
             <button
               onClick={() => setActiveTab('jobs')}
               className={`${activeTab === 'jobs'
@@ -814,6 +966,17 @@ export default function StudentDash() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Applications Tab */}
+        {activeTab === 'applications' && (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">Application Tracker</h2>
+              <p className="text-gray-600">Track the status of all your job applications</p>
+            </div>
+            <ApplicationTracker />
           </div>
         )}
 
@@ -896,27 +1059,27 @@ export default function StudentDash() {
                           <Button
                             className="w-full"
                             disabled={
-                              appliedJobs.has(job._id || job.id) || 
-                              applyingJobId === (job._id || job.id) || 
+                              appliedJobs.has(job._id || job.id) ||
+                              applyingJobId === (job._id || job.id) ||
                               isJobExpired(job) ||
                               job.status !== 'active' ||
                               (jobEligibility[job._id || job.id]?.isEligible === false)
                             }
                             onClick={() => handleApply(job._id || job.id)}
                             variant={
-                              appliedJobs.has(job._id || job.id) || 
-                              isJobExpired(job) ||
-                              job.status !== 'active' ||
-                              (jobEligibility[job._id || job.id]?.isEligible === false)
-                                ? "secondary" 
+                              appliedJobs.has(job._id || job.id) ||
+                                isJobExpired(job) ||
+                                job.status !== 'active' ||
+                                (jobEligibility[job._id || job.id]?.isEligible === false)
+                                ? "secondary"
                                 : "default"
                             }
                             title={
                               job.status !== 'active'
                                 ? 'This job is no longer accepting applications'
                                 : jobEligibility[job._id || job.id]?.isEligible === false
-                                ? jobEligibility[job._id || job.id]?.issues?.join(', ') || 'You are not eligible for this job'
-                                : ''
+                                  ? jobEligibility[job._id || job.id]?.issues?.join(', ') || 'You are not eligible for this job'
+                                  : ''
                             }
                           >
                             {applyingJobId === (job._id || job.id)
@@ -928,25 +1091,25 @@ export default function StudentDash() {
                                   : job.status !== 'active'
                                     ? 'Job Closed'
                                     : jobEligibility[job._id || job.id]?.isEligible === false
-                                    ? 'Not Eligible'
-                                    : 'Apply for this Position'}
+                                      ? 'Not Eligible'
+                                      : 'Apply for this Position'}
                           </Button>
-                          
+
                           {/* Show eligibility issues if not eligible */}
-                          {jobEligibility[job._id || job.id]?.isEligible === false && 
-                           jobEligibility[job._id || job.id]?.issues?.length > 0 && (
-                            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                              <p className="text-sm font-semibold text-red-800 mb-1">Why you're not eligible:</p>
-                              <ul className="text-xs text-red-700 space-y-1">
-                                {jobEligibility[job._id || job.id]?.issues?.map((issue, idx) => (
-                                  <li key={idx} className="flex items-start gap-2">
-                                    <span className="text-red-500 mt-0.5">•</span>
-                                    <span>{issue}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
+                          {jobEligibility[job._id || job.id]?.isEligible === false &&
+                            jobEligibility[job._id || job.id]?.issues?.length > 0 && (
+                              <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                <p className="text-sm font-semibold text-red-800 mb-1">Why you're not eligible:</p>
+                                <ul className="text-xs text-red-700 space-y-1">
+                                  {jobEligibility[job._id || job.id]?.issues?.map((issue, idx) => (
+                                    <li key={idx} className="flex items-start gap-2">
+                                      <span className="text-red-500 mt-0.5">•</span>
+                                      <span>{issue}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
                         </div>
                       </div>
                     </CardContent>
@@ -1061,6 +1224,37 @@ export default function StudentDash() {
                     {/* Basic Info */}
                     <div>
                       <h3 className="text-lg font-semibold mb-4 text-gray-700">Basic Details</h3>
+
+                      {/* Photo Upload */}
+                      <div className="mb-6 flex items-center gap-4">
+                        <div className="h-24 w-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden border-2 border-gray-300">
+                          {profileData.photoUrl ? (
+                            <img src={profileData.photoUrl} alt="Profile" className="h-full w-full object-cover" />
+                          ) : (
+                            <User className="h-12 w-12 text-gray-400" />
+                          )}
+                        </div>
+                        <div>
+                          <div
+                            onClick={() => !isPersonalLocked && fileInputRef.current?.click()}
+                            className={`${isPersonalLocked ? 'cursor-not-allowed opacity-50 bg-gray-100' : 'cursor-pointer hover:bg-gray-50 bg-white'} select-none border border-gray-300 px-4 py-2 rounded-md text-sm font-medium shadow-sm inline-flex items-center gap-2`}
+                          >
+                            <Upload className="h-4 w-4" />
+                            Upload Photo
+                          </div>
+                          <Input
+                            ref={fileInputRef}
+                            id="photo-upload"
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handlePhotoUpload}
+                            disabled={isPersonalLocked}
+                          />
+                          <p className="text-xs text-gray-500 mt-1">Max size 2MB. JPG, PNG only.</p>
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <Label htmlFor="fullName">Full Name</Label>
@@ -1168,6 +1362,311 @@ export default function StudentDash() {
                             disabled={isPersonalLocked}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
+                          />
+                        </div>
+
+                        {/* NEW FIELDS - Identity & Academic */}
+                        <div>
+                          <Label htmlFor="rollNumber">Roll Number</Label>
+                          <Input
+                            id="rollNumber"
+                            value={profileData.rollNumber}
+                            onChange={(e) => setProfileData({ ...profileData, rollNumber: e.target.value })}
+                            placeholder="Enter roll number"
+                            disabled={isPersonalLocked}
+                            className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="firstName">First Name</Label>
+                          <Input
+                            id="firstName"
+                            value={profileData.firstName}
+                            onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })}
+                            placeholder="Enter first name"
+                            disabled={isPersonalLocked}
+                            className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="lastName">Last Name</Label>
+                          <Input
+                            id="lastName"
+                            value={profileData.lastName}
+                            onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })}
+                            placeholder="Enter last name"
+                            disabled={isPersonalLocked}
+                            className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="course">Course</Label>
+                          <select
+                            id="course"
+                            value={profileData.course}
+                            onChange={(e) => setProfileData({ ...profileData, course: e.target.value })}
+                            className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ${isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                            disabled={isPersonalLocked}
+                          >
+                            <option value="">Select Course</option>
+                            <option value="BE">BE</option>
+                            <option value="B.TECH">B.TECH</option>
+                            <option value="ME">ME</option>
+                            <option value="MBA">MBA</option>
+                            <option value="MCA">MCA</option>
+                            <option value="OTHER">OTHER</option>
+                          </select>
+                        </div>
+                        {profileData.course === 'OTHER' && (
+                          <div>
+                            <Label htmlFor="courseOther">Specify Course</Label>
+                            <Input
+                              id="courseOther"
+                              value={profileData.courseOther}
+                              onChange={(e) => setProfileData({ ...profileData, courseOther: e.target.value })}
+                              placeholder="Enter course name"
+                              disabled={isPersonalLocked}
+                              className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
+                            />
+                          </div>
+                        )}
+                        <div>
+                          <Label htmlFor="passedOutYear">Passed Out Year</Label>
+                          <Input
+                            id="passedOutYear"
+                            type="number"
+                            value={profileData.passedOutYear}
+                            onChange={(e) => setProfileData({ ...profileData, passedOutYear: e.target.value })}
+                            placeholder="YYYY"
+                            min="2000"
+                            max="2100"
+                            disabled={isPersonalLocked}
+                            className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="careerPath">Career Path</Label>
+                          <Input
+                            id="careerPath"
+                            value={profileData.careerPath}
+                            onChange={(e) => setProfileData({ ...profileData, careerPath: e.target.value })}
+                            placeholder="e.g., Software Development, Data Science"
+                            disabled={isPersonalLocked}
+                            className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
+                          />
+                        </div>
+                        <div>
+                          <Label>Disability Status</Label>
+                          <div className="flex gap-4 mt-2">
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                name="disabilityStatus"
+                                value="none"
+                                checked={profileData.disabilityStatus === 'none'}
+                                onChange={(e) => setProfileData({ ...profileData, disabilityStatus: e.target.value })}
+                                disabled={isPersonalLocked}
+                              />
+                              <span>None</span>
+                            </label>
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                name="disabilityStatus"
+                                value="differently_abled"
+                                checked={profileData.disabilityStatus === 'differently_abled'}
+                                onChange={(e) => setProfileData({ ...profileData, disabilityStatus: e.target.value })}
+                                disabled={isPersonalLocked}
+                              />
+                              <span>Differently Abled</span>
+                            </label>
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                name="disabilityStatus"
+                                value="physically_challenged"
+                                checked={profileData.disabilityStatus === 'physically_challenged'}
+                                onChange={(e) => setProfileData({ ...profileData, disabilityStatus: e.target.value })}
+                                disabled={isPersonalLocked}
+                              />
+                              <span>Physically Challenged</span>
+                            </label>
+                          </div>
+                        </div>
+
+                        {/* NEW FIELDS - Contact Information */}
+                        <div className="col-span-2">
+                          <h3 className="text-lg font-semibold mb-4 text-blue-600">Contact Information</h3>
+                        </div>
+                        <div>
+                          <Label htmlFor="communicationEmail">Communication Email</Label>
+                          <Input
+                            id="communicationEmail"
+                            type="email"
+                            value={profileData.communicationEmail}
+                            onChange={(e) => setProfileData({ ...profileData, communicationEmail: e.target.value })}
+                            placeholder="primary@email.com"
+                            disabled={isPersonalLocked}
+                            className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="instituteEmail">Institute Email</Label>
+                          <Input
+                            id="instituteEmail"
+                            type="email"
+                            value={profileData.instituteEmail}
+                            onChange={(e) => setProfileData({ ...profileData, instituteEmail: e.target.value })}
+                            placeholder="student@college.edu"
+                            disabled={isPersonalLocked}
+                            className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="personalEmail">Personal Email</Label>
+                          <Input
+                            id="personalEmail"
+                            type="email"
+                            value={profileData.personalEmail}
+                            onChange={(e) => setProfileData({ ...profileData, personalEmail: e.target.value })}
+                            placeholder="personal@email.com"
+                            disabled={isPersonalLocked}
+                            className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="alternateEmail">Alternate Email</Label>
+                          <Input
+                            id="alternateEmail"
+                            type="email"
+                            value={profileData.alternateEmail}
+                            onChange={(e) => setProfileData({ ...profileData, alternateEmail: e.target.value })}
+                            placeholder="alternate@email.com"
+                            disabled={isPersonalLocked}
+                            className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="whatsappNumber">WhatsApp Number</Label>
+                          <Input
+                            id="whatsappNumber"
+                            type="tel"
+                            value={profileData.whatsappNumber}
+                            onChange={(e) => setProfileData({ ...profileData, whatsappNumber: e.target.value })}
+                            placeholder="+91 1234567890"
+                            disabled={isPersonalLocked}
+                            className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="linkedInUrl">LinkedIn URL</Label>
+                          <Input
+                            id="linkedInUrl"
+                            type="url"
+                            value={profileData.linkedInUrl}
+                            onChange={(e) => setProfileData({ ...profileData, linkedInUrl: e.target.value })}
+                            placeholder="https://linkedin.com/in/yourprofile"
+                            disabled={isPersonalLocked}
+                            className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
+                          />
+                        </div>
+
+                        {/* Existing Family Fields */}
+                        <div className="col-span-2">
+                          <h3 className="text-lg font-semibold mb-4 text-blue-600">Family Information</h3>
+                        </div>
+                        <div>
+                          <Label htmlFor="fatherName">Father's Name *</Label>
+                          <Input
+                            id="fatherName"
+                            value={profileData.fatherName}
+                            onChange={(e) => setProfileData({ ...profileData, fatherName: e.target.value })}
+                            placeholder="Enter father's full name"
+                            disabled={isPersonalLocked}
+                            className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="motherName">Mother's Name *</Label>
+                          <Input
+                            id="motherName"
+                            value={profileData.motherName}
+                            onChange={(e) => setProfileData({ ...profileData, motherName: e.target.value })}
+                            placeholder="Enter mother's full name"
+                            disabled={isPersonalLocked}
+                            className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="fatherPhone">Father's Phone</Label>
+                          <Input
+                            id="fatherPhone"
+                            type="tel"
+                            value={profileData.fatherPhone}
+                            onChange={(e) => setProfileData({ ...profileData, fatherPhone: e.target.value })}
+                            placeholder="+91 1234567890"
+                            disabled={isPersonalLocked}
+                            className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="fatherOccupation">Father's Occupation</Label>
+                          <Input
+                            id="fatherOccupation"
+                            value={profileData.fatherOccupation}
+                            onChange={(e) => setProfileData({ ...profileData, fatherOccupation: e.target.value })}
+                            placeholder="Enter father's occupation"
+                            disabled={isPersonalLocked}
+                            className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="motherPhone">Mother's Phone</Label>
+                          <Input
+                            id="motherPhone"
+                            type="tel"
+                            value={profileData.motherPhone}
+                            onChange={(e) => setProfileData({ ...profileData, motherPhone: e.target.value })}
+                            placeholder="+91 1234567890"
+                            disabled={isPersonalLocked}
+                            className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="motherOccupation">Mother's Occupation</Label>
+                          <Input
+                            id="motherOccupation"
+                            value={profileData.motherOccupation}
+                            onChange={(e) => setProfileData({ ...profileData, motherOccupation: e.target.value })}
+                            placeholder="Enter mother's occupation"
+                            disabled={isPersonalLocked}
+                            className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="aadhaarNumber">Aadhaar Number</Label>
+                          <Input
+                            id="aadhaarNumber"
+                            value={profileData.aadhaarNumber}
+                            onChange={(e) => setProfileData({ ...profileData, aadhaarNumber: e.target.value })}
+                            placeholder="Enter 12-digit Aadhaar number"
+                            maxLength={12}
+                            disabled={isPersonalLocked}
+                            className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="permanentAddress">Permanent Address</Label>
+                          <Textarea
+                            id="permanentAddress"
+                            value={profileData.permanentAddress}
+                            onChange={(e) => setProfileData({ ...profileData, permanentAddress: e.target.value })}
+                            placeholder="Enter permanent address (if different from current)"
+                            rows={2}
+                            disabled={isPersonalLocked}
+                            className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
                         <div className="md:col-span-2">

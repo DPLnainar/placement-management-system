@@ -1,40 +1,40 @@
 import { Router } from 'express';
-// import { authenticate, requireRole } from '@middleware/auth';
+import { authenticate, requireRole } from '../middleware/auth';
+import * as studentController from '../controllers/studentController';
+import { uploadPhoto, uploadResume } from '../config/uploadConfig';
 
 const router = Router();
 
 /**
  * Student Routes
- * Temporarily disabled until studentController is migrated
- * 
- * Public routes:
- * - POST /register - Student self-registration
- * 
- * Protected routes:
- * - GET /profile - Get own profile with student data
- * - PUT /profile - Update own profile
- * - Enhanced profile management endpoints
  */
 
-// Public route - Student self-registration
-// router.post('/register', registerStudent);
+router.use(authenticate);
 
-// Protected routes
-// router.get('/profile', authenticate, getStudentProfile);
-// router.put('/profile', authenticate, updateStudentProfile);
-// router.put('/:userId/profile', authenticate, requireRole(['admin', 'moderator']), updateStudentProfile);
+// Profile
+router.get('/profile', studentController.getProfile);
+router.put('/profile', studentController.updateProfile);
 
-// Enhanced Profile Management Routes
-// router.put('/education', authenticate, requireRole(['student']), updateEducation);
-// router.put('/skills', authenticate, requireRole(['student']), updateSkills);
-// router.post('/projects', authenticate, requireRole(['student']), addProject);
-// router.put('/projects/:projectId', authenticate, requireRole(['student']), updateProject);
-// router.delete('/projects/:projectId', authenticate, requireRole(['student']), deleteProject);
-// router.post('/experience', authenticate, requireRole(['student']), addExperience);
-// router.post('/certifications', authenticate, requireRole(['student']), addCertification);
-// router.post('/achievements', authenticate, requireRole(['student']), addAchievement);
-// router.put('/social-profiles', authenticate, requireRole(['student']), updateSocialProfiles);
-// router.put('/coding-stats', authenticate, requireRole(['student']), updateCodingStats);
-// router.get('/profile-strength', authenticate, requireRole(['student']), getProfileStrength);
+// Uploads
+router.post('/photo', uploadPhoto.single('photo'), studentController.uploadPhoto);
+router.post('/resume/upload', uploadResume.single('resume'), studentController.uploadResume);
+
+// Resume Generation
+router.post('/resume/generate', studentController.generateResume);
+
+// Jobs & Applications
+router.get('/jobs/eligible', studentController.getEligibleJobs);
+router.get('/applications', studentController.getApplications);
+
+// Placement Card
+router.get('/placement-card', studentController.getPlacementCard);
+
+// Notifications
+router.get('/notifications', studentController.getNotifications);
+router.put('/notifications/:id/read', studentController.markNotificationRead);
+router.put('/notifications/read-all', studentController.markAllNotificationsRead);
+
+// Profile Deletion Request
+router.post('/profile-deletion-request', studentController.requestProfileDeletion);
 
 export default router;
