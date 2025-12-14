@@ -9,7 +9,9 @@ import ForgotPassword from './components/ForgotPassword';
 import ResetPassword from './components/ResetPassword';
 import AdminDashboard from './components/AdminDashboard';
 import ModeratorDashboard from './components/ModeratorDashboard';
+import ModeratorJobDetails from './components/ModeratorJobDetails';
 import StudentDash from './components/StudentDash';
+import StudentJobsPage from './components/StudentJobsPage';
 import SuperAdminDashboard from './components/SuperAdminDashboard';
 import StudentRegistration from './components/StudentRegistration';
 import CreateJob from './components/CreateJob';
@@ -57,6 +59,15 @@ function App() {
           />
 
           <Route
+            path="/moderator/job/:jobId"
+            element={
+              <ProtectedRoute allowedRoles={['moderator']}>
+                <ModeratorJobDetails />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
             path="/create-job"
             element={
               <ProtectedRoute allowedRoles={['admin', 'moderator']}>
@@ -64,6 +75,17 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* Test Route for New Jobs Page */}
+          <Route
+            path="/test-jobs"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <StudentJobsPage />
+              </ProtectedRoute>
+            }
+          />
+
 
           {/* Catch all - redirect to dashboard if authenticated, otherwise to login */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

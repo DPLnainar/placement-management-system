@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { Job } from '@models/index';
+import { Job, Application } from '@models/index';
 import StudentData from '../models/StudentData';
 import { checkEligibility as checkEligibilityService } from '../services/eligibilityService';
 import type { IAuthRequest } from '../types/index';
@@ -109,17 +109,37 @@ export const getJobs = async (req: IAuthRequest, res: Response): Promise<void> =
     if (jobCategory) filter.jobCategory = jobCategory;
     if (priority) filter.priority = priority;
 
-    if (!includeExpired) {
+    if (!includeExpired && !status) {
+      // If no status preference is given, we usually show active. 
+      // But if we want to show everything, we shouldn't filter by deadline here unless requested.
+      // Let's keep existing logic: if !includeExpired, filter by deadline.
       filter.deadline = { $gte: new Date() };
     }
 
+    // 1. Find jobs matching basic filters
     const jobs = await Job.find(filter)
       .populate('postedBy', 'username fullName role')
       .sort({ priority: -1, createdAt: -1 });
 
+    // 2. Auto-close expired jobs (Lazy Update)
+    // This ensures that if a job is "active" but deadline passed, it becomes "closed" in DB.
+    const now = new Date();
+    const updates = [];
+
+    for (const job of jobs) {
+      if (job.status === 'active' && job.deadline && new Date(job.deadline) < now) {
+        job.status = 'closed';
+        updates.push(Job.updateOne({ _id: job._id }, { status: 'closed' }));
+      }
+    }
+
+    if (updates.length > 0) {
+      await Promise.all(updates);
+    }
+
     const enrichedJobs = jobs.map(job => ({
       ...(job.toObject()),
-      isExpired: (job as any).isExpired?.() || false,
+      isExpired: (job as any).isExpired?.() || (job.deadline && new Date(job.deadline) < now) || false,
       isRegistrationOpen: (job as any).isRegistrationOpen?.() || false,
       daysRemaining: (job as any).getDaysRemaining?.() || 0,
       isClosingSoon: (job as any).isClosingSoon?.() || false
@@ -358,11 +378,57 @@ export const checkEligibility = async (req: IAuthRequest, res: Response): Promis
 /**
  * Get Job Statistics
  */
-export const getJobStatistics = async (_req: IAuthRequest, res: Response): Promise<void> => {
+export const getJobStatistics = async (req: IAuthRequest, res: Response): Promise<void> => {
   try {
-    res.status(501).json({
-      success: false,
-      message: 'Job statistics not yet implemented'
+    const { id } = req.params;
+    const collegeId = (req.user?.collegeId as any)?._id || req.user?.collegeId;
+
+    const job = await Job.findOne({ _id: id, collegeId });
+    if (!job) {
+      res.status(404).json({ success: false, message: 'Job not found' });
+      return;
+    }
+
+    // Get all students for this college
+    // Optimize: Fetch only necessary fields for eligibility check
+    const students = await StudentData.find({ collegeId })
+      .select('skills technicalSkills education currentBacklogs gapYears gender');
+
+    // Get all applications for this job
+    const applications = await Application.find({ jobId: id }).select('studentId');
+    const appliedStudentIds = new Set(applications.map(app => app.studentId.toString()));
+    const appliedCount = applications.length;
+
+    let eligibleCount = 0;
+
+    // Check eligibility for each student
+    const eligibleStudents = students.filter(student => {
+      const check = checkEligibilityService(student, job);
+      return check.eligible;
+    });
+
+    eligibleCount = eligibleStudents.length;
+
+    // Calculate Eligible but Not Applied
+    // Count students who are in eligibleStudents BUT NOT in appliedStudentIds
+    const notAppliedCount = eligibleStudents.filter(s => !appliedStudentIds.has(s._id.toString()) && !appliedStudentIds.has(s.userId?.toString())).length;
+
+    // Wait, StudentData._id vs userId
+    // eligibilityService takes StudentData.
+    // Application usually links to Student (User) or StudentData? 
+    // Application schema usually has 'studentId' (User ID).
+    // StudentData has 'userId'.
+    // If Application.studentId refers to User ID, I need to check student.userId.
+    // But fetch queries didn't populate userId.
+    // I should select userId in StudentData query.
+
+    res.json({
+      success: true,
+      stats: {
+        totalEligible: eligibleCount,
+        applied: appliedCount,
+        notApplied: notAppliedCount
+      }
     });
 
   } catch (error: any) {

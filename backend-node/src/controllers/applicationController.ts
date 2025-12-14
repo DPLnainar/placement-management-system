@@ -61,6 +61,21 @@ export const createApplication = async (req: Request, res: Response) => {
             });
         }
 
+        // VERIFICATION STATUS CHECK
+        if (student.verificationStatus !== 'VERIFIED') {
+            const statusMessages = {
+                'PENDING': 'Your profile is pending verification. Please wait for moderator approval before applying to jobs.',
+                'REJECTED': `Your profile verification was rejected. Reason: ${student.verificationRejectionReason || 'Not specified'}. Please contact your department moderator.`
+            };
+
+            return res.status(403).json({
+                success: false,
+                message: statusMessages[student.verificationStatus] || 'Profile verification required',
+                verificationStatus: student.verificationStatus,
+                verificationRejectionReason: student.verificationRejectionReason
+            });
+        }
+
         // Check if already applied
         const existingApplication = await Application.findOne({ jobId, studentId: userId });
         if (existingApplication) {
@@ -221,6 +236,34 @@ export const updateApplicationStatus = async (req: Request, res: Response) => {
         }
 
         await application.save();
+
+        // AUTO-POPULATE OFFERS: When status changes to OFFERED, add offer to student's offers array
+        if (status.toUpperCase() === 'OFFERED' || status === 'offered') {
+            try {
+                const job = await Job.findById(application.jobId) as any;
+
+                await StudentData.updateOne(
+                    { userId: application.studentId },
+                    {
+                        $push: {
+                            allOffers: {
+                                jobId: application.jobId,
+                                companyName: job?.company || 'Unknown Company',
+                                package: job?.ctc || job?.salary || 0,
+                                offerDate: new Date(),
+                                offerLetterUrl: application.selectionDetails?.offerLetterUrl || '',
+                                status: 'pending',
+                            },
+                        },
+                    }
+                );
+
+                console.log(`Offer added to student ${application.studentId} for ${job?.company}`);
+            } catch (offerError) {
+                console.error('Failed to add offer to student:', offerError);
+                // Don't fail the entire request if offer addition fails
+            }
+        }
 
         // PLACEMENT LOCK: If status is PLACED, update student placement data
         if (status.toUpperCase() === 'PLACED' || status === 'offer_accepted' || status === 'joined') {

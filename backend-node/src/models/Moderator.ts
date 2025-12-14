@@ -73,7 +73,7 @@ const moderatorSchema = new Schema<IModerator>(
 /**
  * Indexes for efficient queries
  */
-moderatorSchema.index({ userId: 1 }, { unique: true });
+
 moderatorSchema.index({ collegeId: 1 });
 moderatorSchema.index({ collegeId: 1, isActive: 1 });
 moderatorSchema.index({ departments: 1 });

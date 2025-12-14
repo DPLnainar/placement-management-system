@@ -214,14 +214,21 @@ export default function RoleLogin() {
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pl-10 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   required={role !== 'admin'}
                 >
-                  <option value="">Select your college...</option>
-                  {colleges.map((college) => (
+                  <option value="">
+                    {colleges.length === 0 ? 'Loading colleges...' : 'Select your college...'}
+                  </option>
+                  {colleges.length > 0 && colleges.map((college) => (
                     <option key={college._id || college.id} value={college._id || college.id}>
-                      {college.name} ({college.code})
+                      {college.name} {college.code ? `(${college.code})` : ''}
                     </option>
                   ))}
                 </select>
               </div>
+              {colleges.length === 0 && (
+                <p className="text-xs text-amber-600">
+                  If colleges don't load, please refresh the page or contact support.
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">

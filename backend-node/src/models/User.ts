@@ -46,6 +46,14 @@ export interface IUser extends Document {
   accountLockedUntil?: Date;
   /** Whether account is active */
   isActive: boolean;
+  /** Whether account is blocked by moderator/admin */
+  isBlocked: boolean;
+  /** User who blocked this account */
+  blockedBy?: Schema.Types.ObjectId;
+  /** When the account was blocked */
+  blockedAt?: Date;
+  /** Reason for blocking the account */
+  blockReason?: string;
   /** Refresh token for JWT */
   refreshToken?: string;
   primaryEmail?: string;
@@ -167,6 +175,24 @@ const userSchema = new Schema<IUser>(
       type: Boolean,
       default: true,
     },
+    isBlocked: {
+      type: Boolean,
+      default: false,
+    },
+    blockedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      default: undefined,
+    },
+    blockedAt: {
+      type: Date,
+      default: undefined,
+    },
+    blockReason: {
+      type: String,
+      trim: true,
+      default: undefined,
+    },
     refreshToken: {
       type: String,
       select: false, // Don't return refresh token by default
@@ -190,7 +216,6 @@ const userSchema = new Schema<IUser>(
 /**
  * Indexes for efficient queries
  */
-userSchema.index({ email: 1 });
 userSchema.index({ username: 1 });
 userSchema.index({ collegeId: 1 });
 userSchema.index({ role: 1 });

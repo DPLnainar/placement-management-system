@@ -131,6 +131,8 @@ export interface IJob extends Document {
   isActive: boolean;
   /** Notification channel preferences */
   notifyChannels: INotifyChannels;
+  /** Target departments for this job */
+  targetDepartments: string[];
   /** User who created the job */
   createdBy: Schema.Types.ObjectId;
   /** Record creation timestamp */
@@ -294,6 +296,10 @@ const jobSchema = new Schema<IJob>(
     notifyChannels: {
       email: { type: Boolean, default: true },
       whatsapp: { type: Boolean, default: false },
+    },
+    targetDepartments: {
+      type: [String],
+      default: [],
     },
     createdBy: {
       type: Schema.Types.ObjectId,

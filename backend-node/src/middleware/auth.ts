@@ -23,11 +23,12 @@ export const authenticate = async (
   try {
     // Get token from header
     const authHeader = req.headers.authorization;
-    
+    console.error('AUTH DEBUG: Header present?', !!authHeader, 'URL:', req.url);
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(401).json({ 
-        success: false, 
-        message: 'No token provided, authorization denied' 
+      res.status(401).json({
+        success: false,
+        message: 'No token provided, authorization denied'
       });
       return;
     }
@@ -37,25 +38,27 @@ export const authenticate = async (
     try {
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET || '') as any;
-      
+
       // Load user from database (excluding password)
       const user = await User.findById(decoded.userId)
         .select('-password')
         .populate('collegeId', 'name code location');
-      
+
       if (!user) {
-        res.status(401).json({ 
-          success: false, 
-          message: 'User not found, token invalid' 
+        console.error('Auth failed: User not found for ID:', decoded.userId);
+        res.status(401).json({
+          success: false,
+          message: 'User not found, token invalid'
         });
         return;
       }
 
       // Check if user is active
       if (user.status !== 'active') {
-        res.status(401).json({ 
-          success: false, 
-          message: 'User account is not active' 
+        console.error('Auth failed: User is not active:', user._id);
+        res.status(401).json({
+          success: false,
+          message: 'User account is not active'
         });
         return;
       }
@@ -70,28 +73,30 @@ export const authenticate = async (
         name: (user as any).name || (user as any).fullName || user.username,
         status: user.status
       };
-      
+
       next();
     } catch (error: any) {
+      console.error('Auth Middleware Error:', error.message);
       if (error.name === 'TokenExpiredError') {
-        res.status(401).json({ 
-          success: false, 
-          message: 'Token expired, please login again' 
+        res.status(401).json({
+          success: false,
+          message: 'Token expired, please login again'
         });
         return;
       }
-      
-      res.status(401).json({ 
-        success: false, 
-        message: 'Token is not valid' 
+
+      console.error('Token verification failed:', error);
+      res.status(401).json({
+        success: false,
+        message: 'Token is not valid'
       });
       return;
     }
   } catch (error) {
-    console.error('Authentication error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error during authentication' 
+    console.error('Authentication error (Outer catch):', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during authentication'
     });
   }
 };
@@ -107,17 +112,17 @@ export const authenticate = async (
 export const requireRole = (roles: string[]) => {
   return (req: IAuthRequest, res: Response, next: NextFunction): void => {
     if (!req.user) {
-      res.status(401).json({ 
-        success: false, 
-        message: 'Authentication required' 
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required'
       });
       return;
     }
 
     if (!roles.includes(req.user.role)) {
-      res.status(403).json({ 
-        success: false, 
-        message: 'Access denied. Insufficient permissions.' 
+      res.status(403).json({
+        success: false,
+        message: 'Access denied. Insufficient permissions.'
       });
       return;
     }
@@ -141,9 +146,9 @@ export const requireSameCollege = (
   next: NextFunction
 ): void => {
   if (!req.user) {
-    res.status(401).json({ 
-      success: false, 
-      message: 'Authentication required' 
+    res.status(401).json({
+      success: false,
+      message: 'Authentication required'
     });
     return;
   }
@@ -157,9 +162,9 @@ export const requireSameCollege = (
   }
 
   // Get collegeId from various sources
-  const requestedCollegeId = 
-    req.params.collegeId || 
-    req.body.collegeId || 
+  const requestedCollegeId =
+    req.params.collegeId ||
+    req.body.collegeId ||
     req.query.collegeId;
 
   // If no college specified in request, assume user's own college
@@ -171,11 +176,11 @@ export const requireSameCollege = (
 
   // Check if requested college matches user's college
   const userCollegeId = (req.user.collegeId as any)?._id || req.user.collegeId;
-  
+
   if (requestedCollegeId.toString() !== userCollegeId.toString()) {
-    res.status(403).json({ 
-      success: false, 
-      message: 'Access denied. You can only access data from your assigned college.' 
+    res.status(403).json({
+      success: false,
+      message: 'Access denied. You can only access data from your assigned college.'
     });
     return;
   }
@@ -193,18 +198,18 @@ export const requireAdminForAssignment = (
   next: NextFunction
 ): void => {
   if (!req.user) {
-    res.status(401).json({ 
-      success: false, 
-      message: 'Authentication required' 
+    res.status(401).json({
+      success: false,
+      message: 'Authentication required'
     });
     return;
   }
 
   // Only admins and superadmins can assign users
   if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
-    res.status(403).json({ 
-      success: false, 
-      message: 'Access denied. Insufficient permissions.' 
+    res.status(403).json({
+      success: false,
+      message: 'Access denied. Insufficient permissions.'
     });
     return;
   }
@@ -212,9 +217,9 @@ export const requireAdminForAssignment = (
   // SuperAdmin can assign to any college
   if (req.user.role === 'superadmin') {
     if (!req.body.collegeId) {
-      res.status(400).json({ 
-        success: false, 
-        message: 'SuperAdmin must specify collegeId when creating users' 
+      res.status(400).json({
+        success: false,
+        message: 'SuperAdmin must specify collegeId when creating users'
       });
       return;
     }
@@ -225,11 +230,11 @@ export const requireAdminForAssignment = (
   // If collegeId is specified in request body, it must match admin's college
   if (req.body.collegeId) {
     const userCollegeId = (req.user.collegeId as any)?._id || req.user.collegeId;
-    
+
     if (req.body.collegeId.toString() !== userCollegeId.toString()) {
-      res.status(403).json({ 
-        success: false, 
-        message: 'You can only assign users to your own college' 
+      res.status(403).json({
+        success: false,
+        message: 'You can only assign users to your own college'
       });
       return;
     }
@@ -252,27 +257,27 @@ export const verifyCollegeAdmin = (
   next: NextFunction
 ): void => {
   if (!req.user) {
-    res.status(401).json({ 
-      success: false, 
-      message: 'Authentication required' 
+    res.status(401).json({
+      success: false,
+      message: 'Authentication required'
     });
     return;
   }
 
   // Check if user is a College Admin
   if (req.user.role !== 'admin') {
-    res.status(403).json({ 
-      success: false, 
-      message: 'Access denied. Insufficient permissions.' 
+    res.status(403).json({
+      success: false,
+      message: 'Access denied. Insufficient permissions.'
     });
     return;
   }
 
   // Ensure admin has a college assigned
   if (!req.user.collegeId) {
-    res.status(403).json({ 
-      success: false, 
-      message: 'Admin account not properly configured. No college assigned.' 
+    res.status(403).json({
+      success: false,
+      message: 'Admin account not properly configured. No college assigned.'
     });
     return;
   }
@@ -330,9 +335,9 @@ export const requireCollegeAdminOf = (collegeIdParam: string = 'collegeId') => {
     }
 
     // Get the college ID from params, body, or query
-    const targetCollegeId = 
-      req.params[collegeIdParam] || 
-      req.body[collegeIdParam] || 
+    const targetCollegeId =
+      req.params[collegeIdParam] ||
+      req.body[collegeIdParam] ||
       req.query[collegeIdParam];
 
     // If no college ID specified, allow (will default to admin's own college)
@@ -342,9 +347,9 @@ export const requireCollegeAdminOf = (collegeIdParam: string = 'collegeId') => {
     }
 
     // Get admin's college ID
-    const adminCollegeId = (req.user.collegeId as any)?._id?.toString() || 
-                          (req.user.collegeId as any)?.toString() ||
-                          req.user.collegeId;
+    const adminCollegeId = (req.user.collegeId as any)?._id?.toString() ||
+      (req.user.collegeId as any)?.toString() ||
+      req.user.collegeId;
 
     if (!adminCollegeId) {
       res.status(403).json({
@@ -403,9 +408,9 @@ export const requireModeratorOfDept = (deptParam: string = 'department') => {
     }
 
     // Get the target department from params, body, or query
-    const targetDepartment = 
-      req.params[deptParam] || 
-      req.body[deptParam] || 
+    const targetDepartment =
+      req.params[deptParam] ||
+      req.body[deptParam] ||
       req.query[deptParam];
 
     // If no department specified, allow (will default to moderator's own department)

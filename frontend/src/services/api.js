@@ -160,7 +160,7 @@ export const publicAPI = {
 
 // Job API
 export const jobAPI = {
-  getAll: (status = null) => api.get('/jobs', { params: { status } }),
+  getAll: (status = null, params = {}) => api.get('/jobs', { params: { status, ...params } }),
   getById: (id) => api.get(`/jobs/${id}`),
   create: (data) => api.post('/jobs', data),
   update: (id, data) => api.put(`/jobs/${id}`, data),
@@ -282,8 +282,43 @@ export const studentAPI = {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
   generateResume: () => api.post('/students/resume/generate'),
+  getJobs: (params = {}) => api.get('/students/jobs', { params }),
   getEligibleJobs: () => api.get('/students/jobs/eligible'),
   getApplications: () => api.get('/students/applications'),
+  getOffers: () => api.get('/students/offers'),
+  acceptOffer: (offerId) => api.post(`/students/offers/${offerId}/accept`),
+};
+
+// Admin API
+export const adminAPI = {
+  // Dashboard
+  getDashboard: () => api.get('/admin/dashboard'),
+
+  // Moderators
+  getModerators: () => api.get('/admin/moderators'),
+  createModerator: (data) => api.post('/admin/moderators', data),
+  updateModerator: (id, data) => api.put(`/admin/moderators/${id}`, data),
+  toggleModeratorStatus: (id) => api.patch(`/admin/moderators/${id}/status`),
+
+  // Job Notifications
+  notifyStudentsForJob: (jobId) => api.post(`/admin/jobs/${jobId}/notify`),
+
+  // Job Management
+  createJob: (data) => api.post('/admin/jobs', data),
+  updateJob: (id, data) => api.put(`/admin/jobs/${id}`, data),
+  toggleJobStatus: (id) => api.patch(`/admin/jobs/${id}/status`),
+};
+
+// Moderator API
+export const moderatorAPI = {
+  getJobs: () => api.get('/moderator/jobs'),
+  getJobStudents: (jobId) => api.get(`/moderator/jobs/${jobId}/students`),
+
+  // Student management
+  getStudents: (includeDeleted = false) => api.get('/moderator/students', { params: { includeDeleted } }),
+  blockStudent: (studentId, reason) => api.put(`/moderator/students/${studentId}/block`, { reason }),
+  unblockStudent: (studentId) => api.put(`/moderator/students/${studentId}/unblock`),
+  deleteStudent: (studentId, reason) => api.delete(`/moderator/students/${studentId}`, { data: { reason } }),
 };
 
 export default api;

@@ -1,6 +1,11 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { College, User, Job } from '../models/index';
+import Application from '../models/Application';
+import StudentData from '../models/StudentData';
+import Moderator from '../models/Moderator';
+import Announcement from '../models/Announcement';
+import PlacementDrive from '../models/PlacementDrive';
 import sendEmail from '../utils/sendEmail';
 import { bulkUploadSummaryEmail } from '../utils/emailTemplates';
 import type { IAuthRequest } from '../types/index';
@@ -9,14 +14,11 @@ import type { IAuthRequest } from '../types/index';
  * CREATE COLLEGE WITH ADMIN
  */
 export const createCollegeWithAdmin = async (req: IAuthRequest, res: Response): Promise<void> => {
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    // Transaction support removed for standalone MongoDB compatibility
 
     try {
         // SECURITY CHECK: Only Super Admin can create colleges
         if (req.user?.role !== 'superadmin') {
-            await session.abortTransaction();
-            session.endSession();
             res.status(403).json({
                 success: false,
                 message: 'Access denied. Insufficient permissions.'
@@ -28,6 +30,9 @@ export const createCollegeWithAdmin = async (req: IAuthRequest, res: Response): 
             collegeName,
             collegeAddress,
             collegeCode,
+            contactEmail,
+            contactPhone,
+            contactWebsite,
             subscriptionStatus = 'active',
             adminName,
             adminEmail,
@@ -35,10 +40,8 @@ export const createCollegeWithAdmin = async (req: IAuthRequest, res: Response): 
             adminPassword
         } = req.body;
 
-        // Validate required fields
+        // Validate required fields (contact fields are optional, will use defaults)
         if (!collegeName || !collegeAddress || !collegeCode || !adminName || !adminEmail || !adminUsername || !adminPassword) {
-            await session.abortTransaction();
-            session.endSession();
             res.status(400).json({
                 success: false,
                 message: 'Missing required fields. Need: collegeName, collegeAddress, collegeCode, adminName, adminEmail, adminUsername, adminPassword'
@@ -55,8 +58,6 @@ export const createCollegeWithAdmin = async (req: IAuthRequest, res: Response): 
         });
 
         if (existingCollege) {
-            await session.abortTransaction();
-            session.endSession();
             res.status(400).json({
                 success: false,
                 message: 'A college with this name or code already exists'
@@ -73,8 +74,6 @@ export const createCollegeWithAdmin = async (req: IAuthRequest, res: Response): 
         });
 
         if (existingUser) {
-            await session.abortTransaction();
-            session.endSession();
             res.status(400).json({
                 success: false,
                 message: 'A user with this username or email already exists'
@@ -82,18 +81,25 @@ export const createCollegeWithAdmin = async (req: IAuthRequest, res: Response): 
             return;
         }
 
-        // TRANSACTION STEP 1: Create the College
+        // STEP 1: Create the College
+        // Use collegeAddress for both place and address if place not provided
         const college = new College({
             name: collegeName.trim(),
-            location: collegeAddress.trim(),
             code: collegeCode.toUpperCase().trim(),
+            place: collegeAddress.trim(), // Use address as place (city)
+            address: collegeAddress.trim(),
+            contact: {
+                email: contactEmail?.trim() || adminEmail.trim(), // Default to admin email
+                phone: contactPhone?.trim() || '000-000-0000',
+                website: contactWebsite?.trim() || ''
+            },
             subscriptionStatus: subscriptionStatus,
             status: 'active'
         });
 
-        await college.save({ session });
+        await college.save();
 
-        // TRANSACTION STEP 2: Create the College Admin
+        // STEP 2: Create the College Admin
         const admin = new User({
             username: adminUsername.toLowerCase().trim(),
             email: adminEmail.toLowerCase().trim(),
@@ -105,17 +111,12 @@ export const createCollegeWithAdmin = async (req: IAuthRequest, res: Response): 
             status: 'active'
         });
 
-        await admin.save({ session });
+        await admin.save();
 
-        // TRANSACTION STEP 3: Link Admin to College
-        // Note: College model might use adminId or adminUserId, checking schema...
-        // Based on legacy code it used adminId.
-        (college as any).adminId = admin._id;
-        await college.save({ session });
-
-        // Commit the transaction
-        await session.commitTransaction();
-        session.endSession();
+        // STEP 3: Link Admin to College
+        // Fixed: Use adminUserId to match College schema
+        (college as any).adminUserId = admin._id;
+        await college.save();
 
         // Return success response with credentials
         const adminResponse = admin.toObject();
@@ -131,7 +132,7 @@ export const createCollegeWithAdmin = async (req: IAuthRequest, res: Response): 
                     code: college.code,
                     location: (college as any).location,
                     subscriptionStatus: (college as any).subscriptionStatus,
-                    adminId: (college as any).adminId
+                    adminUserId: (college as any).adminUserId // Fixed: use adminUserId
                 },
                 admin: adminResponse,
                 credentials: {
@@ -143,10 +144,6 @@ export const createCollegeWithAdmin = async (req: IAuthRequest, res: Response): 
         });
 
     } catch (error: any) {
-        // Rollback transaction on error
-        await session.abortTransaction();
-        session.endSession();
-
         console.error('Create college with admin error:', error);
 
         // Handle validation errors
@@ -162,7 +159,8 @@ export const createCollegeWithAdmin = async (req: IAuthRequest, res: Response): 
 
         res.status(500).json({
             success: false,
-            message: 'Error creating college and admin. Transaction rolled back.'
+            message: 'Error creating college and admin.',
+            error: error.message
         });
     }
 };
@@ -274,7 +272,7 @@ export const getAllColleges = async (req: IAuthRequest, res: Response): Promise<
         }
 
         const colleges = await College.find()
-            .populate('adminId', 'username email fullName status') // Assuming adminId exists in College schema
+            .populate('adminUserId', 'username email fullName status') // Fixed: use adminUserId to match schema
             .sort({ createdAt: -1 });
 
         const collegesWithStats = await Promise.all(
@@ -295,7 +293,7 @@ export const getAllColleges = async (req: IAuthRequest, res: Response): Promise<
                     location: (college as any).location,
                     subscriptionStatus: (college as any).subscriptionStatus,
                     status: college.status,
-                    admin: (college as any).adminId,
+                    admin: (college as any).adminUserId, // Fixed: use adminUserId
                     stats: {
                         students: studentCount,
                         jobs: jobCount
@@ -508,13 +506,10 @@ export const updateCollege = async (req: IAuthRequest, res: Response): Promise<v
  * DELETE COLLEGE
  */
 export const deleteCollege = async (req: IAuthRequest, res: Response): Promise<void> => {
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    // Transaction support removed for standalone MongoDB compatibility
 
     try {
         if (req.user?.role !== 'superadmin') {
-            await session.abortTransaction();
-            session.endSession();
             res.status(403).json({
                 success: false,
                 message: 'Access denied. Insufficient permissions.'
@@ -527,8 +522,6 @@ export const deleteCollege = async (req: IAuthRequest, res: Response): Promise<v
         const college = await College.findById(id);
 
         if (!college) {
-            await session.abortTransaction();
-            session.endSession();
             res.status(404).json({
                 success: false,
                 message: 'College not found'
@@ -536,12 +529,31 @@ export const deleteCollege = async (req: IAuthRequest, res: Response): Promise<v
             return;
         }
 
-        await User.deleteMany({ collegeId: id }).session(session);
-        await Job.deleteMany({ collegeId: id }).session(session);
-        await College.findByIdAndDelete(id).session(session);
+        // Delete all related data in the correct order to avoid foreign key issues
 
-        await session.commitTransaction();
-        session.endSession();
+        // 1. Delete applications first (references jobs and students)
+        await Application.deleteMany({ collegeId: id });
+
+        // 2. Delete student data
+        await StudentData.deleteMany({ collegeId: id });
+
+        // 3. Delete moderators
+        await Moderator.deleteMany({ collegeId: id });
+
+        // 4. Delete announcements
+        await Announcement.deleteMany({ collegeId: id });
+
+        // 5. Delete placement drives
+        await PlacementDrive.deleteMany({ collegeId: id });
+
+        // 6. Delete jobs
+        await Job.deleteMany({ collegeId: id });
+
+        // 7. Delete all users associated with this college
+        await User.deleteMany({ collegeId: id });
+
+        // 8. Finally, delete the college itself
+        await College.findByIdAndDelete(id);
 
         res.status(200).json({
             success: true,
@@ -549,13 +561,114 @@ export const deleteCollege = async (req: IAuthRequest, res: Response): Promise<v
         });
 
     } catch (error: any) {
-        await session.abortTransaction();
-        session.endSession();
         console.error('Delete college error:', error);
         res.status(500).json({
             success: false,
             message: 'Error deleting college',
             error: error.message
+        });
+    }
+};
+
+/**
+ * ADMIN ACCEPT OFFER FOR STUDENT
+ */
+export const adminAcceptOfferForStudent = async (req: IAuthRequest, res: Response): Promise<void> => {
+    try {
+        const { id: studentId, offerId } = req.params;
+        const adminId = req.user?._id;
+
+        // Import StudentData model
+        const StudentData = require('../models/StudentData').default;
+
+        // Find student
+        const student = await StudentData.findById(studentId);
+        if (!student) {
+            res.status(404).json({
+                success: false,
+                message: 'Student not found',
+            });
+            return;
+        }
+
+        // Check if already placed
+        if (student.placement.placed) {
+            res.status(400).json({
+                success: false,
+                message: 'Student is already placed',
+                placementDetails: {
+                    companyName: student.placement.companyName,
+                    placedAt: student.placement.placedAt,
+                },
+            });
+            return;
+        }
+
+        // Find the offer
+        const offer = student.allOffers.find((o: any) => o._id.toString() === offerId);
+        if (!offer) {
+            res.status(404).json({
+                success: false,
+                message: 'Offer not found for this student',
+            });
+            return;
+        }
+
+        // Update offer statuses
+        student.allOffers.forEach((o: any) => {
+            if (o._id.toString() === offerId) {
+                o.status = 'accepted';
+            } else if (o.status === 'pending') {
+                o.status = 'rejected';
+            }
+        });
+
+        // Update placement status
+        student.placement.placed = true;
+        student.placement.companyName = offer.companyName;
+        student.placement.jobId = offer.jobId;
+        student.placement.placedAt = new Date();
+
+        await student.save();
+
+        // Send notification email to student
+        try {
+            const studentUser = await User.findById(student.userId);
+
+            if (studentUser) {
+                await sendEmail({
+                    to: studentUser.email,
+                    subject: 'Offer Accepted - Placement Confirmed',
+                    html: `
+                        <h2>Congratulations!</h2>
+                        <p>Your offer from <strong>${offer.companyName}</strong> has been accepted by the placement team.</p>
+                        <p><strong>Package:</strong> ₹${offer.package} LPA</p>
+                        <p>You are now marked as placed. You cannot apply to other jobs.</p>
+                        <p>Please check your dashboard for more details.</p>
+                    `,
+                    text: `Congratulations! Your offer from ${offer.companyName} with package ₹${offer.package} LPA has been accepted.`,
+                });
+            }
+        } catch (emailError) {
+            console.error('Failed to send acceptance email:', emailError);
+        }
+
+        res.json({
+            success: true,
+            message: 'Offer accepted successfully for student',
+            placement: {
+                placed: true,
+                companyName: offer.companyName,
+                package: offer.package,
+                placedAt: student.placement.placedAt,
+            },
+        });
+    } catch (error) {
+        console.error('Admin accept offer error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error instanceof Error ? error.message : 'Unknown error',
         });
     }
 };

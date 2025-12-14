@@ -1,0 +1,585 @@
+import { Response } from 'express';
+import mongoose from 'mongoose';
+import { Job, User, Application, StudentData, Moderator } from '../models/index';
+import { checkEligibility } from '../services/eligibilityService';
+import sendEmail from '../utils/sendEmail';
+import type { IAuthRequest } from '../types/index';
+
+/**
+ * GET /api/admin/dashboard
+ * Get comprehensive dashboard metrics for admin's college
+ */
+export const getDashboard = async (req: IAuthRequest, res: Response): Promise<void> => {
+    try {
+        const adminUser = req.user;
+        const collegeId = adminUser.collegeId;
+
+        if (!collegeId) {
+            res.status(400).json({ success: false, message: 'College ID not found' });
+            return;
+        }
+
+        // 1. Total companies posted (unique companies from jobs created by this admin/college)
+        const jobs = await Job.find({ collegeId, isActive: true });
+        const uniqueCompanies = [...new Set(jobs.map(j => j.companyName))];
+        const totalCompaniesPosted = uniqueCompanies.length;
+
+        // 2. Get all students from this college
+        const students = await StudentData.find({ collegeId }).populate('userId');
+
+        // 3. Total students placed
+        const placedStudents = students.filter(s => s.placement?.placed === true);
+        const totalStudentsPlaced = placedStudents.length;
+
+        // 4. Department-wise placement
+        const deptWisePlacement: { dept: string; placedCount: number }[] = [];
+        const deptMap = new Map<string, number>();
+
+        placedStudents.forEach(student => {
+            const dept = student.education?.graduation?.branch || 'Unknown';
+            deptMap.set(dept, (deptMap.get(dept) || 0) + 1);
+        });
+
+        deptMap.forEach((count, dept) => {
+            deptWisePlacement.push({ dept, placedCount: count });
+        });
+
+        // 5. Company-wise placement
+        const companyWisePlacement: { companyName: string; placedCount: number }[] = [];
+        const companyMap = new Map<string, number>();
+
+        placedStudents.forEach(student => {
+            const company = student.placement?.companyName || 'Unknown';
+            companyMap.set(company, (companyMap.get(company) || 0) + 1);
+        });
+
+        companyMap.forEach((count, companyName) => {
+            companyWisePlacement.push({ companyName, placedCount: count });
+        });
+
+        // 6. Jobs summary with eligibility counts
+        const jobsSummary = await Promise.all(
+            jobs.map(async (job) => {
+                const applications = await Application.find({ jobId: job._id });
+                const appliedStudentIds = new Set(applications.map(app => app.studentId.toString()));
+
+                let eligibleCount = 0;
+                let notEligibleCount = 0;
+                let appliedCount = applications.length;
+                let notAppliedCount = 0;
+
+                // Check eligibility for all students
+                for (const student of students) {
+                    const eligibilityResult = checkEligibility(student, job);
+                    const studentId = student.userId?.toString();
+
+                    if (eligibilityResult.eligible) {
+                        eligibleCount++;
+                        if (!appliedStudentIds.has(studentId)) {
+                            notAppliedCount++;
+                        }
+                    } else {
+                        notEligibleCount++;
+                    }
+                }
+
+                return {
+                    jobId: job._id,
+                    companyName: job.companyName,
+                    title: job.title,
+                    eligibleCount,
+                    notEligibleCount,
+                    appliedCount,
+                    notAppliedCount,
+                };
+            })
+        );
+
+        res.json({
+            success: true,
+            data: {
+                totalCompaniesPosted,
+                totalStudentsPlaced,
+                deptWisePlacement,
+                companyWisePlacement,
+                jobsSummary,
+            },
+        });
+    } catch (error) {
+        console.error('Get dashboard error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error instanceof Error ? error.message : 'Unknown error',
+        });
+    }
+};
+
+/**
+ * GET /api/admin/moderators
+ * Get all moderators for admin's college
+ */
+export const getModerators = async (req: IAuthRequest, res: Response): Promise<void> => {
+    try {
+        const collegeId = req.user.collegeId;
+
+        const moderators = await Moderator.find({ collegeId })
+            .populate('userId', 'username email fullName department')
+            .sort({ createdAt: -1 });
+
+        const moderatorsData = moderators.map(mod => ({
+            _id: mod._id,
+            userId: mod.userId,
+            username: (mod.userId as any)?.username,
+            email: (mod.userId as any)?.email,
+            fullName: (mod.userId as any)?.fullName,
+            departments: mod.departments,
+            isActive: mod.isActive,
+            createdAt: mod.createdAt,
+        }));
+
+        res.json({
+            success: true,
+            moderators: moderatorsData,
+        });
+    } catch (error) {
+        console.error('Get moderators error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error instanceof Error ? error.message : 'Unknown error',
+        });
+    }
+};
+
+/**
+ * POST /api/admin/moderators
+ * Create a new moderator
+ */
+export const createModerator = async (req: IAuthRequest, res: Response): Promise<void> => {
+    try {
+        const { username, password, email, fullName, departments } = req.body;
+        const collegeId = req.user.collegeId;
+
+        // Validate required fields
+        if (!username || !password || !email || !departments || departments.length === 0) {
+            res.status(400).json({
+                success: false,
+                message: 'Username, password, email, and at least one department are required',
+            });
+            return;
+        }
+
+        // Check if user already exists
+        const existingUser = await User.findOne({ $or: [{ username }, { email }] });
+        if (existingUser) {
+            res.status(400).json({
+                success: false,
+                message: 'Username or email already exists',
+            });
+            return;
+        }
+
+        // Create User document
+        const user = await User.create({
+            username,
+            password,
+            email,
+            fullName: fullName || username,
+            role: 'moderator',
+            collegeId,
+            department: departments[0], // Primary department
+            assignedBy: req.user._id,
+            isApproved: true,
+            status: 'active',
+        });
+
+        // Create Moderator document
+        const moderator = await Moderator.create({
+            userId: user._id,
+            collegeId,
+            departments,
+            isActive: true,
+            assignedBy: req.user._id,
+        });
+
+        await moderator.populate('userId', 'username email fullName');
+
+        res.status(201).json({
+            success: true,
+            message: 'Moderator created successfully',
+            moderator: {
+                _id: moderator._id,
+                userId: moderator.userId,
+                username: (moderator.userId as any).username,
+                email: (moderator.userId as any).email,
+                fullName: (moderator.userId as any).fullName,
+                departments: moderator.departments,
+                isActive: moderator.isActive,
+            },
+        });
+    } catch (error) {
+        console.error('Create moderator error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error instanceof Error ? error.message : 'Unknown error',
+        });
+    }
+};
+
+/**
+ * PUT /api/admin/moderators/:id
+ * Update moderator details
+ */
+export const updateModerator = async (req: IAuthRequest, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const { username, email, fullName, departments } = req.body;
+        const collegeId = req.user.collegeId;
+
+        const moderator = await Moderator.findOne({ _id: id, collegeId });
+        if (!moderator) {
+            res.status(404).json({ success: false, message: 'Moderator not found' });
+            return;
+        }
+
+        // Update User document
+        const updateData: any = {};
+        if (username) updateData.username = username;
+        if (email) updateData.email = email;
+        if (fullName) updateData.fullName = fullName;
+        if (departments && departments.length > 0) {
+            updateData.department = departments[0];
+        }
+
+        if (Object.keys(updateData).length > 0) {
+            await User.findByIdAndUpdate(moderator.userId, updateData);
+        }
+
+        // Update Moderator document
+        if (departments && departments.length > 0) {
+            moderator.departments = departments;
+            await moderator.save();
+        }
+
+        await moderator.populate('userId', 'username email fullName');
+
+        res.json({
+            success: true,
+            message: 'Moderator updated successfully',
+            moderator: {
+                _id: moderator._id,
+                userId: moderator.userId,
+                username: (moderator.userId as any).username,
+                email: (moderator.userId as any).email,
+                fullName: (moderator.userId as any).fullName,
+                departments: moderator.departments,
+                isActive: moderator.isActive,
+            },
+        });
+    } catch (error) {
+        console.error('Update moderator error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error instanceof Error ? error.message : 'Unknown error',
+        });
+    }
+};
+
+/**
+ * PATCH /api/admin/moderators/:id/status
+ * Toggle moderator active/inactive status
+ */
+export const toggleModeratorStatus = async (req: IAuthRequest, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const collegeId = req.user.collegeId;
+
+        const moderator = await Moderator.findOne({ _id: id, collegeId });
+        if (!moderator) {
+            res.status(404).json({ success: false, message: 'Moderator not found' });
+            return;
+        }
+
+        // Toggle status
+        moderator.isActive = !moderator.isActive;
+        await moderator.save();
+
+        // Also update User status
+        await User.findByIdAndUpdate(moderator.userId, {
+            status: moderator.isActive ? 'active' : 'inactive',
+        });
+
+        res.json({
+            success: true,
+            message: `Moderator ${moderator.isActive ? 'activated' : 'deactivated'} successfully`,
+            isActive: moderator.isActive,
+        });
+    } catch (error) {
+        console.error('Toggle moderator status error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error instanceof Error ? error.message : 'Unknown error',
+        });
+    }
+};
+
+/**
+ * POST /api/admin/jobs/:jobId/notify
+ * Send email notifications to eligible students for a job
+ */
+export const notifyStudentsForJob = async (req: IAuthRequest, res: Response): Promise<void> => {
+    try {
+        const { jobId } = req.params;
+        const collegeId = req.user.collegeId;
+
+        const job = await Job.findOne({ _id: jobId, collegeId });
+        if (!job) {
+            res.status(404).json({ success: false, message: 'Job not found' });
+            return;
+        }
+
+        // Get all students from college
+        const students = await StudentData.find({ collegeId }).populate('userId', 'email fullName');
+
+        let notifiedCount = 0;
+        const errors: string[] = [];
+
+        // Send emails to eligible students
+        for (const student of students) {
+            const eligibilityResult = checkEligibility(student, job);
+
+            if (eligibilityResult.eligible) {
+                const userEmail = (student.userId as any)?.email;
+                const userName = (student.userId as any)?.fullName || 'Student';
+
+                if (userEmail) {
+                    try {
+                        await sendEmail({
+                            to: userEmail,
+                            subject: `New Job Opportunity: ${job.title} at ${job.companyName}`,
+                            html: `
+                                <h2>New Job Posting</h2>
+                                <p>Dear ${userName},</p>
+                                <p>A new job opportunity has been posted that matches your profile:</p>
+                                <ul>
+                                    <li><strong>Company:</strong> ${job.companyName}</li>
+                                    <li><strong>Position:</strong> ${job.title}</li>
+                                    <li><strong>Package:</strong> ${job.packageLPA ? `₹${job.packageLPA} LPA` : job.salary || 'Not specified'}</li>
+                                    <li><strong>Deadline:</strong> ${job.deadline ? new Date(job.deadline).toLocaleDateString() : 'Not specified'}</li>
+                                </ul>
+                                <p>Login to your student portal to apply for this position.</p>
+                            `,
+                            text: `New job opportunity: ${job.title} at ${job.companyName}. Login to apply.`,
+                        });
+                        notifiedCount++;
+                    } catch (emailError) {
+                        errors.push(`Failed to send email to ${userEmail}`);
+                    }
+                }
+            }
+        }
+
+        res.json({
+            success: true,
+            message: `Notifications sent to ${notifiedCount} eligible students`,
+            notifiedCount,
+            errors: errors.length > 0 ? errors : undefined,
+        });
+    } catch (error) {
+        res.status(400).json({
+            success: false,
+            message: 'Title, company name, and role are required',
+        });
+        return;
+    }
+
+    // Validate category-specific fields
+    if (jobData.category && jobData.category.includes('intern')) {
+        if (!jobData.stipend || !jobData.durationMonths) {
+            res.status(400).json({
+                success: false,
+                message: 'Stipend and duration are required for internships',
+            });
+            return;
+        }
+    }
+
+    if (jobData.category && jobData.category.includes('fulltime')) {
+        if (!jobData.packageLPA) {
+            res.status(400).json({
+                success: false,
+                message: 'Package LPA is required for full-time jobs',
+            });
+            return;
+        }
+    }
+
+    // Create job with all fields
+    const job = await Job.create({
+        ...jobData,
+        collegeId,
+        postedBy: req.user._id,
+        createdBy: req.user._id,
+        status: jobData.status || 'active',
+        isActive: true,
+    });
+
+    // Auto-notify eligible students
+    if (job.status === 'active') {
+        try {
+            const students = await StudentData.find({ collegeId }).populate('userId', 'email fullName');
+            let notifiedCount = 0;
+
+            for (const student of students) {
+                const eligibilityResult = checkEligibility(student, job);
+
+                if (eligibilityResult.eligible) {
+                    const userEmail = (student.userId as any)?.email;
+                    const userName = (student.userId as any)?.fullName || 'Student';
+
+                    if (userEmail) {
+                        try {
+                            const packageInfo = job.category?.includes('intern')
+                                ? ?/month for  months
+                                    : ? LPA;
+
+                            await sendEmail({
+                                to: userEmail,
+                                subject: New Job Opportunity: at,
+                                html:
+                                    <h2>New Job Posting</ h2 >
+                                <p>Dear, </p>
+                                < p > A new job opportunity has been posted that matches your profile: </p>
+                                < ul >
+                            <li><strong>Company: </strong> </li >
+                            <li><strong>Position: </strong> </li >
+                            <li><strong>Category: </strong> </li >
+                            <li><strong>Package: </strong> </li >
+                            <li><strong>Location: </strong> </li >
+                            <li><strong>Deadline: </strong> </li >
+                            </ul>
+                            < p > Login to your student portal to apply for this position.</p>
+                                ,
+                                text: New job opportunity: at.Login to apply.,
+                                });
+                        notifiedCount++;
+                    } catch (emailError) {
+                        console.error(Failed to send email to :, emailError);
+                    }
+                }
+            }
+        }
+
+                console.log(Job created.Notified  eligible students.);
+    } catch (notifyError) {
+        console.error('Error sending notifications:', notifyError);
+        // Don't fail job creation if notifications fail
+    }
+}
+
+res.status(201).json({
+    success: true,
+    message: 'Job created successfully',
+    job: {
+        _id: job._id,
+        title: job.title,
+        companyName: job.companyName,
+        category: job.category,
+        status: job.status,
+    },
+});
+    } catch (error) {
+    console.error('Create job error:', error);
+    res.status(500).json({
+        success: false,
+        message: 'Server error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+    });
+}
+};
+
+/**
+ * PUT /api/admin/jobs/:id
+ * Update an existing job
+ */
+export const updateJob = async (req: IAuthRequest, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const collegeId = req.user.collegeId;
+        const updateData = req.body;
+
+        const job = await Job.findOne({ _id: id, collegeId });
+        if (!job) {
+            res.status(404).json({ success: false, message: 'Job not found' });
+            return;
+        }
+
+        // Update job fields
+        Object.assign(job, updateData);
+        await job.save();
+
+        res.json({
+            success: true,
+            message: 'Job updated successfully',
+            job: {
+                _id: job._id,
+                title: job.title,
+                companyName: job.companyName,
+                status: job.status,
+            },
+        });
+    } catch (error) {
+        console.error('Update job error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error instanceof Error ? error.message : 'Unknown error',
+        });
+    }
+};
+
+/**
+ * PATCH /api/admin/jobs/:id/status
+ * Toggle job active/inactive status
+ */
+export const toggleJobStatus = async (req: IAuthRequest, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const collegeId = req.user.collegeId;
+
+        const job = await Job.findOne({ _id: id, collegeId });
+        if (!job) {
+            res.status(404).json({ success: false, message: 'Job not found' });
+            return;
+        }
+
+        // Toggle between active and inactive
+        if (job.status === 'active') {
+            job.status = 'inactive';
+            job.isActive = false;
+        } else if (job.status === 'inactive') {
+            job.status = 'active';
+            job.isActive = true;
+        }
+
+        await job.save();
+
+        res.json({
+            success: true,
+            message: Job  successfully,
+            status: job.status,
+            isActive: job.isActive,
+        });
+    } catch (error) {
+        console.error('Toggle job status error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error instanceof Error ? error.message : 'Unknown error',
+        });
+    }
+};

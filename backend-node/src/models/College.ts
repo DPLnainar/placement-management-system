@@ -119,8 +119,8 @@ const collegeSchema = new Schema<ICollege>(
 
 
 // Indexes for efficient queries
-collegeSchema.index({ code: 1 });
-collegeSchema.index({ name: 1 });
+
+
 collegeSchema.index({ adminUserId: 1 });
 collegeSchema.index({ status: 1 });
 

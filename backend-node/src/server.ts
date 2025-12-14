@@ -34,6 +34,10 @@ import searchRoutes from '@routes/searchRoutes';
 import exportRoutes from '@routes/exportRoutes';
 import analyticsRoutes from '@routes/analyticsRoutes';
 import s3Routes from './routes/s3Routes';
+import adminRoutes from '@routes/adminRoutes';
+import adminModeratorRoutes from '@routes/adminModeratorRoutes';
+import moderatorRoutes from '@routes/moderatorRoutes';
+import verificationRoutes from '@routes/verificationRoutes';
 
 // Import scheduler service
 import { startAllSchedulers } from '@services/schedulerService';
@@ -82,14 +86,12 @@ app.use((req: Request, _res: Response, next: NextFunction): void => {
 });
 
 // CORS configuration
-app.use(
-  cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  })
-);
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3002',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 // Cookie parser for handling httpOnly cookies
 app.use(cookieParser());
@@ -135,7 +137,7 @@ app.get('/', (_req: Request, res: Response): void => {
 });
 
 // Rate limit specific endpoints
-app.use('/api/auth/login', authLimiter);
+// app.use('/api/auth/login', authLimiter); // Disabled for debugging
 app.use('/api/auth/forgot-password', passwordResetLimiter);
 app.use('/api/auth/reset-password', passwordResetLimiter);
 
@@ -160,7 +162,10 @@ app.use('/api/companies', companyRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/analytics', analyticsRoutes);
-app.use('/api/s3', s3Routes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/admin', adminModeratorRoutes);
+app.use('/api/moderator', moderatorRoutes);
+app.use('/api/moderator/verification', verificationRoutes);
 
 // ==========================================
 // ERROR HANDLING

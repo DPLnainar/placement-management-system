@@ -34,4 +34,8 @@ router.get('/placement-data', superAdminController.getAllPlacementData);
 // @ts-ignore
 router.post('/bulk-upload-email', superAdminController.sendBulkUploadEmail);
 
+// Student Placement Management
+// @ts-ignore
+router.put('/students/:id/accept-offer/:offerId', requireRole(['admin', 'moderator']), superAdminController.adminAcceptOfferForStudent);
+
 export default router;

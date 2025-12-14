@@ -13,28 +13,32 @@ async function seedSuperAdmin() {
         console.log('✓ Connected to database');
 
         // Check if super admin already exists
-        const existingAdmin = await User.findOne({ role: 'superadmin' });
+        let superAdmin = await User.findOne({ role: 'superadmin' });
 
-        if (existingAdmin) {
-            console.log('⚠️  Super admin already exists:');
-            console.log(`   Username: ${existingAdmin.username}`);
-            console.log(`   Email: ${existingAdmin.email}`);
-            await mongoose.connection.close();
-            process.exit(0);
+        if (superAdmin) {
+            console.log('🔄 Updating existing Super Admin...');
+            superAdmin.username = 'superadmin';
+            superAdmin.email = 'superadmin@system.com';
+            superAdmin.password = 'SuperAdmin123!';
+            superAdmin.fullName = 'Super Administrator';
+            superAdmin.status = 'active';
+            superAdmin.isActive = true;
+            superAdmin.isApproved = true;
+            await superAdmin.save();
+        } else {
+            console.log('🆕 Creating new Super Admin...');
+            superAdmin = await User.create({
+                username: 'superadmin',
+                email: 'superadmin@system.com',
+                password: 'SuperAdmin123!',
+                fullName: 'Super Administrator',
+                role: 'superadmin',
+                status: 'active',
+                isActive: true,
+                isApproved: true,
+                phone: '+1234567890'
+            });
         }
-
-        // Create super admin user
-        const superAdmin = await User.create({
-            username: 'superadmin',
-            email: 'superadmin@system.com',
-            password: 'SuperAdmin123!', // Will be hashed by pre-save hook
-            fullName: 'Super Administrator',
-            role: 'superadmin',
-            status: 'active',
-            isActive: true,
-            isApproved: true,
-            phone: '+1234567890'
-        });
 
         console.log('\n✅ Super Admin created successfully!');
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

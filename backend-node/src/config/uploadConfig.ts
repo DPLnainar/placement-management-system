@@ -7,7 +7,7 @@ export const uploadPhoto = multer({
     storage: multerS3({
         s3,
         bucket: S3_BUCKET,
-        acl: 'public-read',
+        // acl: 'public-read', // Disabled for Bucket Owner Enforced
         contentType: multerS3.AUTO_CONTENT_TYPE,
         metadata: (req: any, file: any, cb: any) => {
             cb(null, { fieldName: file.fieldname });
@@ -34,7 +34,7 @@ export const uploadResume = multer({
     storage: multerS3({
         s3,
         bucket: S3_BUCKET,
-        acl: 'public-read',
+        // acl: 'public-read', // Disabled for Bucket Owner Enforced
         contentType: multerS3.AUTO_CONTENT_TYPE,
         metadata: (req: any, file: any, cb: any) => {
             cb(null, { fieldName: file.fieldname });

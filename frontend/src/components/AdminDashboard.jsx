@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { jobAPI, userAPI, authAPI, applicationAPI } from '../services/api';
+import { jobAPI, userAPI, authAPI, applicationAPI, adminAPI } from '../services/api';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Briefcase, Users, LogOut, Plus, Trash2, UserCheck, UserX, Lock, Edit, Menu, X, LayoutDashboard, UserCog, GraduationCap, CheckCircle, XCircle, Clock, Upload, Download } from 'lucide-react';
+import { Briefcase, Users, LogOut, Plus, Trash2, UserCheck, UserX, Lock, Edit, Menu, X, LayoutDashboard, UserCog, GraduationCap, CheckCircle, XCircle, Clock, Upload, Download, Mail } from 'lucide-react';
 import ChangePassword from './ChangePassword';
+import InviteStudents from './InviteStudents';
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
@@ -39,6 +40,15 @@ export default function AdminDashboard() {
   const [bulkUploadResults, setBulkUploadResults] = useState(null);
   const [bulkUploading, setBulkUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
+
+  // New dashboard metrics state
+  const [dashboardMetrics, setDashboardMetrics] = useState({
+    totalCompaniesPosted: 0,
+    totalStudentsPlaced: 0,
+    deptWisePlacement: [],
+    companyWisePlacement: [],
+    jobsSummary: [],
+  });
 
   useEffect(() => {
     // Check if user has valid token
@@ -72,7 +82,7 @@ export default function AdminDashboard() {
   const fetchDashboardData = async () => {
     try {
       const [jobsRes, modsRes, studentsRes, appsRes] = await Promise.all([
-        jobAPI.getAll(),
+        jobAPI.getAll(null, { includeExpired: true }),
         userAPI.getAll('moderator'),
         userAPI.getAll('student'),
         applicationAPI.getAll(),
@@ -94,6 +104,17 @@ export default function AdminDashboard() {
         students: studentsData.length,
         moderators: modsData.length,
       });
+
+      // Fetch enhanced dashboard metrics
+      try {
+        const dashboardRes = await adminAPI.getDashboard();
+        if (dashboardRes.data.success) {
+          setDashboardMetrics(dashboardRes.data.data);
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard metrics:', error);
+        // Don't fail the whole dashboard if metrics fail
+      }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       alert('Error loading dashboard data. Please refresh the page.');
@@ -211,10 +232,24 @@ export default function AdminDashboard() {
     try {
       const userData = {
         ...newUserForm,
-        role: userType,
         collegeId: user.collegeId,
       };
-      await userAPI.create(userData);
+
+      if (userType === 'moderator') {
+        // Use specific admin API for moderators
+        await adminAPI.createModerator({
+          ...userData,
+          departments: [newUserForm.department],
+          department: newUserForm.department
+        });
+      } else {
+        // For students, use the general user creation endpoint
+        await userAPI.create({
+          ...userData,
+          role: userType
+        });
+      }
+
       setShowAddUserModal(false);
       setNewUserForm({
         username: '',
@@ -226,6 +261,7 @@ export default function AdminDashboard() {
       fetchDashboardData();
       alert(`${userType.charAt(0).toUpperCase() + userType.slice(1)} added successfully!`);
     } catch (error) {
+      console.error('Add user error:', error);
       alert(error.response?.data?.message || error.response?.data?.detail || `Error adding ${userType}`);
     }
   };
@@ -471,8 +507,8 @@ export default function AdminDashboard() {
                   setIsMobileMenuOpen(false);
                 }}
                 className={`w-full text-left px-4 py-3 rounded-md transition-colors ${activeTab === 'overview'
-                    ? 'bg-indigo-50 text-indigo-600 font-medium'
-                    : 'text-gray-700 hover:bg-gray-50'
+                  ? 'bg-indigo-50 text-indigo-600 font-medium'
+                  : 'text-gray-700 hover:bg-gray-50'
                   }`}
               >
                 <LayoutDashboard className="inline-block mr-2 h-4 w-4" />
@@ -484,8 +520,8 @@ export default function AdminDashboard() {
                   setIsMobileMenuOpen(false);
                 }}
                 className={`w-full text-left px-4 py-3 rounded-md transition-colors ${activeTab === 'jobs'
-                    ? 'bg-indigo-50 text-indigo-600 font-medium'
-                    : 'text-gray-700 hover:bg-gray-50'
+                  ? 'bg-indigo-50 text-indigo-600 font-medium'
+                  : 'text-gray-700 hover:bg-gray-50'
                   }`}
               >
                 <Briefcase className="inline-block mr-2 h-4 w-4" />
@@ -497,8 +533,8 @@ export default function AdminDashboard() {
                   setIsMobileMenuOpen(false);
                 }}
                 className={`w-full text-left px-4 py-3 rounded-md transition-colors ${activeTab === 'moderators'
-                    ? 'bg-indigo-50 text-indigo-600 font-medium'
-                    : 'text-gray-700 hover:bg-gray-50'
+                  ? 'bg-indigo-50 text-indigo-600 font-medium'
+                  : 'text-gray-700 hover:bg-gray-50'
                   }`}
               >
                 <UserCog className="inline-block mr-2 h-4 w-4" />
@@ -510,12 +546,25 @@ export default function AdminDashboard() {
                   setIsMobileMenuOpen(false);
                 }}
                 className={`w-full text-left px-4 py-3 rounded-md transition-colors ${activeTab === 'students'
-                    ? 'bg-indigo-50 text-indigo-600 font-medium'
-                    : 'text-gray-700 hover:bg-gray-50'
+                  ? 'bg-indigo-50 text-indigo-600 font-medium'
+                  : 'text-gray-700 hover:bg-gray-50'
                   }`}
               >
                 <GraduationCap className="inline-block mr-2 h-4 w-4" />
                 Students
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab('inviteStudents');
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`w-full text-left px-4 py-3 rounded-md transition-colors ${activeTab === 'inviteStudents'
+                  ? 'bg-indigo-50 text-indigo-600 font-medium'
+                  : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+              >
+                <Mail className="inline-block mr-2 h-4 w-4" />
+                Invite Students
               </button>
               <div className="border-t border-gray-200 pt-2 mt-2 space-y-2">
                 <button
@@ -582,16 +631,16 @@ export default function AdminDashboard() {
         <div className="bg-white rounded-lg shadow hidden lg:block">
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex space-x-8 px-6">
-              {['overview', 'jobs', 'moderators', 'students'].map((tab) => (
+              {['overview', 'jobs', 'moderators', 'students', 'inviteStudents'].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   className={`${activeTab === tab
-                      ? 'border-indigo-500 text-indigo-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm capitalize`}
                 >
-                  {tab}
+                  {tab === 'inviteStudents' ? 'Invite Students' : tab}
                 </button>
               ))}
             </nav>
@@ -599,16 +648,187 @@ export default function AdminDashboard() {
 
           <div className="p-6">
             {activeTab === 'overview' && (
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+              <div className="space-y-6">
+                {/* Placement Metrics Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Button onClick={() => navigate('/create-job')} className="w-full">
-                    <Plus className="mr-2 h-4 w-4" /> Create New Job
-                  </Button>
-                  <Button onClick={() => setActiveTab('moderators')} variant="outline" className="w-full">
-                    <Users className="mr-2 h-4 w-4" /> Manage Moderators
-                  </Button>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Companies Posted</CardTitle>
+                      <CardDescription>Unique companies with active jobs</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold text-indigo-600">{dashboardMetrics.totalCompaniesPosted}</div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Students Placed</CardTitle>
+                      <CardDescription>Total students with accepted offers</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold text-green-600">{dashboardMetrics.totalStudentsPlaced}</div>
+                    </CardContent>
+                  </Card>
                 </div>
+
+                {/* Department-wise Placement */}
+                {dashboardMetrics.deptWisePlacement.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Department-wise Placement</CardTitle>
+                      <CardDescription>Placement statistics by department</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left py-2 px-4 font-semibold">Department</th>
+                              <th className="text-right py-2 px-4 font-semibold">Placed Students</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {dashboardMetrics.deptWisePlacement.map((dept, idx) => (
+                              <tr key={idx} className="border-b hover:bg-gray-50">
+                                <td className="py-2 px-4">{dept.dept}</td>
+                                <td className="text-right py-2 px-4">
+                                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                    {dept.placedCount}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Company-wise Placement */}
+                {dashboardMetrics.companyWisePlacement.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Company-wise Placement</CardTitle>
+                      <CardDescription>Students placed per company</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left py-2 px-4 font-semibold">Company</th>
+                              <th className="text-right py-2 px-4 font-semibold">Placed Students</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {dashboardMetrics.companyWisePlacement.map((company, idx) => (
+                              <tr key={idx} className="border-b hover:bg-gray-50">
+                                <td className="py-2 px-4 font-medium">{company.companyName}</td>
+                                <td className="text-right py-2 px-4">
+                                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                                    {company.placedCount}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Jobs Summary with Eligibility */}
+                {dashboardMetrics.jobsSummary.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Jobs Summary</CardTitle>
+                      <CardDescription>Eligibility and application statistics per job</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left py-2 px-2 font-semibold">Company</th>
+                              <th className="text-left py-2 px-2 font-semibold">Role</th>
+                              <th className="text-center py-2 px-2 font-semibold">Eligible</th>
+                              <th className="text-center py-2 px-2 font-semibold">Not Eligible</th>
+                              <th className="text-center py-2 px-2 font-semibold">Applied</th>
+                              <th className="text-center py-2 px-2 font-semibold">Not Applied</th>
+                              <th className="text-center py-2 px-2 font-semibold">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {dashboardMetrics.jobsSummary.map((job, idx) => (
+                              <tr key={idx} className="border-b hover:bg-gray-50">
+                                <td className="py-2 px-2 font-medium">{job.companyName}</td>
+                                <td className="py-2 px-2">{job.title}</td>
+                                <td className="text-center py-2 px-2">
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    {job.eligibleCount}
+                                  </span>
+                                </td>
+                                <td className="text-center py-2 px-2">
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                    {job.notEligibleCount}
+                                  </span>
+                                </td>
+                                <td className="text-center py-2 px-2">
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    {job.appliedCount}
+                                  </span>
+                                </td>
+                                <td className="text-center py-2 px-2">
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                    {job.notAppliedCount}
+                                  </span>
+                                </td>
+                                <td className="text-center py-2 px-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      const fullJob = jobs.find(j => (j._id || j.id) === job.jobId);
+                                      if (fullJob) {
+                                        handleEditJob(fullJob);
+                                      } else {
+                                        setActiveTab('jobs');
+                                      }
+                                    }}
+                                    className="h-8 w-8 p-0"
+                                    title="Edit Job"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Quick Actions */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Quick Actions</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Button onClick={() => navigate('/create-job')} className="w-full">
+                        <Plus className="mr-2 h-4 w-4" /> Create New Job
+                      </Button>
+                      <Button onClick={() => setActiveTab('moderators')} variant="outline" className="w-full">
+                        <Users className="mr-2 h-4 w-4" /> Manage Moderators
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             )}
 
@@ -680,13 +900,12 @@ export default function AdminDashboard() {
                                 {job.salary && <span> • {job.salary}</span>}
                               </p>
                               <p className="text-sm text-gray-500 mt-1">
-                                Status: 
-                                <span className={`ml-2 px-3 py-1 rounded-full text-xs font-semibold capitalize ${
-                                  job.status === 'active' ? 'bg-green-100 text-green-800' :
+                                Status:
+                                <span className={`ml-2 px-3 py-1 rounded-full text-xs font-semibold capitalize ${job.status === 'active' ? 'bg-green-100 text-green-800' :
                                   job.status === 'closed' ? 'bg-red-100 text-red-800' :
-                                  job.status === 'inactive' ? 'bg-yellow-100 text-yellow-800' :
-                                  'bg-gray-100 text-gray-800'
-                                }`}>
+                                    job.status === 'inactive' ? 'bg-yellow-100 text-yellow-800' :
+                                      'bg-gray-100 text-gray-800'
+                                  }`}>
                                   {job.status}
                                 </span>
                               </p>
@@ -761,16 +980,16 @@ export default function AdminDashboard() {
                             <div className="flex gap-3 mt-2">
                               <span
                                 className={`text-xs px-2 py-1 rounded ${moderator.isApproved
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-yellow-100 text-yellow-700'
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-yellow-100 text-yellow-700'
                                   }`}
                               >
                                 {moderator.isApproved ? '✓ Approved' : '⏳ Pending Approval'}
                               </span>
                               <span
                                 className={`text-xs px-2 py-1 rounded ${moderator.isActive
-                                    ? 'bg-blue-100 text-blue-700'
-                                    : 'bg-gray-100 text-gray-700'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-gray-100 text-gray-700'
                                   }`}
                               >
                                 {moderator.isActive ? 'Active' : 'Inactive'}
@@ -914,8 +1133,8 @@ export default function AdminDashboard() {
                                       <div className="flex gap-3 mt-2">
                                         <span
                                           className={`text-xs px-2 py-1 rounded ${student.status === 'active'
-                                              ? 'bg-green-100 text-green-700'
-                                              : 'bg-red-100 text-red-700'
+                                            ? 'bg-green-100 text-green-700'
+                                            : 'bg-red-100 text-red-700'
                                             }`}
                                         >
                                           {student.status === 'active' ? '✓ Active' : '✗ Inactive'}
@@ -966,6 +1185,13 @@ export default function AdminDashboard() {
                 {students.length === 0 && (
                   <p className="text-center text-gray-500 py-8">No students found</p>
                 )}
+              </div>
+            )}
+
+            {/* Invite Students Tab */}
+            {activeTab === 'inviteStudents' && (
+              <div>
+                <InviteStudents />
               </div>
             )}
           </div>

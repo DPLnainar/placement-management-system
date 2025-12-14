@@ -17,6 +17,7 @@ export type PlacementType = 'dream' | 'super_dream' | 'normal' | 'internship' | 
 export type OfferStatus = 'pending' | 'accepted' | 'rejected' | 'withdrawn';
 export type Category = 'general' | 'obc' | 'sc' | 'st' | 'other';
 export type Gender = 'male' | 'female' | 'other' | 'prefer_not_to_say';
+export type VerificationStatus = 'PENDING' | 'VERIFIED' | 'REJECTED';
 
 /**
  * Personal Information Interface
@@ -27,6 +28,7 @@ export interface IPersonalInfo {
   email?: string;
   domainId?: string;
   phone?: string;
+  dob?: Date;
 
   // NEW: Identity Fields
   rollNumber?: string;
@@ -221,6 +223,12 @@ export interface IPatent {
   status?: 'filed' | 'granted' | 'pending';
 }
 
+export interface ITestScore {
+  examName: string;
+  score: string | number;
+  year: number;
+}
+
 export interface IExtracurricular {
   activity: string;
   role?: string;
@@ -344,11 +352,12 @@ export interface IOfferDetails {
 }
 
 export interface IOffer {
-  company?: string;
-  ctc?: number;
-  offerDate?: Date;
-  status?: OfferStatus;
   jobId?: Schema.Types.ObjectId;
+  companyName?: string;
+  package?: number;
+  offerDate?: Date;
+  offerLetterUrl?: string;
+  status?: OfferStatus;
 }
 
 /**
@@ -386,6 +395,7 @@ export interface IStudentData extends Document {
   projects: IProject[];
   achievements: IAchievement[];
   patents: IPatent[];
+  testScores: ITestScore[];
   extracurricular: IExtracurricular[];
   publications: IPublication[];
   socialProfiles: ISocialProfiles;
@@ -414,13 +424,29 @@ export interface IStudentData extends Document {
   mandatoryFieldsCompleted: boolean;
   personalInfoCompleted: boolean;
   personalInfoCompletedDate?: Date;
+  personalInfoLocked: boolean;
+  personalInfoLockedBy?: Schema.Types.ObjectId;
+  personalInfoLockedDate?: Date;
   academicInfoCompleted: boolean;
   academicInfoCompletedDate?: Date;
+  academicInfoLocked: boolean;
+  academicInfoLockedBy?: Schema.Types.ObjectId;
+  academicInfoLockedDate?: Date;
   placementPreferences: IPlacementPreferences;
   documentsVerified: boolean;
   verifiedBy?: Schema.Types.ObjectId;
   verificationDate?: Date;
   verificationNotes?: string;
+  verificationStatus: VerificationStatus;
+  verificationRejectionReason?: string;
+  lastVerificationRequest?: Date;
+  verificationTriggers?: Array<{
+    field: string;
+    oldValue: any;
+    newValue: any;
+    triggeredAt: Date;
+  }>;
+  semester?: number;
   placementStatus: PlacementStatus;
   eligibilityStatus: IEligibilityStatus;
   resume: IResume;
@@ -430,6 +456,14 @@ export interface IStudentData extends Document {
   placementType?: PlacementType;
   offerDetails: IOfferDetails;
   allOffers: IOffer[];
+  /** Soft delete flag */
+  isDeleted: boolean;
+  /** User who deleted this profile */
+  deletedBy?: Schema.Types.ObjectId;
+  /** When the profile was deleted */
+  deletedAt?: Date;
+  /** Reason for deleting the profile */
+  deleteReason?: string;
   createdAt: Date;
   updatedAt: Date;
 
@@ -458,6 +492,7 @@ const studentDataSchema = new Schema<IStudentData>(
       email: { type: String, trim: true, default: '' },
       domainId: { type: String, trim: true, default: '' },
       phone: { type: String, trim: true, default: '' },
+      dob: { type: Date },
 
       // NEW: Identity Fields
       rollNumber: {
@@ -650,7 +685,7 @@ const studentDataSchema = new Schema<IStudentData>(
     technicalSkills: {
       programming: [
         {
-          name: { type: String, required: true },
+          name: { type: String, required: false },
           proficiency: {
             type: String,
             enum: ['beginner', 'intermediate', 'advanced', 'expert'],
@@ -661,7 +696,7 @@ const studentDataSchema = new Schema<IStudentData>(
       ],
       frameworks: [
         {
-          name: { type: String, required: true },
+          name: { type: String, required: false },
           proficiency: {
             type: String,
             enum: ['beginner', 'intermediate', 'advanced', 'expert'],
@@ -672,7 +707,7 @@ const studentDataSchema = new Schema<IStudentData>(
       ],
       tools: [
         {
-          name: { type: String, required: true },
+          name: { type: String, required: false },
           proficiency: {
             type: String,
             enum: ['beginner', 'intermediate', 'advanced', 'expert'],
@@ -682,7 +717,7 @@ const studentDataSchema = new Schema<IStudentData>(
       ],
       databases: [
         {
-          name: { type: String, required: true },
+          name: { type: String, required: false },
           proficiency: {
             type: String,
             enum: ['beginner', 'intermediate', 'advanced', 'expert'],
@@ -1000,11 +1035,25 @@ const studentDataSchema = new Schema<IStudentData>(
     },
     allOffers: [
       {
-        company: { type: String },
-        ctc: { type: Number },
-        offerDate: { type: Date },
-        status: { type: String, enum: ['pending', 'accepted', 'rejected', 'withdrawn'] },
         jobId: { type: Schema.Types.ObjectId, ref: 'Job' },
+        companyName: { type: String },
+        package: { type: Number },
+        offerDate: { type: Date, default: Date.now },
+        offerLetterUrl: { type: String },
+        status: { type: String, enum: ['pending', 'accepted', 'rejected', 'withdrawn'], default: 'pending' },
+      },
+    ],
+    // NEW: Test Scores
+    testScores: [
+      {
+        examName: { type: String, required: true },
+        score: { type: Schema.Types.Mixed, required: true },
+        year: {
+          type: Number,
+          required: true,
+          min: [2000, 'Year must be 2000 or later'],
+          max: [new Date().getFullYear() + 5, 'Year cannot be more than 5 years in the future']
+        },
       },
     ],
     // NEW: Patents
@@ -1023,6 +1072,53 @@ const studentDataSchema = new Schema<IStudentData>(
     ],
     // NEW: Companies Placed Count (auto-updated from applications)
     companiesPlacedCount: { type: Number, default: 0 },
+
+    // Profile Completion and Lock Status
+    isProfileCompleted: { type: Boolean, default: false },
+    profileCompletionPercentage: { type: Number, default: 0, min: 0, max: 100 },
+    mandatoryFieldsCompleted: { type: Boolean, default: false },
+
+    personalInfoCompleted: { type: Boolean, default: false },
+    personalInfoCompletedDate: { type: Date },
+    personalInfoLocked: { type: Boolean, default: false },
+    personalInfoLockedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    personalInfoLockedDate: { type: Date },
+
+    academicInfoCompleted: { type: Boolean, default: false },
+    academicInfoCompletedDate: { type: Date },
+    academicInfoLocked: { type: Boolean, default: false },
+    academicInfoLockedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    academicInfoLockedDate: { type: Date },
+
+    // Document Verification
+    documentsVerified: { type: Boolean, default: false },
+    verifiedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    verificationDate: { type: Date },
+    verificationNotes: { type: String },
+    verificationStatus: {
+      type: String,
+      enum: ['PENDING', 'VERIFIED', 'REJECTED'],
+      default: 'PENDING'
+    },
+    verificationRejectionReason: { type: String },
+    lastVerificationRequest: { type: Date },
+    verificationTriggers: [{
+      field: { type: String },
+      oldValue: { type: Schema.Types.Mixed },
+      newValue: { type: Schema.Types.Mixed },
+      triggeredAt: { type: Date, default: Date.now }
+    }],
+    semester: { type: Number, min: 1, max: 12 },
+
+    // Soft Delete Fields
+    isDeleted: { type: Boolean, default: false },
+    deletedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      default: undefined,
+    },
+    deletedAt: { type: Date, default: undefined },
+    deleteReason: { type: String, trim: true, default: undefined },
   },
   {
     timestamps: true,
@@ -1034,8 +1130,7 @@ studentDataSchema.index({ collegeId: 1 });
 studentDataSchema.index({ collegeId: 1, documentsVerified: 1 });
 studentDataSchema.index({ collegeId: 1, placementStatus: 1 });
 // NEW: Indexes for new fields
-studentDataSchema.index({ 'personal.rollNumber': 1 });
-studentDataSchema.index({ 'personal.instituteEmail': 1 });
+
 
 // Virtual field for fullName
 studentDataSchema.virtual('personal.fullName').get(function () {
@@ -1061,14 +1156,16 @@ studentDataSchema.pre('save', function (_next) {
 studentDataSchema.methods.calculateProfileCompletion = function (): number {
   let score = 0;
   const weights = {
-    basicInfo: 15,
-    education: 20,
+    basicInfo: 14,
+    education: 18,
     academics: 10,
-    skills: 15,
-    projects: 15,
+    skills: 14,
+    projects: 14,
     experience: 10,
     certifications: 5,
     achievements: 5,
+    testScores: 3,
+    patents: 2,
     resume: 5,
   };
 
@@ -1116,6 +1213,12 @@ studentDataSchema.methods.calculateProfileCompletion = function (): number {
 
   // Achievements (5%)
   if (this.achievements?.length) score += weights.achievements;
+
+  // Test Scores (3%)
+  if (this.testScores?.length) score += weights.testScores;
+
+  // Patents (2%)
+  if (this.patents?.length) score += weights.patents;
 
   // Resume (5%)
   if (this.resumeUrl) score += weights.resume;

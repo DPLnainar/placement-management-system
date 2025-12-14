@@ -26,4 +26,11 @@ router.use(authenticate);
 // Admin and Moderator: View users in their college
 router.get('/', requireRole(['admin', 'moderator']), userController.getCollegeUsers);
 
+// Admin and Moderator: Create new user (students)
+// Note: Moderators are restricted to creating students in their department by the controller
+router.post('/', requireRole(['admin', 'moderator']), userController.createUser);
+
+// Admin only: Update user status
+router.put('/:id/status', requireRole(['admin']), userController.updateUserStatus);
+
 export default router;

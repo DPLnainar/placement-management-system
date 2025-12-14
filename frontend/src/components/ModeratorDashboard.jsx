@@ -10,6 +10,9 @@ import { Textarea } from './ui/textarea';
 import { Briefcase, LogOut, Plus, Trash2, Users, UserCheck, UserX, Lock, FileCheck, CheckCircle, XCircle, Clock, Edit, Eye, Menu, X, Mail } from 'lucide-react';
 import ChangePassword from './ChangePassword';
 import InviteStudents from './InviteStudents';
+import ModeratorJobsList from './ModeratorJobsList';
+import VerificationQueue from './moderator/VerificationQueue';
+import { moderatorAPI } from '../services/api';
 
 export default function ModeratorDashboard() {
   const { user, logout } = useAuth();
@@ -18,6 +21,7 @@ export default function ModeratorDashboard() {
   const [students, setStudents] = useState([]);
   const [applications, setApplications] = useState([]);
   const [stats, setStats] = useState({ total: 0, active: 0, students: 0, applications: 0 });
+  const [queueCount, setQueueCount] = useState(0);
   const [activeTab, setActiveTab] = useState('jobs');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
@@ -34,9 +38,34 @@ export default function ModeratorDashboard() {
     department: '',
   });
 
+  const [editingJob, setEditingJob] = useState(null);
+  const [showEditJobModal, setShowEditJobModal] = useState(false);
+
+  // Search and Filter States
+  const [studentSearchQuery, setStudentSearchQuery] = useState('');
+  const [profileCompletionFilter, setProfileCompletionFilter] = useState('all'); // 'all', 'completed', 'incomplete'
+
   // Get department from user object or localStorage
   const moderatorDepartment = user?.department ||
     (localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).department : null);
+
+  // Filtered Students based on search and profile completion
+  const filteredStudents = students.filter(student => {
+    // Search filter
+    const searchLower = studentSearchQuery.toLowerCase();
+    const matchesSearch = !studentSearchQuery ||
+      student.fullName?.toLowerCase().includes(searchLower) ||
+      student.email?.toLowerCase().includes(searchLower) ||
+      student.username?.toLowerCase().includes(searchLower);
+
+    // Profile completion filter
+    const matchesCompletion =
+      profileCompletionFilter === 'all' ||
+      (profileCompletionFilter === 'completed' && student.profileCompleted) ||
+      (profileCompletionFilter === 'incomplete' && !student.profileCompleted);
+
+    return matchesSearch && matchesCompletion;
+  });
 
   // Update department when user data is available
   useEffect(() => {
@@ -52,13 +81,27 @@ export default function ModeratorDashboard() {
     fetchJobs();
     fetchStudents();
     fetchApplications();
+    fetchQueueCount();
   }, []);
+
+  const fetchQueueCount = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/moderator/verification/queue/count', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      setQueueCount(data.count || 0);
+    } catch (error) {
+      console.error('Error fetching queue count:', error);
+    }
+  };
 
   const fetchJobs = async () => {
     try {
-      const response = await jobAPI.getAll();
-      // Handle API response structure - jobs are nested in .data.jobs or .data
-      const jobsData = Array.isArray(response.data) ? response.data : (response.data.jobs || []);
+      const response = await moderatorAPI.getJobs();
+      // Handle API response structure - filter for active/total
+      const jobsData = response.data.data || [];
       setJobs(jobsData);
       setStats((prev) => ({
         ...prev,
@@ -170,6 +213,25 @@ export default function ModeratorDashboard() {
       // Fallback to using existing data if fetch fails
       setViewingStudent(student);
       setShowViewStudentModal(true);
+    }
+  };
+
+  const handleEditJob = (job) => {
+    setEditingJob(job);
+    setShowEditJobModal(true);
+  };
+
+  const handleUpdateJob = async (e) => {
+    e.preventDefault();
+    try {
+      await jobAPI.update(editingJob._id || editingJob.id, editingJob);
+      setShowEditJobModal(false);
+      setEditingJob(null);
+      fetchJobs();
+      alert('Job updated successfully!');
+    } catch (error) {
+      console.error('Error updating job:', error);
+      alert(error.response?.data?.message || 'Error updating job');
     }
   };
 
@@ -355,6 +417,24 @@ export default function ModeratorDashboard() {
               </button>
               <button
                 onClick={() => {
+                  setActiveTab('verification');
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`w-full text-left px-4 py-3 rounded-md transition-colors ${activeTab === 'verification'
+                  ? 'bg-indigo-50 text-indigo-600 font-medium'
+                  : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+              >
+                <FileCheck className="inline-block mr-2 h-4 w-4" />
+                Verification Queue
+                {queueCount > 0 && (
+                  <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                    {queueCount}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => {
                   setActiveTab('applications');
                   setIsMobileMenuOpen(false);
                 }}
@@ -459,6 +539,20 @@ export default function ModeratorDashboard() {
                 Invite Students
               </button>
               <button
+                onClick={() => setActiveTab('verification')}
+                className={`${activeTab === 'verification'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium relative`}
+              >
+                Verification Queue
+                {queueCount > 0 && (
+                  <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                    {queueCount}
+                  </span>
+                )}
+              </button>
+              <button
                 onClick={() => setActiveTab('applications')}
                 className={`${activeTab === 'applications'
                   ? 'border-indigo-500 text-indigo-600'
@@ -488,96 +582,14 @@ export default function ModeratorDashboard() {
             </Card>
 
             {/* Jobs List */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Job Postings</CardTitle>
-                <CardDescription>All job postings for your college</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {jobs.map((job) => {
-                    // Calculate eligible students based on job requirements
-                    const jobRequirements = job.requirements || {};
-                    const eligibleStudents = students.filter(student => {
-                      // Students must be approved and active to be eligible
-                      return student.isApproved && student.isActive;
-                    });
-                    const appliedStudents = 0;
-                    const notApplied = eligibleStudents.length - appliedStudents;
-
-                    return (
-                      <Card key={job._id || job.id}>
-                        <CardHeader>
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                              <CardTitle>{job.company || job.companyName}</CardTitle>
-                              <CardDescription>
-                                {job.location} • {job.title || job.jobCategory}
-                              </CardDescription>
-                            </div>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => handleDeleteJob(job._id || job.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-sm text-gray-600 mb-2">{job.description || job.jobDescription}</p>
-                          {job.salary && <p className="text-sm text-gray-600">Salary: {job.salary}</p>}
-                          {job.jobType && <p className="text-sm text-gray-600">Type: <span className="capitalize">{job.jobType}</span></p>}
-                          {job.requirements && <p className="text-sm text-gray-500 mt-2">Requirements: {typeof job.requirements === 'string' ? job.requirements : JSON.stringify(job.requirements)}</p>}
-
-                          {/* Student Statistics */}
-                          <div className="flex gap-3 mt-3 flex-wrap">
-                            <div className="flex items-center gap-2 px-3 py-1 bg-green-50 rounded-md">
-                              <UserCheck className="h-4 w-4 text-green-600" />
-                              <span className="text-sm font-medium text-green-700">
-                                {eligibleStudents.length} Eligible
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 rounded-md">
-                              <Users className="h-4 w-4 text-blue-600" />
-                              <span className="text-sm font-medium text-blue-700">
-                                {appliedStudents} Applied
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2 px-3 py-1 bg-orange-50 rounded-md">
-                              <UserX className="h-4 w-4 text-orange-600" />
-                              <span className="text-sm font-medium text-orange-700">
-                                {notApplied} Not Applied
-                              </span>
-                            </div>
-                          </div>
-
-                          <p className="text-sm text-gray-500 mt-3">
-                            Status:{' '}
-                            <span
-                              className={`font-semibold ${job.status === 'active' ? 'text-green-600' : 'text-gray-600'
-                                }`}
-                            >
-                              {job.status}
-                            </span>
-                          </p>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                  {jobs.length === 0 && (
-                    <p className="text-center text-gray-500 py-8">No jobs posted yet</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <ModeratorJobsList onEdit={handleEditJob} />
           </>
         )}
 
         {/* Students Tab */}
         {activeTab === 'students' && (
           <div>
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
               <div>
                 <h3 className="text-lg font-semibold">Students in {user?.department}</h3>
                 <p className="text-sm text-gray-600">Manage students in your department</p>
@@ -598,13 +610,84 @@ export default function ModeratorDashboard() {
               </Button>
             </div>
 
+            {/* Search and Filter Section */}
+            <Card className="mb-6">
+              <CardContent className="pt-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Search Input */}
+                  <div>
+                    <Label htmlFor="student-search" className="text-sm font-medium mb-2 block">
+                      Search Students
+                    </Label>
+                    <Input
+                      id="student-search"
+                      type="text"
+                      placeholder="Search by name, email, or username..."
+                      value={studentSearchQuery}
+                      onChange={(e) => setStudentSearchQuery(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* Profile Completion Filter */}
+                  <div>
+                    <Label htmlFor="profile-filter" className="text-sm font-medium mb-2 block">
+                      Profile Status
+                    </Label>
+                    <select
+                      id="profile-filter"
+                      value={profileCompletionFilter}
+                      onChange={(e) => setProfileCompletionFilter(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="all">All Students</option>
+                      <option value="completed">Profile Completed</option>
+                      <option value="incomplete">Profile Incomplete</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Results Summary */}
+                <div className="mt-4 flex items-center justify-between text-sm">
+                  <p className="text-gray-600">
+                    Showing {filteredStudents.length} of {students.length} students
+                  </p>
+                  {(studentSearchQuery || profileCompletionFilter !== 'all') && (
+                    <button
+                      onClick={() => {
+                        setStudentSearchQuery('');
+                        setProfileCompletionFilter('all');
+                      }}
+                      className="text-indigo-600 hover:text-indigo-800 font-medium"
+                    >
+                      Clear Filters
+                    </button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
             <div className="space-y-4">
-              {students.map((student) => (
+              {filteredStudents.map((student) => (
                 <Card key={student._id || student.id}>
                   <CardContent className="pt-6">
                     <div className="flex justify-between items-center">
                       <div className="flex-1">
-                        <h4 className="font-semibold">{student.fullName}</h4>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-semibold">{student.fullName}</h4>
+                          {/* Profile Completion Badge */}
+                          {student.profileCompleted ? (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Profile Complete
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                              <Clock className="h-3 w-3 mr-1" />
+                              Incomplete
+                            </span>
+                          )}
+                        </div>
                         <p className="text-sm text-gray-600">{student.email}</p>
                         <p className="text-sm text-gray-500">
                           Username: {student.username} • Department: {student.department}
@@ -650,11 +733,13 @@ export default function ModeratorDashboard() {
                   </CardContent>
                 </Card>
               ))}
-              {students.length === 0 && (
+              {filteredStudents.length === 0 && (
                 <Card>
                   <CardContent className="pt-6">
                     <p className="text-center text-gray-500 py-8">
-                      No students found in {user?.department} department
+                      {studentSearchQuery || profileCompletionFilter !== 'all'
+                        ? 'No students found matching your search criteria'
+                        : `No students found in ${user?.department} department`}
                     </p>
                   </CardContent>
                 </Card>
@@ -666,6 +751,11 @@ export default function ModeratorDashboard() {
         {/* Invitations Tab */}
         {activeTab === 'invitations' && (
           <InviteStudents userDepartment={moderatorDepartment} />
+        )}
+
+        {/* Verification Queue Tab */}
+        {activeTab === 'verification' && (
+          <VerificationQueue />
         )}
 
         {/* Applications Tab */}
@@ -1644,6 +1734,132 @@ export default function ModeratorDashboard() {
                   Close
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+      {/* Edit Job Modal */}
+      {showEditJobModal && editingJob && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <CardHeader>
+              <CardTitle>Edit Job Posting</CardTitle>
+              <CardDescription>Update job details</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleUpdateJob} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-title">Job Title</Label>
+                    <Input
+                      id="edit-title"
+                      value={editingJob.title}
+                      onChange={(e) => setEditingJob({ ...editingJob, title: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-company">Company Name</Label>
+                    <Input
+                      id="edit-company"
+                      value={editingJob.companyName || editingJob.company}
+                      onChange={(e) => setEditingJob({ ...editingJob, companyName: e.target.value, company: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-location">Location</Label>
+                    <Input
+                      id="edit-location"
+                      value={editingJob.location}
+                      onChange={(e) => setEditingJob({ ...editingJob, location: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-salary">CTC/Salary</Label>
+                    <Input
+                      id="edit-salary"
+                      value={editingJob.salary}
+                      onChange={(e) => setEditingJob({ ...editingJob, salary: e.target.value })}
+                      placeholder="e.g., 5-7 LPA"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-jobType">Job Type</Label>
+                    <select
+                      id="edit-jobType"
+                      value={editingJob.jobType}
+                      onChange={(e) => setEditingJob({ ...editingJob, jobType: e.target.value })}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      required
+                    >
+                      <option value="full-time">Full Time</option>
+                      <option value="part-time">Part Time</option>
+                      <option value="internship">Internship</option>
+                      <option value="contract">Contract</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-status">Status</Label>
+                    <select
+                      id="edit-status"
+                      value={editingJob.status}
+                      onChange={(e) => setEditingJob({ ...editingJob, status: e.target.value })}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      required
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                      <option value="closed">Closed</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="edit-deadline">Application Deadline</Label>
+                  <Input
+                    id="edit-deadline"
+                    type="datetime-local"
+                    value={editingJob.deadline ? new Date(editingJob.deadline).toISOString().slice(0, 16) : ''}
+                    onChange={(e) => setEditingJob({ ...editingJob, deadline: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="edit-description">Job Description</Label>
+                  <Textarea
+                    id="edit-description"
+                    value={editingJob.description}
+                    onChange={(e) => setEditingJob({ ...editingJob, description: e.target.value })}
+                    rows={4}
+                    required
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowEditJobModal(false);
+                      setEditingJob(null);
+                    }}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" className="flex-1">
+                    Update Job
+                  </Button>
+                </div>
+              </form>
             </CardContent>
           </Card>
         </div>

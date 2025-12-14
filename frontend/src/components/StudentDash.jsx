@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
-import { Briefcase, LogOut, MapPin, Calendar, User, Save, Upload, Plus, Trash2, FileText, Download, Menu, X, Printer, ExternalLink, Clock } from 'lucide-react';
+import { Briefcase, LogOut, MapPin, Calendar, User, Save, Upload, Plus, Trash2, FileText, Download, Menu, X, Printer, ExternalLink, Clock, Award } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import html2pdf from 'html2pdf.js';
 import { ResumeTemplate } from './ResumeTemplate';
@@ -172,6 +172,12 @@ export default function StudentDash() {
     description: ''
   });
 
+  // Offers state
+  const [offers, setOffers] = useState([]);
+  const [isPlaced, setIsPlaced] = useState(false);
+  const [acceptedOfferId, setAcceptedOfferId] = useState(null);
+  const [acceptingOfferId, setAcceptingOfferId] = useState(null);
+
   const resumeRef = React.useRef();
   const handlePrint = useReactToPrint({
     content: () => resumeRef.current,
@@ -218,20 +224,24 @@ export default function StudentDash() {
     fetchJobs();
     fetchApplications();
     fetchProfile();
+    fetchOffers();
   }, []);
 
-  const checkProfileCompletion = (userData) => {
+  const checkProfileCompletion = (studentData) => {
+    // Use backend-calculated completion flags instead of manual checking
+    // The backend automatically sets these flags when profile is saved
+    const isComplete = studentData.isProfileCompleted || studentData.mandatoryFieldsCompleted || false;
+
+    // Calculate missing fields for display purposes only
     const requiredFields = {
-      phoneNumber: userData.primaryPhone,
-      dateOfBirth: userData.dateOfBirth,
-      gender: userData.gender,
-      currentAddress: userData.address,
-      cgpa: userData.cgpa,
-      tenthPercentage: userData.tenthPercentage,
-      twelfthPercentage: userData.twelfthPercentage,
-      branch: userData.branch,
-      yearOfStudy: userData.semester,
-      rollNumber: userData.rollNumber || user?.username, // fallback to username
+      name: studentData.personal?.name,
+      email: studentData.personal?.email,
+      phone: studentData.personal?.phone,
+      dateOfBirth: studentData.personal?.dob,
+      gender: studentData.personal?.gender,
+      tenthPercentage: studentData.education?.tenth?.percentage,
+      twelfthPercentage: studentData.education?.twelfth?.percentage,
+      cgpa: studentData.education?.graduation?.cgpa,
     };
 
     const missing = [];
@@ -242,9 +252,15 @@ export default function StudentDash() {
     });
 
     setMissingProfileFields(missing);
-    setIsProfileComplete(missing.length === 0);
+    setIsProfileComplete(isComplete);
 
-    return missing.length === 0;
+    console.log('Profile Completion Check:');
+    console.log('- isProfileCompleted (backend):', studentData.isProfileCompleted);
+    console.log('- mandatoryFieldsCompleted (backend):', studentData.mandatoryFieldsCompleted);
+    console.log('- Missing fields:', missing);
+    console.log('- Final isComplete:', isComplete);
+
+    return isComplete;
   };
 
   const fetchProfile = async () => {
@@ -252,13 +268,25 @@ export default function StudentDash() {
       const response = await studentAPI.getProfile();
       const student = response.data.student;
 
+      console.log('=== FETCH PROFILE DEBUG ===');
+      console.log('Student data received:', student);
+      console.log('DOB from backend:', student.personal?.dob);
+      console.log('10th schoolName from backend:', student.education?.tenth?.schoolName);
+      console.log('12th schoolName from backend:', student.education?.twelfth?.schoolName);
+      console.log('10th Percentage:', student.education?.tenth?.percentage);
+      console.log('Full Name:', student.personal?.fullName);
+
       if (student) {
         // Check locked status
-        const hasPersonalData = student.personal?.email || student.personal?.dob || student.personal?.gender;
-        const hasAcademicData = student.education?.graduation?.cgpa || student.education?.tenth?.percentage || student.education?.twelfth?.percentage;
+        // const hasPersonalData = student.personal?.email || student.personal?.dob || student.personal?.gender;
+        // const hasAcademicData = student.education?.graduation?.cgpa || student.education?.tenth?.percentage || student.education?.twelfth?.percentage;
 
-        setIsPersonalLocked(!!hasPersonalData);
-        setIsAcademicLocked(!!hasAcademicData);
+        // setIsPersonalLocked(!!hasPersonalData);
+        // setIsAcademicLocked(!!hasAcademicData);
+
+        // Allow editing by default
+        setIsPersonalLocked(false);
+        setIsAcademicLocked(false);
 
         // Populate profile data from nested structure
         setProfileData({
@@ -312,19 +340,19 @@ export default function StudentDash() {
           passportExpiryDate: '',
 
           // Academic - 10th
-          tenthInstitution: student.education?.tenth?.institution || '',
+          tenthInstitution: student.education?.tenth?.schoolName || '',
           tenthPercentage: student.education?.tenth?.percentage || '',
           tenthBoard: student.education?.tenth?.board || '',
           tenthYear: student.education?.tenth?.yearOfPassing || '',
 
           // Academic - 12th
-          twelfthInstitution: student.education?.twelfth?.institution || '',
+          twelfthInstitution: student.education?.twelfth?.schoolName || '',
           twelfthPercentage: student.education?.twelfth?.percentage || '',
           twelfthBoard: student.education?.twelfth?.board || '',
           twelfthYear: student.education?.twelfth?.yearOfPassing || '',
 
           // Academic - Graduation
-          currentInstitution: 'University Institute of Technology', // Default or from schema if added
+          currentInstitution: student.education?.graduation?.institutionName || '',
           degree: student.education?.graduation?.degree || '',
           branch: student.education?.graduation?.branch || '',
           semester: student.education?.graduation?.currentSemester || '',
@@ -338,6 +366,11 @@ export default function StudentDash() {
           resumeLink: student.resume?.resumeUrl || '',
         });
 
+        console.log('=== PROFILE DATA SET IN STATE ===');
+        console.log('dateOfBirth set to:', student.personal?.dob ? student.personal.dob.split('T')[0] : '');
+        console.log('tenthInstitution set to:', student.education?.tenth?.schoolName || '');
+        console.log('twelfthInstitution set to:', student.education?.twelfth?.schoolName || '');
+
         // Populate complex arrays
         if (student.education?.graduation?.semesterResults) {
           setSemesterWiseGPA(student.education.graduation.semesterResults.map(sem => ({
@@ -348,8 +381,8 @@ export default function StudentDash() {
         }
 
         // Arrears
-        setCurrentArrears(student.currentBacklogs || '');
-        setArrearHistory(student.arrearsHistory?.map(a => `${a.subject} (${a.status})`).join('\n') || '');
+        setCurrentArrears(student.currentArrears || '');
+        setArrearHistory(student.arrearHistory || '');
 
         // Skills
         if (student.skills) {
@@ -412,6 +445,46 @@ export default function StudentDash() {
     }
   };
 
+  const fetchOffers = async () => {
+    try {
+      const response = await studentAPI.getOffers();
+      if (response.data.success) {
+        setOffers(response.data.offers || []);
+        setIsPlaced(response.data.placed || false);
+
+        // Find accepted offer
+        const accepted = response.data.offers?.find(o => o.status === 'accepted');
+        if (accepted) {
+          setAcceptedOfferId(accepted._id);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching offers:', error);
+    }
+  };
+
+  const handleAcceptOffer = async (offerId) => {
+    if (!window.confirm('Are you sure you want to accept this offer? This action cannot be undone and you will not be able to apply to other jobs.')) {
+      return;
+    }
+
+    setAcceptingOfferId(offerId);
+    try {
+      const response = await studentAPI.acceptOffer(offerId);
+      if (response.data.success) {
+        alert('Offer accepted successfully! You are now marked as placed.');
+        await fetchOffers();
+        await fetchProfile();
+        setIsPlaced(true);
+      }
+    } catch (error) {
+      console.error('Error accepting offer:', error);
+      alert(error.response?.data?.message || 'Failed to accept offer. Please try again.');
+    } finally {
+      setAcceptingOfferId(null);
+    }
+  };
+
   const handleSemesterGPAChange = (index, field, value) => {
     const updated = [...semesterWiseGPA];
     updated[index] = { ...updated[index], [field]: value };
@@ -469,18 +542,19 @@ export default function StudentDash() {
         },
         education: {
           tenth: {
-            institution: profileData.tenthInstitution,
+            schoolName: profileData.tenthInstitution,
             board: profileData.tenthBoard,
             percentage: parseFloat(profileData.tenthPercentage),
             yearOfPassing: parseInt(profileData.tenthYear),
           },
           twelfth: {
-            institution: profileData.twelfthInstitution,
+            schoolName: profileData.twelfthInstitution,
             board: profileData.twelfthBoard,
             percentage: parseFloat(profileData.twelfthPercentage),
             yearOfPassing: parseInt(profileData.twelfthYear),
           },
           graduation: {
+            institutionName: profileData.currentInstitution,
             degree: profileData.degree,
             branch: profileData.branch,
             cgpa: parseFloat(profileData.cgpa),
@@ -493,13 +567,35 @@ export default function StudentDash() {
           }
         },
         currentBacklogs: parseInt(profileData.backlogs) || 0,
+        currentArrears: currentArrears,
+        arrearHistory: arrearHistory,
 
-        skills: {
-          technical: skills.filter(s => s.category === 'technical').map(s => ({ name: s.name, level: 'Intermediate' })),
-          soft: skills.filter(s => s.category === 'soft').map(s => s.name),
-          tools: skills.filter(s => s.category === 'tools').map(s => s.name),
-          languages: skills.filter(s => s.category === 'languages').map(s => s.name),
+        // Flatten skills to match backend schema
+        skills: skills.map(s => s.name),
+
+        technicalSkills: {
+          programming: skills.filter(s => s.category === 'technical').map(s => ({
+            name: s.name,
+            proficiency: 'intermediate'
+          })),
+          tools: skills.filter(s => s.category === 'tools').map(s => ({
+            name: s.name,
+            proficiency: 'intermediate'
+          })),
+          frameworks: [],
+          databases: [],
+          cloud: [],
+          other: []
         },
+
+        languages: skills.filter(s => s.category === 'languages').map(s => ({
+          name: s.name,
+          proficiency: 'conversational'
+        })),
+
+        softSkills: skills.filter(s => s.category === 'soft').map(s => ({
+          name: s.name
+        })),
 
         experience: internships.map(i => ({
           companyName: i.company,
@@ -525,8 +621,8 @@ export default function StudentDash() {
       const response = await studentAPI.updateProfile(profileUpdateData);
 
       if (response.data.success) {
-        if (profileTab === 'personal') setIsPersonalLocked(true);
-        if (profileTab === 'academic') setIsAcademicLocked(true);
+        // if (profileTab === 'personal') setIsPersonalLocked(true);
+        // if (profileTab === 'academic') setIsAcademicLocked(true);
         alert('Profile saved successfully!');
         fetchProfile(); // Refresh data
       }
@@ -691,18 +787,47 @@ export default function StudentDash() {
     }
   };
 
+  const [nonEligibleJobs, setNonEligibleJobs] = useState([]);
+
   const fetchJobs = async () => {
     try {
       const response = await studentAPI.getEligibleJobs();
-      const jobsData = response.data.jobs || [];
+      const jobsData = response.data.eligibleJobs || [];
+      const nonEligibleData = response.data.nonEligibleJobs || [];
+
       setJobs(jobsData);
-      setFilteredJobs(jobsData);
+      setNonEligibleJobs(nonEligibleData);
+
+      // Combine for filtering if needed, or keep separate. 
+      // For now, let's just show eligible ones in default view, or maybe append ineligible ones at bottom?
+      // User wants them shown. Let's combine them for the main list but mark them.
+
+      // Transform non-eligible to match job structure but with eligibility flag
+      const formattedNonEligible = nonEligibleData.map(item => ({
+        ...item.job,
+        isEligible: false,
+        eligibilityIssues: item.reasons
+      }));
+
+      const allJobs = [...jobsData.map(j => ({ ...j, isEligible: true })), ...formattedNonEligible];
+
+      // Sort: Eligible first, then by date? Or just default sort.
+      // Let's keep eligible on top.
+      allJobs.sort((a, b) => {
+        if (a.isEligible === b.isEligible) {
+          return new Date(b.createdAt) - new Date(a.createdAt);
+        }
+        return a.isEligible ? -1 : 1;
+      });
+
+      setJobs(allJobs);
+      setFilteredJobs(allJobs);
 
       // Populate jobEligibility map for UI consistency
       const eligibilityMap = {};
-      jobsData.forEach(job => {
+      allJobs.forEach(job => {
         eligibilityMap[job._id] = {
-          isEligible: job.isEligible !== false,
+          isEligible: job.isEligible,
           issues: job.eligibilityIssues || []
         };
       });
@@ -820,17 +945,87 @@ export default function StudentDash() {
               </div>
             </div>
 
-            <Button variant="outline" onClick={() => logout()} className="hidden sm:flex">
-              <LogOut className="mr-2 h-4 w-4" /> Logout
-            </Button>
-            <Button variant="outline" onClick={() => logout()} className="sm:hidden p-2">
-              <LogOut className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-4">
+              {/* Profile Photo - Square Shape */}
+              <div className="hidden sm:block">
+                <div
+                  className="w-20 h-20 rounded-lg overflow-hidden border-2 border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer bg-gray-100"
+                  onClick={() => setActiveTab('profile')}
+                  title="Click to view profile"
+                >
+                  {profileData.photoUrl ? (
+                    <img
+                      src={profileData.photoUrl}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iODAiIGhlaWdodD0iODAiIGZpbGw9IiNFNUU3RUIiLz48cGF0aCBkPSJNNDAgNDBDNDYuNjI3NCA0MCA1MiAzNC42Mjc0IDUyIDI4QzUyIDIxLjM3MjYgNDYuNjI3NCAxNiA0MCAxNkMzMy4zNzI2IDE2IDI4IDIxLjM3MjYgMjggMjhDMjggMzQuNjI3NCAzMy4zNzI2IDQwIDQwIDQwWiIgZmlsbD0iIzlDQTNCMCIvPjxwYXRoIGQ9Ik00MCA0NEMyNi43NDUyIDQ0IDE2IDU0Ljc0NTIgMTYgNjhIMjRDMjQgNTkuMTYzNCAzMS4xNjM0IDUyIDQwIDUyQzQ4LjgzNjYgNTIgNTYgNTkuMTYzNCA1NiA2OEg2NEM2NCA1NC43NDUyIDUzLjI1NDggNDQgNDAgNDRaIiBmaWxsPSIjOUNBM0IwIi8+PC9zdmc+';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-100 to-indigo-200">
+                      <User className="h-10 w-10 text-indigo-600" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <Button variant="outline" onClick={() => logout()} className="hidden sm:flex">
+                <LogOut className="mr-2 h-4 w-4" /> Logout
+              </Button>
+              <Button variant="outline" onClick={() => logout()} className="sm:hidden p-2">
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
           {/* Mobile Menu */}
           {isMobileMenuOpen && (
             <div className="lg:hidden mt-4 pb-4 border-t pt-4">
+              {/* Profile Section in Mobile Menu */}
+              <div className="px-4 py-3 mb-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  {/* Profile Photo */}
+                  <div
+                    className="w-16 h-16 rounded-lg overflow-hidden border-2 border-indigo-200 shadow-sm bg-gray-100 flex-shrink-0"
+                    onClick={() => {
+                      setActiveTab('profile');
+                      setIsMobileMenuOpen(false);
+                    }}
+                  >
+                    {profileData.photoUrl ? (
+                      <img
+                        src={profileData.photoUrl}
+                        alt="Profile"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIGZpbGw9IiNFNUU3RUIiLz48cGF0aCBkPSJNMzIgMzJDMzcuMzAxOSAzMiA0MS42IDI3LjcwMTkgNDEuNiAyMi40QzQxLjYgMTcuMDk4MSAzNy4zMDE5IDEyLjggMzIgMTIuOEMyNi42OTgxIDEyLjggMjIuNCAxNy4wOTgxIDIyLjQgMjIuNEMyMi40IDI3LjcwMTkgMjYuNjk4MSAzMiAzMiAzMloiIGZpbGw9IiM5Q0EzQjAiLz48cGF0aCBkPSJNMzIgMzUuMkMyMS4zOTYyIDM1LjIgMTIuOCA0My43OTYyIDEyLjggNTQuNEgxOS4yQzE5LjIgNDcuMzMwNyAyNC45MzA3IDQxLjYgMzIgNDEuNkMzOS4wNjkzIDQxLjYgNDQuOCA0Ny4zMzA3IDQ0LjggNTQuNEg1MS4yQzUxLjIgNDMuNzk2MiA0Mi42MDM4IDM1LjIgMzIgMzUuMloiIGZpbGw9IiM5Q0EzQjAiLz48L3N2Zz4=';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-100 to-indigo-200">
+                        <User className="h-8 w-8 text-indigo-600" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* User Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 truncate">
+                      {user?.fullName || 'Student'}
+                    </p>
+                    <p className="text-xs text-gray-600 truncate">
+                      {user?.email}
+                    </p>
+                    <p className="text-xs text-indigo-600 font-medium mt-0.5">
+                      {user?.department || 'Student'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <nav className="flex flex-col space-y-2">
                 <button
                   onClick={() => {
@@ -844,6 +1039,19 @@ export default function StudentDash() {
                 >
                   <Clock className="h-5 w-5" />
                   My Applications
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab('offers');
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`${activeTab === 'offers'
+                    ? 'bg-indigo-50 text-indigo-600 border-l-4 border-indigo-600'
+                    : 'text-gray-600 hover:bg-gray-50'
+                    } px-4 py-3 text-left font-medium text-sm flex items-center gap-3 rounded-r`}
+                >
+                  <Award className="h-5 w-5" />
+                  My Offers {offers.length > 0 && `(${offers.length})`}
                 </button>
                 <button
                   onClick={() => {
@@ -903,6 +1111,16 @@ export default function StudentDash() {
             >
               <Clock className="h-4 w-4" />
               My Applications
+            </button>
+            <button
+              onClick={() => setActiveTab('offers')}
+              className={`${activeTab === 'offers'
+                ? 'border-indigo-500 text-indigo-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2`}
+            >
+              <Award className="h-4 w-4" />
+              My Offers {offers.length > 0 && `(${offers.length})`}
             </button>
             <button
               onClick={() => setActiveTab('jobs')}
@@ -977,6 +1195,108 @@ export default function StudentDash() {
               <p className="text-gray-600">Track the status of all your job applications</p>
             </div>
             <ApplicationTracker />
+          </div>
+        )}
+
+        {/* Offers Tab */}
+        {activeTab === 'offers' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">My Offers</h2>
+
+              {/* Placement Status Banner */}
+              {isPlaced && (
+                <div className="mb-6 bg-green-50 border-l-4 border-green-400 p-4 rounded-r-lg">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0">
+                      <Award className="h-5 w-5 text-green-400" />
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-green-800">
+                        Congratulations! You are placed
+                      </h3>
+                      <p className="mt-1 text-sm text-green-700">
+                        You have accepted an offer and are marked as placed. You cannot apply to other jobs.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Offers List */}
+              {offers.length === 0 ? (
+                <div className="text-center py-12">
+                  <Award className="mx-auto h-12 w-12 text-gray-400" />
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">No offers yet</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    You haven't received any job offers yet. Keep applying!
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-6 md:grid-cols-2">
+                  {offers.map((offer) => (
+                    <Card key={offer._id} className={`${offer.status === 'accepted' ? 'border-green-500 border-2' : ''}`}>
+                      <CardHeader>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <CardTitle className="text-xl">{offer.companyName}</CardTitle>
+                            <CardDescription className="mt-1">
+                              Package: ₹{offer.package} LPA
+                            </CardDescription>
+                          </div>
+                          {offer.status === 'accepted' && (
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                              <Award className="h-4 w-4 mr-1" />
+                              Final Offer
+                            </span>
+                          )}
+                          {offer.status === 'pending' && (
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+                              Pending
+                            </span>
+                          )}
+                          {offer.status === 'rejected' && (
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+                              Not Accepted
+                            </span>
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          <div className="flex items-center text-sm text-gray-600">
+                            <Calendar className="h-4 w-4 mr-2" />
+                            Offer Date: {new Date(offer.offerDate).toLocaleDateString()}
+                          </div>
+
+                          {offer.offerLetterUrl && (
+                            <a
+                              href={offer.offerLetterUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-800"
+                            >
+                              <FileText className="h-4 w-4 mr-1" />
+                              View Offer Letter
+                            </a>
+                          )}
+
+                          {offer.status === 'pending' && !isPlaced && (
+                            <Button
+                              onClick={() => handleAcceptOffer(offer._id)}
+                              disabled={acceptingOfferId === offer._id}
+                              className="w-full mt-4"
+                            >
+                              {acceptingOfferId === offer._id ? 'Accepting...' : 'Accept Offer'}
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -1347,9 +1667,9 @@ export default function StudentDash() {
                             required
                           >
                             <option value="">Select Gender</option>
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
-                            <option value="Other">Other</option>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                            <option value="other">Other</option>
                           </select>
                         </div>
                         <div>

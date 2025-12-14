@@ -31,9 +31,18 @@ export const checkEligibility = (student: IStudentData, job: IJob): EligibilityR
         reasons.push(`CGPA ${student.cgpa} is less than required ${criteria.cgpa}`);
     }
 
-    // 5. Arrears
-    if (!criteria.allowArrears && (student.currentBacklogs > 0)) {
-        reasons.push(`Current backlogs ${student.currentBacklogs} not allowed`);
+    // 5. Arrears - Enhanced to check both current and history
+    if (!criteria.allowArrears) {
+        // Check current backlogs
+        if (student.currentBacklogs > 0) {
+            reasons.push(`Current backlogs ${student.currentBacklogs} not allowed`);
+        }
+        // Check arrear history - even if currently cleared
+        // Note: Using semesterRecords as per schema
+        const totalHistoricalBacklogs = student.semesterRecords?.reduce((sum, sem) => sum + (sem.backlogs || 0), 0) || 0;
+        if (totalHistoricalBacklogs > 0) {
+            reasons.push(`Arrear history found (${totalHistoricalBacklogs} historical backlogs) - not allowed for this company`);
+        }
     }
 
     // 6. Department
@@ -42,21 +51,28 @@ export const checkEligibility = (student: IStudentData, job: IJob): EligibilityR
         reasons.push(`Department ${studentDept} is not eligible`);
     }
 
-    // 7. Custom Department Rules
+    // 7. Custom Department Rules - Enhanced with better logic
     if (criteria.customDeptRules && criteria.customDeptRules.length > 0) {
         const deptRule = criteria.customDeptRules.find(r => r.department === studentDept);
         if (deptRule) {
+            // Apply department-specific criteria
             if (deptRule.minCGPA && (student.cgpa || 0) < deptRule.minCGPA) {
-                reasons.push(`Department CGPA ${student.cgpa} < ${deptRule.minCGPA}`);
+                reasons.push(`Department-specific CGPA requirement: ${student.cgpa} < ${deptRule.minCGPA}`);
             }
             if (deptRule.minTenthPct && (student.education.tenth?.percentage || 0) < deptRule.minTenthPct) {
-                reasons.push(`Department 10th % ${student.education.tenth?.percentage} < ${deptRule.minTenthPct}`);
+                reasons.push(`Department-specific 10th % requirement: ${student.education.tenth?.percentage} < ${deptRule.minTenthPct}`);
             }
             if (deptRule.minTwelfthPct && (student.education.twelfth?.percentage || 0) < deptRule.minTwelfthPct) {
-                reasons.push(`Department 12th % ${student.education.twelfth?.percentage} < ${deptRule.minTwelfthPct}`);
+                reasons.push(`Department-specific 12th % requirement: ${student.education.twelfth?.percentage} < ${deptRule.minTwelfthPct}`);
             }
-            if (deptRule.allowArrears === false && student.currentBacklogs > 0) {
-                reasons.push(`Department does not allow arrears`);
+            if (deptRule.allowArrears === false) {
+                if (student.currentBacklogs > 0) {
+                    reasons.push(`Department does not allow current arrears`);
+                }
+                const totalHistoricalBacklogs = student.semesterRecords?.reduce((sum, sem) => sum + (sem.backlogs || 0), 0) || 0;
+                if (totalHistoricalBacklogs > 0) {
+                    reasons.push(`Department does not allow arrear history`);
+                }
             }
         }
     }
@@ -66,3 +82,4 @@ export const checkEligibility = (student: IStudentData, job: IJob): EligibilityR
         reasons
     };
 };
+

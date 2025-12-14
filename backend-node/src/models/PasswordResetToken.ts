@@ -77,9 +77,7 @@ const passwordResetTokenSchema = new Schema<IPasswordResetToken>(
 /**
  * Indexes for efficient queries
  */
-passwordResetTokenSchema.index({ tokenHash: 1 }, { unique: true });
-passwordResetTokenSchema.index({ userId: 1 });
-passwordResetTokenSchema.index({ expiresAt: 1 });
+
 passwordResetTokenSchema.index({ userId: 1, used: 1 });
 
 /**

@@ -1,18 +1,25 @@
 import { Router } from 'express';
-// import { authenticate, requireRole } from '@middleware/auth';
+import * as invitationController from '../controllers/invitationController';
+import { protect, requireRole } from '../middleware/auth';
 
 const router = Router();
 
-/**
- * Invitation Routes
- * Temporarily disabled until invitationController is migrated
- */
+// All routes require authentication
+router.use(protect);
 
-// router.use(authenticate);
+// Admin and Moderator: Get all invitations
+router.get('/', requireRole(['admin', 'moderator']), invitationController.getInvitations);
 
-// Admin: Create and manage invitations
-// router.post('/', requireRole(['admin']), createInvitation);
-// router.get('/', requireRole(['admin', 'moderator']), getInvitations);
-// router.delete('/:id', requireRole(['admin']), deleteInvitation);
+// Admin and Moderator: Create single invitation
+router.post('/', requireRole(['admin', 'moderator']), invitationController.createInvitation);
+
+// Admin and Moderator: Create bulk invitations
+router.post('/bulk', requireRole(['admin', 'moderator']), invitationController.createBulkInvitations);
+
+// Admin and Moderator: Resend invitation
+router.post('/:id/resend', requireRole(['admin', 'moderator']), invitationController.resendInvitation);
+
+// Admin and Moderator: Cancel invitation
+router.delete('/:id', requireRole(['admin', 'moderator']), invitationController.cancelInvitation);
 
 export default router;

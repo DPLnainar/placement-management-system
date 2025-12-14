@@ -11,7 +11,7 @@ import { validatePasswordStrength } from '../utils/passwordValidator';
  */
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_TIME = 15 * 60 * 1000; // 15 minutes in milliseconds
-const ACCESS_TOKEN_EXPIRE = '15m'; // Short-lived access token
+const ACCESS_TOKEN_EXPIRE = '24h'; // Extended for development convenience
 const REFRESH_TOKEN_EXPIRE = '7d'; // Long-lived refresh token
 
 /**
@@ -149,6 +149,7 @@ export const login = async (req: IAuthRequest, res: Response): Promise<void> => 
     }
 
     // Check if account is locked
+    /*
     if (user.accountLockedUntil && new Date() < user.accountLockedUntil) {
       const remainingTime = Math.ceil((user.accountLockedUntil.getTime() - Date.now()) / 60000);
       res.status(403).json({
@@ -157,6 +158,7 @@ export const login = async (req: IAuthRequest, res: Response): Promise<void> => 
       });
       return;
     }
+    */
 
     // Check if account is active
     if (!user.isActive) {
@@ -777,6 +779,15 @@ export const register = async (req: IAuthRequest, res: Response): Promise<void> 
         success: false,
         message: 'Password does not meet strength requirements',
         errors: passwordValidation.errors
+      });
+      return;
+    }
+
+    // Validate collegeId for admin and moderator roles
+    if ((role === 'admin' || role === 'moderator') && !collegeId) {
+      res.status(400).json({
+        success: false,
+        message: 'College ID is required for admin and moderator accounts'
       });
       return;
     }

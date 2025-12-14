@@ -1,243 +1,238 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { jobAPI } from '../services/api';
+import { adminAPI } from '../services/api';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Checkbox } from './ui/checkbox';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Plus, X } from 'lucide-react';
 
 export default function CreateJob() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     companyName: '',
+    title: '',
+    role: '',
+    description: '',
     location: '',
-    jobCategory: '',
-    jobType: 'full-time',
-    ctc: '',
-    jobDescription: '',
-    termsConditions: '',
-    eligibilityType: 'common', // New: 'common' or 'department-wise'
-    commonCriteria: {
-      tenth: '',
-      twelfth: '',
-      cgpa: '',
-    },
-    departmentCriteria: {
-      CSE: { tenth: '', twelfth: '', cgpa: '' },
-      IT: { tenth: '', twelfth: '', cgpa: '' },
-      ECE: { tenth: '', twelfth: '', cgpa: '' },
-      EEE: { tenth: '', twelfth: '', cgpa: '' },
-      MECH: { tenth: '', twelfth: '', cgpa: '' },
-      CIVIL: { tenth: '', twelfth: '', cgpa: '' },
-    },
-    // Job Department Access - Which departments can see this job
-    jobDepartmentAccess: 'all', // 'all' or 'specific'
-    specificJobDepartments: [], // List of dept codes if 'specific'
-    otherDepartment: '', // Custom department name if not in list
     deadline: '',
-    skills: {
-      wirelessCommunication: false,
-      fullstackDeveloper: false,
-      embedded: false,
-      vlsi: false,
-      cybersecurity: false,
-      cloud: false,
-      networking: false,
-      blockchain: false,
-      others: false,
-    },
-    otherSkill: '',
+    categories: ['fulltime'], // Array: can include 'fulltime' and/or 'intern'
+    packageLPA: '',
+    stipend: '',
+    durationMonths: '',
+
+    // Eligibility
+    eligibilityMode: 'common', // 'common' or 'per-dept'
+    tenthPct: '',
+    twelfthPct: '',
+    cgpa: '',
+    allowArrears: false,
+
+    // Target departments
+    targetDepartments: [],
+    selectAllDepts: false,
+    otherDepartment: '',
   });
 
-  const departmentNames = {
-    CSE: 'Computer Science',
-    IT: 'Information Technology',
-    ECE: 'Electronics & Communication',
-    EEE: 'Electrical Engineering',
-    MECH: 'Mechanical Engineering',
-    CIVIL: 'Civil Engineering',
-  };
+  const [skills, setSkills] = useState([]);
+  const [skillInput, setSkillInput] = useState('');
 
-  const allDepartments = [
-    { code: 'CSE', name: 'Computer Science' },
-    { code: 'IT', name: 'Information Technology' },
-    { code: 'ECE', name: 'Electronics & Communication' },
-    { code: 'EEE', name: 'Electrical Engineering' },
-    { code: 'MECH', name: 'Mechanical Engineering' },
-    { code: 'CIVIL', name: 'Civil Engineering' },
-    { code: 'AIML', name: 'AI & Machine Learning' },
-    { code: 'AIML_DS', name: 'Artificial Intelligence and Data Science' },
-  ];
+  const [rounds, setRounds] = useState([]);
+  const [roundInput, setRoundInput] = useState('');
+
+  const [customDeptRules, setCustomDeptRules] = useState([]);
+
+  const DEPARTMENTS = ['CSE', 'IT', 'ECE', 'EEE', 'MECH', 'CIVIL', 'AIML', 'DS', 'ISE', 'MBA', 'MCA'];
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-  };
-
-  const handleCommonCriteriaChange = (field, value) => {
+    const { name, value, type, checked } = e.target;
     setFormData({
       ...formData,
-      commonCriteria: {
-        ...formData.commonCriteria,
-        [field]: value,
+      [name]: type === 'checkbox' ? checked : value,
+    });
+  };
+
+  const handleCategoryToggle = (category) => {
+    if (formData.categories.includes(category)) {
+      // Remove category if already selected
+      setFormData({
+        ...formData,
+        categories: formData.categories.filter(c => c !== category),
+      });
+    } else {
+      // Add category
+      setFormData({
+        ...formData,
+        categories: [...formData.categories, category],
+      });
+    }
+  };
+
+  const handleAddSkill = () => {
+    if (skillInput.trim() && !skills.includes(skillInput.trim())) {
+      setSkills([...skills, skillInput.trim()]);
+      setSkillInput('');
+    }
+  };
+
+  const handleRemoveSkill = (index) => {
+    setSkills(skills.filter((_, i) => i !== index));
+  };
+
+  const handleAddRound = () => {
+    if (roundInput.trim()) {
+      setRounds([...rounds, { roundName: roundInput.trim() }]);
+      setRoundInput('');
+    }
+  };
+
+  const handleRemoveRound = (index) => {
+    setRounds(rounds.filter((_, i) => i !== index));
+  };
+
+  const handleDeptToggle = (dept) => {
+    if (formData.targetDepartments.includes(dept)) {
+      setFormData({
+        ...formData,
+        targetDepartments: formData.targetDepartments.filter(d => d !== dept),
+        selectAllDepts: false,
+      });
+    } else {
+      const newDepts = [...formData.targetDepartments, dept];
+      setFormData({
+        ...formData,
+        targetDepartments: newDepts,
+        selectAllDepts: newDepts.length === DEPARTMENTS.length,
+      });
+    }
+  };
+
+  const handleSelectAllDepts = (checked) => {
+    setFormData({
+      ...formData,
+      selectAllDepts: checked,
+      targetDepartments: checked ? [...DEPARTMENTS] : [],
+    });
+  };
+
+  const handleAddCustomDeptRule = () => {
+    setCustomDeptRules([
+      ...customDeptRules,
+      {
+        department: '',
+        minTenthPct: '',
+        minTwelfthPct: '',
+        minCGPA: '',
+        allowArrears: false,
       },
-    });
+    ]);
   };
 
-  const handleDepartmentCriteriaChange = (dept, field, value) => {
-    setFormData({
-      ...formData,
-      departmentCriteria: {
-        ...formData.departmentCriteria,
-        [dept]: {
-          ...formData.departmentCriteria[dept],
-          [field]: value,
-        },
-      },
-    });
+  const handleRemoveCustomDeptRule = (index) => {
+    setCustomDeptRules(customDeptRules.filter((_, i) => i !== index));
   };
 
-  const handleJobDepartmentToggle = (deptCode) => {
-    setFormData({
-      ...formData,
-      specificJobDepartments: formData.specificJobDepartments.includes(deptCode)
-        ? formData.specificJobDepartments.filter((d) => d !== deptCode)
-        : [...formData.specificJobDepartments, deptCode],
-    });
-  };
-
-  const handleSkillChange = (skill) => {
-    setFormData({
-      ...formData,
-      skills: {
-        ...formData.skills,
-        [skill]: !formData.skills[skill],
-      },
-    });
+  const handleCustomDeptRuleChange = (index, field, value) => {
+    const updated = [...customDeptRules];
+    updated[index] = { ...updated[index], [field]: value };
+    setCustomDeptRules(updated);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Validate at least one category is selected
+    if (formData.categories.length === 0) {
+      alert('Please select at least one job category (Full-time or Internship)');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // Build eligibility structure based on type
-      let eligibilityData = {};
-      
-      if (formData.eligibilityType === "common") {
-        eligibilityData = {
-          eligibilityType: "common",
-          commonEligibility: {
-            tenth: parseFloat(formData.commonCriteria.tenth) || 0,
-            twelfth: parseFloat(formData.commonCriteria.twelfth) || 0,
-            cgpa: parseFloat(formData.commonCriteria.cgpa) || 0,
-          },
-        };
-      } else if (formData.eligibilityType === "department-wise") {
-        // Filter out empty departments and build array only with filled entries
-        const deptWiseEligibility = Object.entries(formData.departmentCriteria)
-          .map(([dept, criteria]) => ({
-            department: dept,
-            tenth: parseFloat(criteria.tenth) || 0,
-            twelfth: parseFloat(criteria.twelfth) || 0,
-            cgpa: parseFloat(criteria.cgpa) || 0,
-          }))
-          // Include all departments, even with 0 values
-          .filter(dept => dept.tenth > 0 || dept.twelfth > 0 || dept.cgpa > 0);
-        
-        // If no departments have criteria, still include all with 0 values
-        const finalDeptWiseEligibility = deptWiseEligibility.length > 0 
-          ? deptWiseEligibility
-          : Object.entries(formData.departmentCriteria).map(([dept, criteria]) => ({
-              department: dept,
-              tenth: parseFloat(criteria.tenth) || 0,
-              twelfth: parseFloat(criteria.twelfth) || 0,
-              cgpa: parseFloat(criteria.cgpa) || 0,
-            }));
-        
-        eligibilityData = {
-          eligibilityType: "department-wise",
-          departmentWiseEligibility: finalDeptWiseEligibility,
-        };
-      }
+      // Build target departments list
+      const targetDepts = [
+        ...formData.targetDepartments,
+        ...(formData.otherDepartment ? [formData.otherDepartment.trim()] : []),
+      ];
 
-      // Map frontend field names to backend expected names
+      // Build eligibility criteria
+      const eligibility = {
+        tenthPct: parseFloat(formData.tenthPct) || undefined,
+        twelfthPct: parseFloat(formData.twelfthPct) || undefined,
+        cgpa: parseFloat(formData.cgpa) || undefined,
+        allowArrears: formData.allowArrears,
+        deptList: targetDepts,
+        customDeptRules: formData.eligibilityMode === 'per-dept'
+          ? customDeptRules.map(rule => ({
+            department: rule.department,
+            minTenthPct: parseFloat(rule.minTenthPct) || undefined,
+            minTwelfthPct: parseFloat(rule.minTwelfthPct) || undefined,
+            minCGPA: parseFloat(rule.minCGPA) || undefined,
+            allowArrears: rule.allowArrears,
+          }))
+          : [],
+      };
+
       const jobData = {
-        title: formData.jobCategory,
-        company: formData.companyName,
-        description: formData.jobDescription,
-        packageDetails: {
-          ctc: formData.ctc ? parseFloat(formData.ctc) : null,
-        },
+        companyName: formData.companyName,
+        title: formData.title,
+        role: formData.role,
+        description: formData.description,
         location: formData.location,
-        jobType: formData.jobType,
         deadline: formData.deadline,
-        ...eligibilityData,
-        // Job Department Access - Which departments can see this job
-        eligibility: {
-          type: formData.jobDepartmentAccess === 'all' ? 'all' : 'specific',
-          departments: formData.jobDepartmentAccess === 'all' 
-            ? [] 
-            : [
-                ...formData.specificJobDepartments,
-                ...(formData.otherDepartment ? [formData.otherDepartment] : [])
-              ],
-        },
-        // Additional fields (can be stored in description or ignored for now)
-        requirements: {
-          skills: formData.skills,
-          otherSkill: formData.otherSkill,
-          termsConditions: formData.termsConditions,
-        }
+        category: formData.categories, // Array of selected categories
+        packageLPA: formData.categories.includes('fulltime') ? parseFloat(formData.packageLPA) : undefined,
+        stipend: formData.categories.includes('intern') ? parseFloat(formData.stipend) : undefined,
+        durationMonths: formData.categories.includes('intern') ? parseInt(formData.durationMonths) : undefined,
+        skillsRequired: skills,
+        hiringRounds: rounds,
+        targetDepartments: targetDepts,
+        eligibility,
+        jobType: formData.categories.includes('intern') ? 'internship' : 'full-time',
       };
 
       console.log('Submitting job data:', jobData);
-      await jobAPI.create(jobData);
-      alert('Job posted successfully!');
-      navigate('/dashboard');
+      const response = await adminAPI.createJob(jobData);
+
+      if (response.data.success) {
+        alert('Job created successfully! Eligible students have been notified via email.');
+        navigate('/admin/dashboard');
+      }
     } catch (error) {
-      alert(error.response?.data?.message || error.response?.data?.detail || 'Error creating job');
       console.error('Job creation error:', error);
+      alert(error.response?.data?.message || 'Error creating job');
     } finally {
       setLoading(false);
     }
   };
 
-  const skillsList = [
-    { id: 'wirelessCommunication', label: 'Wireless Communication' },
-    { id: 'fullstackDeveloper', label: 'Fullstack Developer' },
-    { id: 'embedded', label: 'Embedded Systems' },
-    { id: 'vlsi', label: 'VLSI' },
-    { id: 'cybersecurity', label: 'Cybersecurity' },
-    { id: 'cloud', label: 'Cloud Computing' },
-    { id: 'networking', label: 'Networking' },
-    { id: 'blockchain', label: 'Blockchain' },
-  ];
-
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <Button variant="ghost" onClick={() => navigate('/dashboard')} className="mb-6">
+        <Button variant="ghost" onClick={() => navigate('/admin/dashboard')} className="mb-6">
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
         </Button>
 
         <Card>
           <CardHeader>
             <CardTitle>Create New Job Posting</CardTitle>
-            <CardDescription>Fill in the details for the new job opportunity</CardDescription>
+            <CardDescription>
+              Fill in the details for the new job opportunity. Eligible students will be automatically notified via email.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Company Information */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Company Information</h3>
+              {/* Section 1: Basic Details */}
+              <div className="space-y-4 border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
+                <h3 className="text-lg font-semibold text-blue-700">Basic Details</h3>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="companyName">Company Name</Label>
+                    <Label htmlFor="companyName">Company Name *</Label>
                     <Input
                       id="companyName"
                       name="companyName"
@@ -247,7 +242,32 @@ export default function CreateJob() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="location">Location</Label>
+                    <Label htmlFor="title">Job Title *</Label>
+                    <Input
+                      id="title"
+                      name="title"
+                      placeholder="e.g., Software Engineer"
+                      value={formData.title}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="role">Job Role *</Label>
+                    <Input
+                      id="role"
+                      name="role"
+                      placeholder="e.g., Backend Developer"
+                      value={formData.role}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="location">Location *</Label>
                     <Input
                       id="location"
                       name="location"
@@ -257,102 +277,190 @@ export default function CreateJob() {
                     />
                   </div>
                 </div>
-              </div>
 
-              {/* Job Details */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Job Details</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="jobCategory">Job Title/Category</Label>
-                    <Input
-                      id="jobCategory"
-                      name="jobCategory"
-                      placeholder="e.g., Software Engineer, Data Analyst"
-                      value={formData.jobCategory}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="jobType">Job Type</Label>
-                    <select
-                      id="jobType"
-                      name="jobType"
-                      value={formData.jobType}
-                      onChange={handleChange}
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      required
-                    >
-                      <option value="full-time">Full Time</option>
-                      <option value="part-time">Part Time</option>
-                      <option value="internship">Internship</option>
-                      <option value="contract">Contract</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="ctc">CTC/Salary Package</Label>
-                    <Input
-                      id="ctc"
-                      name="ctc"
-                      placeholder="e.g., 5-7 LPA or $80,000/year"
-                      value={formData.ctc}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="deadline">Application Deadline</Label>
-                    <Input
-                      id="deadline"
-                      name="deadline"
-                      type="datetime-local"
-                      value={formData.deadline}
-                      onChange={handleChange}
-                      required
-                    />
-                    <p className="text-sm text-gray-500 mt-1">Job will automatically become inactive after this date</p>
-                  </div>
-                </div>
                 <div>
-                  <Label htmlFor="jobDescription">Job Description</Label>
+                  <Label htmlFor="description">Job Description *</Label>
                   <Textarea
-                    id="jobDescription"
-                    name="jobDescription"
+                    id="description"
+                    name="description"
                     rows={4}
-                    value={formData.jobDescription}
+                    value={formData.description}
                     onChange={handleChange}
                     required
                   />
                 </div>
+
                 <div>
-                  <Label htmlFor="termsConditions">Terms & Conditions</Label>
-                  <Textarea
-                    id="termsConditions"
-                    name="termsConditions"
-                    rows={3}
-                    value={formData.termsConditions}
+                  <Label htmlFor="deadline">Application Deadline *</Label>
+                  <Input
+                    id="deadline"
+                    name="deadline"
+                    type="datetime-local"
+                    value={formData.deadline}
                     onChange={handleChange}
                     required
                   />
                 </div>
               </div>
 
-              {/* Eligibility Criteria - New Department-wise System */}
+              {/* Section 2: Job Category & Package */}
+              <div className="space-y-4 border-2 border-purple-200 rounded-lg p-4 bg-purple-50">
+                <h3 className="text-lg font-semibold text-purple-700">Job Category & Package</h3>
+
+                <div>
+                  <Label>Job Category * (Select one or both)</Label>
+                  <div className="flex gap-4 mt-2">
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.categories.includes('fulltime')}
+                        onChange={() => handleCategoryToggle('fulltime')}
+                        className="mr-2"
+                      />
+                      Full-time
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.categories.includes('intern')}
+                        onChange={() => handleCategoryToggle('intern')}
+                        className="mr-2"
+                      />
+                      Internship
+                    </label>
+                  </div>
+                  {formData.categories.length === 0 && (
+                    <p className="text-sm text-red-600 mt-1">Please select at least one category</p>
+                  )}
+                </div>
+
+
+                {formData.categories.includes('fulltime') && (
+                  <div>
+                    <Label htmlFor="packageLPA">Package (LPA) *</Label>
+                    <Input
+                      id="packageLPA"
+                      name="packageLPA"
+                      type="number"
+                      step="0.1"
+                      placeholder="e.g., 12"
+                      value={formData.packageLPA}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                )}
+
+                {formData.categories.includes('intern') && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="stipend">Stipend (₹/month) *</Label>
+                      <Input
+                        id="stipend"
+                        name="stipend"
+                        type="number"
+                        placeholder="e.g., 15000"
+                        value={formData.stipend}
+                        onChange={handleChange}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="durationMonths">Duration (months) *</Label>
+                      <Input
+                        id="durationMonths"
+                        name="durationMonths"
+                        type="number"
+                        placeholder="e.g., 6"
+                        value={formData.durationMonths}
+                        onChange={handleChange}
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Section 3: Skills & Workflow */}
+              <div className="space-y-4 border-2 border-green-200 rounded-lg p-4 bg-green-50">
+                <h3 className="text-lg font-semibold text-green-700">Skills & Hiring Workflow</h3>
+
+                <div>
+                  <Label>Skills Required</Label>
+                  <div className="flex gap-2 mt-2">
+                    <Input
+                      value={skillInput}
+                      onChange={(e) => setSkillInput(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSkill())}
+                      placeholder="Add skill and press Enter"
+                    />
+                    <Button type="button" onClick={handleAddSkill} size="sm">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {skills.map((skill, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800"
+                      >
+                        {skill}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSkill(idx)}
+                          className="ml-2 text-green-600 hover:text-green-800"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Hiring Workflow Rounds</Label>
+                  <div className="flex gap-2 mt-2">
+                    <Input
+                      value={roundInput}
+                      onChange={(e) => setRoundInput(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddRound())}
+                      placeholder="e.g., Online Test"
+                    />
+                    <Button type="button" onClick={handleAddRound} size="sm">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {rounds.length > 0 && (
+                    <ol className="list-decimal list-inside mt-3 space-y-2">
+                      {rounds.map((round, idx) => (
+                        <li key={idx} className="flex justify-between items-center bg-white p-2 rounded">
+                          <span>{round.roundName}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveRound(idx)}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </div>
+              </div>
+
+              {/* Section 4: Eligibility Criteria */}
               <div className="space-y-4 border-2 border-indigo-200 rounded-lg p-4 bg-indigo-50">
                 <h3 className="text-lg font-semibold text-indigo-700">Eligibility Criteria</h3>
-                
-                {/* Toggle between common and department-wise */}
-                <div className="flex items-center space-x-2 p-3 bg-white rounded-lg border border-indigo-300">
+
+                <div className="flex items-center space-x-2 p-3 bg-white rounded-lg">
                   <Checkbox
                     id="eligibilityCommon"
-                    checked={formData.eligibilityType === "common"}
+                    checked={formData.eligibilityMode === 'common'}
                     onCheckedChange={(checked) =>
                       setFormData({
                         ...formData,
-                        eligibilityType: checked ? "common" : "department-wise",
+                        eligibilityMode: checked ? 'common' : 'per-dept',
                       })
                     }
                   />
@@ -361,217 +469,204 @@ export default function CreateJob() {
                   </Label>
                 </div>
 
-                {/* Common Criteria Section */}
-                {formData.eligibilityType === "common" && (
-                  <div className="space-y-4 bg-white p-4 rounded-lg border border-indigo-200">
-                    <h4 className="font-semibold text-indigo-600">Common Eligibility Criteria</h4>
+                {formData.eligibilityMode === 'common' && (
+                  <div className="space-y-4 bg-white p-4 rounded-lg">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <Label htmlFor="common-tenth">10th Percentage (%)</Label>
+                        <Label htmlFor="tenthPct">10th Percentage (Min)</Label>
                         <Input
-                          id="common-tenth"
+                          id="tenthPct"
+                          name="tenthPct"
                           type="number"
                           step="0.1"
                           min="0"
                           max="100"
-                          value={formData.commonCriteria.tenth}
-                          onChange={(e) => handleCommonCriteriaChange("tenth", e.target.value)}
-                          placeholder="e.g. 80"
+                          value={formData.tenthPct}
+                          onChange={handleChange}
+                          placeholder="e.g., 60"
                         />
                       </div>
                       <div>
-                        <Label htmlFor="common-twelfth">12th Percentage (%)</Label>
+                        <Label htmlFor="twelfthPct">12th Percentage (Min)</Label>
                         <Input
-                          id="common-twelfth"
+                          id="twelfthPct"
+                          name="twelfthPct"
                           type="number"
                           step="0.1"
                           min="0"
                           max="100"
-                          value={formData.commonCriteria.twelfth}
-                          onChange={(e) => handleCommonCriteriaChange("twelfth", e.target.value)}
-                          placeholder="e.g. 85"
+                          value={formData.twelfthPct}
+                          onChange={handleChange}
+                          placeholder="e.g., 60"
                         />
                       </div>
                       <div>
-                        <Label htmlFor="common-cgpa">CGPA</Label>
+                        <Label htmlFor="cgpa">CGPA (Min)</Label>
                         <Input
-                          id="common-cgpa"
+                          id="cgpa"
+                          name="cgpa"
                           type="number"
                           step="0.1"
                           min="0"
                           max="10"
-                          value={formData.commonCriteria.cgpa}
-                          onChange={(e) => handleCommonCriteriaChange("cgpa", e.target.value)}
-                          placeholder="e.g. 7.5"
+                          value={formData.cgpa}
+                          onChange={handleChange}
+                          placeholder="e.g., 7.0"
                         />
                       </div>
                     </div>
+
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="allowArrears"
+                        name="allowArrears"
+                        checked={formData.allowArrears}
+                        onCheckedChange={(checked) =>
+                          setFormData({ ...formData, allowArrears: checked })
+                        }
+                      />
+                      <Label htmlFor="allowArrears" className="cursor-pointer">
+                        Allow students with arrear history
+                      </Label>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      <strong>Note:</strong> If unchecked, students with ANY history of arrears (even if currently cleared) will NOT be eligible.
+                    </p>
                   </div>
                 )}
 
-                {/* Department-wise Criteria Section */}
-                {formData.eligibilityType === "department-wise" && (
+                {formData.eligibilityMode === 'per-dept' && (
                   <div className="space-y-4">
-                    <h4 className="font-semibold text-indigo-600">Department-wise Eligibility Criteria</h4>
-                    {Object.entries(formData.departmentCriteria).map(([deptCode, criteria]) => (
-                      <div key={deptCode} className="bg-white p-4 rounded-lg border border-indigo-200">
-                        <h5 className="font-medium text-indigo-600 mb-3">{departmentNames[deptCode]} ({deptCode})</h5>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <p className="text-sm text-gray-600">
+                      Set different eligibility criteria for different departments (e.g., Google: CSE/IT/ECE → CGPA 7.0, Others → CGPA 7.5)
+                    </p>
+
+                    {customDeptRules.map((rule, idx) => (
+                      <div key={idx} className="bg-white p-4 rounded-lg border border-indigo-200">
+                        <div className="flex justify-between items-center mb-3">
+                          <h4 className="font-medium text-indigo-600">Rule {idx + 1}</h4>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCustomDeptRule(idx)}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
-                            <Label htmlFor={`${deptCode}-tenth`}>10th Percentage (%)</Label>
+                            <Label>Department</Label>
+                            <select
+                              value={rule.department}
+                              onChange={(e) => handleCustomDeptRuleChange(idx, 'department', e.target.value)}
+                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            >
+                              <option value="">Select department</option>
+                              {DEPARTMENTS.map(dept => (
+                                <option key={dept} value={dept}>{dept}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <Label>10th Min (%)</Label>
                             <Input
-                              id={`${deptCode}-tenth`}
                               type="number"
                               step="0.1"
-                              min="0"
-                              max="100"
-                              value={criteria.tenth}
-                              onChange={(e) => handleDepartmentCriteriaChange(deptCode, "tenth", e.target.value)}
-                              placeholder="e.g. 80"
+                              value={rule.minTenthPct}
+                              onChange={(e) => handleCustomDeptRuleChange(idx, 'minTenthPct', e.target.value)}
                             />
                           </div>
                           <div>
-                            <Label htmlFor={`${deptCode}-twelfth`}>12th Percentage (%)</Label>
+                            <Label>12th Min (%)</Label>
                             <Input
-                              id={`${deptCode}-twelfth`}
                               type="number"
                               step="0.1"
-                              min="0"
-                              max="100"
-                              value={criteria.twelfth}
-                              onChange={(e) => handleDepartmentCriteriaChange(deptCode, "twelfth", e.target.value)}
-                              placeholder="e.g. 85"
+                              value={rule.minTwelfthPct}
+                              onChange={(e) => handleCustomDeptRuleChange(idx, 'minTwelfthPct', e.target.value)}
                             />
                           </div>
                           <div>
-                            <Label htmlFor={`${deptCode}-cgpa`}>CGPA</Label>
+                            <Label>CGPA Min</Label>
                             <Input
-                              id={`${deptCode}-cgpa`}
                               type="number"
                               step="0.1"
-                              min="0"
-                              max="10"
-                              value={criteria.cgpa}
-                              onChange={(e) => handleDepartmentCriteriaChange(deptCode, "cgpa", e.target.value)}
-                              placeholder="e.g. 7.5"
+                              value={rule.minCGPA}
+                              onChange={(e) => handleCustomDeptRuleChange(idx, 'minCGPA', e.target.value)}
                             />
                           </div>
+                        </div>
+
+                        <div className="flex items-center space-x-2 mt-3">
+                          <Checkbox
+                            checked={rule.allowArrears}
+                            onCheckedChange={(checked) => handleCustomDeptRuleChange(idx, 'allowArrears', checked)}
+                          />
+                          <Label className="cursor-pointer">Allow arrears for this department</Label>
                         </div>
                       </div>
                     ))}
+
+                    <Button type="button" onClick={handleAddCustomDeptRule} variant="outline">
+                      <Plus className="mr-2 h-4 w-4" /> Add Department Rule
+                    </Button>
                   </div>
                 )}
               </div>
 
-              {/* Job Department Access - Which departments can see/apply for this job */}
-              <div className="space-y-4 border-2 border-green-200 rounded-lg p-4 bg-green-50">
-                <h3 className="text-lg font-semibold text-green-700">Job Department Access</h3>
-                <p className="text-sm text-gray-600">Choose which departments can view and apply for this job</p>
-                
-                {/* Toggle: All vs Specific */}
-                <div className="flex items-center space-x-2 p-3 bg-white rounded-lg border border-green-300">
+              {/* Section 5: Target Departments */}
+              <div className="space-y-4 border-2 border-orange-200 rounded-lg p-4 bg-orange-50">
+                <h3 className="text-lg font-semibold text-orange-700">Target Departments</h3>
+                <p className="text-sm text-gray-600">Select which departments can view and apply for this job</p>
+
+                <div className="flex items-center space-x-2 p-3 bg-white rounded-lg">
                   <Checkbox
-                    id="jobAccessAll"
-                    checked={formData.jobDepartmentAccess === "all"}
-                    onCheckedChange={(checked) =>
-                      setFormData({
-                        ...formData,
-                        jobDepartmentAccess: checked ? "all" : "specific",
-                        specificJobDepartments: checked ? [] : formData.specificJobDepartments,
-                      })
-                    }
+                    id="selectAllDepts"
+                    checked={formData.selectAllDepts}
+                    onCheckedChange={handleSelectAllDepts}
                   />
-                  <Label htmlFor="jobAccessAll" className="cursor-pointer">
-                    All Departments Eligible
+                  <Label htmlFor="selectAllDepts" className="cursor-pointer font-medium">
+                    All Departments
                   </Label>
                 </div>
 
-                {/* Specific Departments Selection */}
-                {formData.jobDepartmentAccess === "specific" && (
-                  <div className="space-y-3 bg-white p-4 rounded-lg border border-green-200">
-                    <h4 className="font-semibold text-green-600">Select Departments That Can Access This Job</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {allDepartments.map((dept) => (
-                        <div key={dept.code} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`job-dept-${dept.code}`}
-                            checked={formData.specificJobDepartments.includes(dept.code)}
-                            onCheckedChange={() => handleJobDepartmentToggle(dept.code)}
-                          />
-                          <Label 
-                            htmlFor={`job-dept-${dept.code}`} 
-                            className="cursor-pointer text-sm"
-                          >
-                            {dept.name} ({dept.code})
-                          </Label>
-                        </div>
-                      ))}
-                    </div>
-                    {formData.specificJobDepartments.length === 0 && !formData.otherDepartment && (
-                      <p className="text-red-500 text-sm mt-2">
-                        Please select at least one department or add under "Others"
-                      </p>
-                    )}
-                    
-                    {/* Others Input */}
-                    <div className="mt-4 pt-4 border-t border-green-200">
-                      <Label htmlFor="otherDepartment" className="text-sm font-medium">
-                        Other Department (Not Listed Above)
-                      </Label>
-                      <Input
-                        id="otherDepartment"
-                        type="text"
-                        placeholder="e.g., Biomedical Engineering, Chemical Engineering"
-                        value={formData.otherDepartment}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          otherDepartment: e.target.value
-                        })}
-                        className="mt-2"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Enter department name if not in the list above. This will be added to the eligible departments.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Required Skills</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {skillsList.map((skill) => (
-                    <div key={skill.id} className="flex items-center space-x-2">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 bg-white p-4 rounded-lg">
+                  {DEPARTMENTS.map(dept => (
+                    <div key={dept} className="flex items-center space-x-2">
                       <Checkbox
-                        id={skill.id}
-                        checked={formData.skills[skill.id]}
-                        onCheckedChange={() => handleSkillChange(skill.id)}
+                        id={`dept-${dept}`}
+                        checked={formData.targetDepartments.includes(dept)}
+                        onCheckedChange={() => handleDeptToggle(dept)}
                       />
-                      <Label htmlFor={skill.id} className="cursor-pointer">
-                        {skill.label}
+                      <Label htmlFor={`dept-${dept}`} className="cursor-pointer">
+                        {dept}
                       </Label>
                     </div>
                   ))}
                 </div>
+
                 <div>
-                  <Label htmlFor="otherSkill">Other Skills (Optional)</Label>
+                  <Label htmlFor="otherDepartment">Other Department (Not Listed)</Label>
                   <Input
-                    id="otherSkill"
-                    name="otherSkill"
-                    placeholder="Specify other required skills"
-                    value={formData.otherSkill}
+                    id="otherDepartment"
+                    name="otherDepartment"
+                    placeholder="e.g., Biomedical Engineering"
+                    value={formData.otherDepartment}
                     onChange={handleChange}
+                    className="mt-2"
                   />
                 </div>
               </div>
 
+              {/* Submit Buttons */}
               <div className="flex gap-4">
                 <Button type="submit" disabled={loading} className="flex-1">
-                  {loading ? 'Creating...' : 'Create Job Posting'}
+                  {loading ? 'Creating & Notifying Students...' : 'Create Job & Notify Students'}
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => navigate('/dashboard')}
+                  onClick={() => navigate('/admin/dashboard')}
                   disabled={loading}
                 >
                   Cancel

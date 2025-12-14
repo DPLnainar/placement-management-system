@@ -1,5 +1,5 @@
 import Notification from '../models/Notification';
-import { sendEmail } from '../utils/sendEmail';
+import sendEmail from '../utils/sendEmail';
 import StudentData from '../models/StudentData';
 import Job from '../models/Job';
 import User from '../models/User';
@@ -149,7 +149,7 @@ export const notifyEligibleStudents = async (jobId: Schema.Types.ObjectId | stri
                     userId: student.userId,
                     type: 'job_posted',
                     title: 'New Job Opportunity',
-                    message: `A new job opportunity for ${job.title} at ${job.company} has been posted. You are eligible to apply!`,
+                    message: `A new job opportunity for ${job.title} at ${job.companyName} has been posted. You are eligible to apply!`,
                     relatedJob: jobId,
                 });
 
@@ -159,13 +159,14 @@ export const notifyEligibleStudents = async (jobId: Schema.Types.ObjectId | stri
                     await sendEmail({
                         to: user.email,
                         subject: 'New Job Opportunity - You are Eligible!',
+                        text: `New job opportunity for ${job.title} at ${job.companyName}. You are eligible to apply!`,
                         html: `
               <h2>New Job Opportunity</h2>
               <p>Dear ${student.personal?.name || 'Student'},</p>
               <p>A new job opportunity has been posted that matches your profile:</p>
               <ul>
                 <li><strong>Position:</strong> ${job.title}</li>
-                <li><strong>Company:</strong> ${job.company}</li>
+                <li><strong>Company:</strong> ${job.companyName}</li>
                 <li><strong>CTC:</strong> ₹${job.ctc} LPA</li>
                 <li><strong>Location:</strong> ${job.location}</li>
               </ul>
