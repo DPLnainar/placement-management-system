@@ -64,6 +64,14 @@ export const authenticate = async (
       }
 
       // Attach user to request object with complete information
+      console.log('\n🔐 AUTH MIDDLEWARE - User Loaded:');
+      console.log('  User ID:', user._id);
+      console.log('  Username:', user.username);
+      console.log('  Role:', user.role);
+      console.log('  College ID from DB:', user.collegeId);
+      console.log('  Department from DB:', (user as any).department);
+      console.log('  Status:', user.status);
+
       req.user = {
         _id: user._id.toString(),
         email: user.email,
@@ -73,6 +81,11 @@ export const authenticate = async (
         name: (user as any).name || (user as any).fullName || user.username,
         status: user.status
       };
+
+      console.log('\n🔐 AUTH MIDDLEWARE - req.user set to:');
+      console.log('  College ID:', req.user.collegeId);
+      console.log('  Department:', req.user.department);
+      console.log('  Role:', req.user.role);
 
       next();
     } catch (error: any) {
