@@ -64,6 +64,9 @@ const VerificationQueue = () => {
     const handleReviewClick = async (student) => {
         try {
             const token = localStorage.getItem('token');
+            console.log('Fetching details for student:', student);
+            console.log('Student ID:', student.studentId);
+
             const response = await fetch(`/api/moderator/verification/${student.studentId}/details`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -71,16 +74,21 @@ const VerificationQueue = () => {
                 }
             });
 
+            console.log('Response status:', response.status);
+
             if (!response.ok) {
-                throw new Error('Failed to fetch student details');
+                const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+                console.error('Error response:', errorData);
+                throw new Error(errorData.message || 'Failed to fetch student details');
             }
 
             const data = await response.json();
+            console.log('Student details loaded:', data);
             setSelectedStudent(data.data);
             setShowModal(true);
         } catch (error) {
             console.error('Error fetching student details:', error);
-            alert('Failed to load student details');
+            alert(`Failed to load student details: ${error.message}`);
         }
     };
 

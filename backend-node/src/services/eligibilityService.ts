@@ -26,9 +26,10 @@ export const checkEligibility = (student: IStudentData, job: IJob): EligibilityR
         reasons.push(`12th Percentage ${student.education.twelfth?.percentage}% is less than required ${criteria.twelfthPct}%`);
     }
 
-    // 4. CGPA
-    if (criteria.cgpa && (student.cgpa || 0) < criteria.cgpa) {
-        reasons.push(`CGPA ${student.cgpa} is less than required ${criteria.cgpa}`);
+    // 4. CGPA - Check both top-level and nested graduation CGPA
+    const studentCGPA = student.cgpa || student.education?.graduation?.cgpa || 0;
+    if (criteria.cgpa && studentCGPA < criteria.cgpa) {
+        reasons.push(`CGPA ${studentCGPA} is less than required ${criteria.cgpa}`);
     }
 
     // 5. Arrears - Enhanced to check both current and history
@@ -56,8 +57,9 @@ export const checkEligibility = (student: IStudentData, job: IJob): EligibilityR
         const deptRule = criteria.customDeptRules.find(r => r.department === studentDept);
         if (deptRule) {
             // Apply department-specific criteria
-            if (deptRule.minCGPA && (student.cgpa || 0) < deptRule.minCGPA) {
-                reasons.push(`Department-specific CGPA requirement: ${student.cgpa} < ${deptRule.minCGPA}`);
+            const studentCGPA = student.cgpa || student.education?.graduation?.cgpa || 0;
+            if (deptRule.minCGPA && studentCGPA < deptRule.minCGPA) {
+                reasons.push(`Department-specific CGPA requirement: ${studentCGPA} < ${deptRule.minCGPA}`);
             }
             if (deptRule.minTenthPct && (student.education.tenth?.percentage || 0) < deptRule.minTenthPct) {
                 reasons.push(`Department-specific 10th % requirement: ${student.education.tenth?.percentage} < ${deptRule.minTenthPct}`);

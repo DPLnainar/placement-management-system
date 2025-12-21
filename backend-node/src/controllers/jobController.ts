@@ -62,6 +62,7 @@ export const createJob = async (req: IAuthRequest, res: Response): Promise<void>
       ...eligibilityToSave,
       collegeId,
       postedBy: req.user?._id,
+      createdBy: req.user?._id,
       status: jobData.status || 'active',
       publishDate: jobData.publishDate || Date.now()
     });
