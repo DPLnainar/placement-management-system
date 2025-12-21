@@ -123,12 +123,32 @@ export const updateProfile = async (req: Request, res: Response) => {
             console.log('currentArrears received:', updateData.currentArrears);
             console.log('arrearHistory received:', updateData.arrearHistory);
 
-            // LOCK VALIDATION: Check if sections are locked
+            // LOCK & PERMISSION VALIDATION
             const userRole = (req as any).user.role;
-            const isModerator = userRole === 'moderator' || userRole === 'admin' || userRole === 'super_admin';
+            const userDept = (req as any).user.department;
 
-            // If not a moderator, check lock status
-            if (!isModerator) {
+            // 1. Moderator Permission Check: Only their department
+            if (userRole === 'moderator' && student.personal?.branch && student.personal.branch !== userDept) {
+                return res.status(403).json({
+                    success: false,
+                    message: `Unauthorized: You can only edit students in the ${userDept} department.`
+                });
+            }
+
+            // 2. Lock Check: Admins and "own-department" moderators bypass locks
+            const isPowerUser = userRole === 'admin' ||
+                userRole === 'superadmin' ||
+                (userRole === 'moderator' && student.personal?.branch === userDept);
+
+            // Filter out lock toggles if not a power user
+            if (!isPowerUser) {
+                delete (updateData as any).personalInfoLocked;
+                delete (updateData as any).academicInfoLocked;
+                delete (updateData as any).personalInfoLockedDate;
+                delete (updateData as any).academicInfoLockedDate;
+            }
+
+            if (!isPowerUser) {
                 if (updateData.personal && student.personalInfoLocked) {
                     return res.status(403).json({
                         success: false,
@@ -184,24 +204,46 @@ export const updateProfile = async (req: Request, res: Response) => {
                 }
             }
 
+            // Mapping frontend 'experience' to backend 'internships'
+            if (updateData.experience) {
+                student.internships = updateData.experience.map((exp: any) => ({
+                    company: exp.companyName || exp.company,
+                    role: exp.role,
+                    description: exp.description,
+                    location: exp.location,
+                    startDate: exp.startDate,
+                    endDate: exp.endDate,
+                    isOngoing: exp.isOngoing
+                }));
+                student.markModified('internships');
+                console.log(`Mapped ${student.internships.length} experience entries to internships`);
+            }
+
+            // Standardize skills - the frontend sends 'skills' as an array of strings
+            if (updateData.skills && Array.isArray(updateData.skills)) {
+                student.skills = updateData.skills;
+                student.markModified('skills');
+            }
+
             // Update other top-level fields
             Object.keys(updateData).forEach(key => {
-                if (key !== 'personal' && key !== 'education') {
+                if (key !== 'personal' && key !== 'education' && key !== 'experience' && key !== 'skills') {
                     (student as any)[key] = updateData[key];
                 }
             });
 
-            // AUTO-LOCK: Lock sections when marked as completed
-            if (updateData.personalInfoCompleted && !student.personalInfoLocked) {
-                student.personalInfoLocked = true;
-                student.personalInfoLockedDate = new Date();
-                console.log('Personal information auto-locked');
-            }
-
-            if (updateData.academicInfoCompleted && !student.academicInfoLocked) {
-                student.academicInfoLocked = true;
-                student.academicInfoLockedDate = new Date();
-                console.log('Academic information auto-locked');
+            // Perform mappings and save
+            // RESET VERIFICATION STATUS:
+            // If a student (non-power user) updates their profile, reset status to PENDING
+            if (!isPowerUser) {
+                const oldStatus = student.verificationStatus;
+                student.verificationStatus = 'PENDING';
+                if (oldStatus === 'VERIFIED') {
+                    console.log('⚠️ Profile updated by student. Verification status reset to PENDING.');
+                    // Unlock sections if they were verified/locked so they can finish edits
+                    student.personalInfoLocked = false;
+                    student.academicInfoLocked = false;
+                }
             }
 
             await student.save();
@@ -244,13 +286,24 @@ export const updateProfile = async (req: Request, res: Response) => {
 
             // Set isProfileCompleted if profile is substantially complete
             // (includes mandatory fields plus some optional enrichment)
-            const profileComplete =
-                allMandatoryFieldsComplete &&
-                (student.skills?.length > 0 || student.technicalSkills?.programming?.length > 0);
+            const hasSkills = (student.skills?.length > 0) ||
+                (student.technicalSkills?.programming?.length > 0) ||
+                (student.technicalSkills?.tools?.length > 0) ||
+                (student.softSkills?.length > 0);
+
+            const hasExperience = (student.internships?.length > 0) ||
+                (student.projects?.length > 0) ||
+                (student.workExperience?.length > 0);
+
+            const profileComplete = allMandatoryFieldsComplete && (hasSkills || hasExperience);
 
             if (profileComplete && !student.isProfileCompleted) {
                 student.isProfileCompleted = true;
                 console.log('✅ Profile marked as completed');
+            } else if (!profileComplete && student.isProfileCompleted) {
+                // Also allow it to become incomplete if data was removed
+                student.isProfileCompleted = false;
+                console.log('⚠️ Profile marked as incomplete (data missing)');
             }
 
             // If flags changed, save again

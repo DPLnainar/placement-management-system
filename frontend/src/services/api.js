@@ -321,4 +321,13 @@ export const moderatorAPI = {
   deleteStudent: (studentId, reason) => api.delete(`/moderator/students/${studentId}`, { data: { reason } }),
 };
 
+// Verification API
+export const verificationAPI = {
+  getQueue: () => api.get('/verification/queue'),
+  getQueueCount: () => api.get('/verification/queue/count'),
+  getDetails: (studentId) => api.get(`/verification/${studentId}/details`),
+  approve: (studentId, notes = '') => api.post(`/verification/${studentId}/approve`, { notes }),
+  reject: (studentId, reason) => api.post(`/verification/${studentId}/reject`, { reason }),
+};
+
 export default api;

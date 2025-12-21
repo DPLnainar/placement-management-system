@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
-import { Briefcase, LogOut, MapPin, Calendar, User, Save, Upload, Plus, Trash2, FileText, Download, Menu, X, Printer, ExternalLink, Clock, Award } from 'lucide-react';
+import { Briefcase, LogOut, MapPin, Calendar, User, Save, Upload, Plus, Trash2, FileText, Download, Menu, X, Printer, ExternalLink, Clock, Award, CheckCircle, AlertCircle, XCircle, ShieldCheck, Lock } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import html2pdf from 'html2pdf.js';
 import { ResumeTemplate } from './ResumeTemplate';
@@ -263,6 +263,10 @@ export default function StudentDash() {
     return isComplete;
   };
 
+  const [verificationStatus, setVerificationStatus] = useState('PENDING');
+  const [verificationRejectionReason, setVerificationRejectionReason] = useState('');
+  const [verificationNotes, setVerificationNotes] = useState('');
+
   const fetchProfile = async () => {
     try {
       const response = await studentAPI.getProfile();
@@ -277,16 +281,12 @@ export default function StudentDash() {
       console.log('Full Name:', student.personal?.fullName);
 
       if (student) {
-        // Check locked status
-        // const hasPersonalData = student.personal?.email || student.personal?.dob || student.personal?.gender;
-        // const hasAcademicData = student.education?.graduation?.cgpa || student.education?.tenth?.percentage || student.education?.twelfth?.percentage;
-
-        // setIsPersonalLocked(!!hasPersonalData);
-        // setIsAcademicLocked(!!hasAcademicData);
-
-        // Allow editing by default
-        setIsPersonalLocked(false);
-        setIsAcademicLocked(false);
+        // Check locked status from backend
+        setIsPersonalLocked(!!student.personalInfoLocked);
+        setIsAcademicLocked(!!student.academicInfoLocked);
+        setVerificationStatus(student.verificationStatus || 'PENDING');
+        setVerificationRejectionReason(student.verificationRejectionReason || '');
+        setVerificationNotes(student.verificationNotes || '');
 
         // Populate profile data from nested structure
         setProfileData({
@@ -1524,6 +1524,56 @@ export default function StudentDash() {
                 </nav>
               </div>
             </div>
+            {/* Verification Status Banner */}
+            <div className="mb-6">
+              {verificationStatus === 'VERIFIED' ? (
+                <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg shadow-sm">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <ShieldCheck className="h-6 w-6 text-green-600" />
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm font-bold text-green-800 uppercase tracking-wider">Profile Verified</p>
+                      <p className="text-sm text-green-700 mt-1">
+                        Your profile has been verified by your department moderator. Your personal and academic details are now locked to maintain data integrity.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : verificationStatus === 'REJECTED' ? (
+                <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg shadow-sm">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0 mt-0.5">
+                      <XCircle className="h-6 w-6 text-red-600" />
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm font-bold text-red-800 uppercase tracking-wider">Verification Rejected</p>
+                      <div className="mt-2 p-3 bg-white bg-opacity-50 rounded border border-red-100">
+                        <p className="text-sm font-semibold text-red-900">Reason for rejection:</p>
+                        <p className="text-sm text-red-800 mt-1 italic">"{verificationRejectionReason || 'No reason specified'}"</p>
+                      </div>
+                      <p className="text-sm text-red-700 mt-3">
+                        Please update the requested information and save your changes. Your profile will be automatically resubmitted for verification.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg shadow-sm">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <Clock className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm font-bold text-blue-800 uppercase tracking-wider">Pending Verification</p>
+                      <p className="text-sm text-blue-700 mt-1">
+                        Your profile is currently waiting for moderator verification. You can still edit your details if needed.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Personal Information Tab */}
             {profileTab === 'personal' && (
@@ -1569,7 +1619,7 @@ export default function StudentDash() {
                             accept="image/*"
                             className="hidden"
                             onChange={handlePhotoUpload}
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                           />
                           <p className="text-xs text-gray-500 mt-1">Max size 2MB. JPG, PNG only.</p>
                         </div>
@@ -1602,7 +1652,7 @@ export default function StudentDash() {
                             value={profileData.primaryEmail}
                             onChange={(e) => setProfileData({ ...profileData, primaryEmail: e.target.value })}
                             placeholder="primary@example.com"
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
@@ -1615,7 +1665,7 @@ export default function StudentDash() {
                             value={profileData.secondaryEmail}
                             onChange={(e) => setProfileData({ ...profileData, secondaryEmail: e.target.value })}
                             placeholder="secondary@example.com"
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
@@ -1627,7 +1677,7 @@ export default function StudentDash() {
                             value={profileData.primaryPhone}
                             onChange={(e) => setProfileData({ ...profileData, primaryPhone: e.target.value })}
                             placeholder="+91 1234567890"
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
@@ -1640,7 +1690,7 @@ export default function StudentDash() {
                             value={profileData.secondaryPhone}
                             onChange={(e) => setProfileData({ ...profileData, secondaryPhone: e.target.value })}
                             placeholder="+91 0987654321"
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
@@ -1651,7 +1701,7 @@ export default function StudentDash() {
                             type="date"
                             value={profileData.dateOfBirth}
                             onChange={(e) => setProfileData({ ...profileData, dateOfBirth: e.target.value })}
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
@@ -1663,7 +1713,7 @@ export default function StudentDash() {
                             value={profileData.gender}
                             onChange={(e) => setProfileData({ ...profileData, gender: e.target.value })}
                             className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ${isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             required
                           >
                             <option value="">Select Gender</option>
@@ -1679,7 +1729,7 @@ export default function StudentDash() {
                             value={profileData.nationality}
                             onChange={(e) => setProfileData({ ...profileData, nationality: e.target.value })}
                             placeholder="e.g., Indian"
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
@@ -1693,7 +1743,7 @@ export default function StudentDash() {
                             value={profileData.rollNumber}
                             onChange={(e) => setProfileData({ ...profileData, rollNumber: e.target.value })}
                             placeholder="Enter roll number"
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
@@ -1704,7 +1754,7 @@ export default function StudentDash() {
                             value={profileData.firstName}
                             onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })}
                             placeholder="Enter first name"
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
@@ -1715,7 +1765,7 @@ export default function StudentDash() {
                             value={profileData.lastName}
                             onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })}
                             placeholder="Enter last name"
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
@@ -1726,7 +1776,7 @@ export default function StudentDash() {
                             value={profileData.course}
                             onChange={(e) => setProfileData({ ...profileData, course: e.target.value })}
                             className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ${isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                           >
                             <option value="">Select Course</option>
                             <option value="BE">BE</option>
@@ -1745,7 +1795,7 @@ export default function StudentDash() {
                               value={profileData.courseOther}
                               onChange={(e) => setProfileData({ ...profileData, courseOther: e.target.value })}
                               placeholder="Enter course name"
-                              disabled={isPersonalLocked}
+                              disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                               className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             />
                           </div>
@@ -1760,7 +1810,7 @@ export default function StudentDash() {
                             placeholder="YYYY"
                             min="2000"
                             max="2100"
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
@@ -1771,7 +1821,7 @@ export default function StudentDash() {
                             value={profileData.careerPath}
                             onChange={(e) => setProfileData({ ...profileData, careerPath: e.target.value })}
                             placeholder="e.g., Software Development, Data Science"
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
@@ -1785,7 +1835,7 @@ export default function StudentDash() {
                                 value="none"
                                 checked={profileData.disabilityStatus === 'none'}
                                 onChange={(e) => setProfileData({ ...profileData, disabilityStatus: e.target.value })}
-                                disabled={isPersonalLocked}
+                                disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                               />
                               <span>None</span>
                             </label>
@@ -1796,7 +1846,7 @@ export default function StudentDash() {
                                 value="differently_abled"
                                 checked={profileData.disabilityStatus === 'differently_abled'}
                                 onChange={(e) => setProfileData({ ...profileData, disabilityStatus: e.target.value })}
-                                disabled={isPersonalLocked}
+                                disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                               />
                               <span>Differently Abled</span>
                             </label>
@@ -1807,7 +1857,7 @@ export default function StudentDash() {
                                 value="physically_challenged"
                                 checked={profileData.disabilityStatus === 'physically_challenged'}
                                 onChange={(e) => setProfileData({ ...profileData, disabilityStatus: e.target.value })}
-                                disabled={isPersonalLocked}
+                                disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                               />
                               <span>Physically Challenged</span>
                             </label>
@@ -1826,7 +1876,7 @@ export default function StudentDash() {
                             value={profileData.communicationEmail}
                             onChange={(e) => setProfileData({ ...profileData, communicationEmail: e.target.value })}
                             placeholder="primary@email.com"
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
@@ -1838,7 +1888,7 @@ export default function StudentDash() {
                             value={profileData.instituteEmail}
                             onChange={(e) => setProfileData({ ...profileData, instituteEmail: e.target.value })}
                             placeholder="student@college.edu"
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
@@ -1850,7 +1900,7 @@ export default function StudentDash() {
                             value={profileData.personalEmail}
                             onChange={(e) => setProfileData({ ...profileData, personalEmail: e.target.value })}
                             placeholder="personal@email.com"
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
@@ -1862,7 +1912,7 @@ export default function StudentDash() {
                             value={profileData.alternateEmail}
                             onChange={(e) => setProfileData({ ...profileData, alternateEmail: e.target.value })}
                             placeholder="alternate@email.com"
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
@@ -1874,7 +1924,7 @@ export default function StudentDash() {
                             value={profileData.whatsappNumber}
                             onChange={(e) => setProfileData({ ...profileData, whatsappNumber: e.target.value })}
                             placeholder="+91 1234567890"
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
@@ -1886,7 +1936,7 @@ export default function StudentDash() {
                             value={profileData.linkedInUrl}
                             onChange={(e) => setProfileData({ ...profileData, linkedInUrl: e.target.value })}
                             placeholder="https://linkedin.com/in/yourprofile"
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
@@ -1902,7 +1952,7 @@ export default function StudentDash() {
                             value={profileData.fatherName}
                             onChange={(e) => setProfileData({ ...profileData, fatherName: e.target.value })}
                             placeholder="Enter father's full name"
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
@@ -1914,7 +1964,7 @@ export default function StudentDash() {
                             value={profileData.motherName}
                             onChange={(e) => setProfileData({ ...profileData, motherName: e.target.value })}
                             placeholder="Enter mother's full name"
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
@@ -1927,7 +1977,7 @@ export default function StudentDash() {
                             value={profileData.fatherPhone}
                             onChange={(e) => setProfileData({ ...profileData, fatherPhone: e.target.value })}
                             placeholder="+91 1234567890"
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
@@ -1938,7 +1988,7 @@ export default function StudentDash() {
                             value={profileData.fatherOccupation}
                             onChange={(e) => setProfileData({ ...profileData, fatherOccupation: e.target.value })}
                             placeholder="Enter father's occupation"
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
@@ -1950,7 +2000,7 @@ export default function StudentDash() {
                             value={profileData.motherPhone}
                             onChange={(e) => setProfileData({ ...profileData, motherPhone: e.target.value })}
                             placeholder="+91 1234567890"
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
@@ -1961,7 +2011,7 @@ export default function StudentDash() {
                             value={profileData.motherOccupation}
                             onChange={(e) => setProfileData({ ...profileData, motherOccupation: e.target.value })}
                             placeholder="Enter mother's occupation"
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
@@ -1973,7 +2023,7 @@ export default function StudentDash() {
                             onChange={(e) => setProfileData({ ...profileData, aadhaarNumber: e.target.value })}
                             placeholder="Enter 12-digit Aadhaar number"
                             maxLength={12}
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
@@ -1985,7 +2035,7 @@ export default function StudentDash() {
                             onChange={(e) => setProfileData({ ...profileData, permanentAddress: e.target.value })}
                             placeholder="Enter permanent address (if different from current)"
                             rows={2}
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
@@ -1997,7 +2047,7 @@ export default function StudentDash() {
                             onChange={(e) => setProfileData({ ...profileData, address: e.target.value })}
                             placeholder="Enter your complete address"
                             rows={3}
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
@@ -2016,7 +2066,7 @@ export default function StudentDash() {
                             value={profileData.passportNumber}
                             onChange={(e) => setProfileData({ ...profileData, passportNumber: e.target.value })}
                             placeholder="e.g., A1234567"
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
@@ -2027,7 +2077,7 @@ export default function StudentDash() {
                             value={profileData.passportPlaceOfIssue}
                             onChange={(e) => setProfileData({ ...profileData, passportPlaceOfIssue: e.target.value })}
                             placeholder="e.g., Bangalore"
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
@@ -2038,7 +2088,7 @@ export default function StudentDash() {
                             type="date"
                             value={profileData.passportIssueDate}
                             onChange={(e) => setProfileData({ ...profileData, passportIssueDate: e.target.value })}
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
@@ -2049,7 +2099,7 @@ export default function StudentDash() {
                             type="date"
                             value={profileData.passportExpiryDate}
                             onChange={(e) => setProfileData({ ...profileData, passportExpiryDate: e.target.value })}
-                            disabled={isPersonalLocked}
+                            disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
                             className={isPersonalLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
@@ -2057,9 +2107,13 @@ export default function StudentDash() {
                     </div>
 
                     <div className="flex justify-end">
-                      <Button type="submit" className="flex items-center gap-2">
+                      <Button
+                        type="submit"
+                        className={`flex items-center gap-2 ${isPersonalLocked ? 'bg-gray-400 cursor-not-allowed hover:bg-gray-400' : ''}`}
+                        disabled={isPersonalLocked || verificationStatus === 'VERIFIED'}
+                      >
                         <Save className="h-4 w-4" />
-                        Save Personal Information
+                        {isPersonalLocked ? 'Personal Information Locked' : 'Save Personal Information'}
                       </Button>
                     </div>
                   </form>
@@ -2094,7 +2148,7 @@ export default function StudentDash() {
                             value={profileData.tenthInstitution}
                             onChange={(e) => setProfileData({ ...profileData, tenthInstitution: e.target.value })}
                             placeholder="e.g., ABC High School"
-                            disabled={isAcademicLocked}
+                            disabled={isAcademicLocked || verificationStatus === 'VERIFIED'}
                             className={isAcademicLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
@@ -2108,7 +2162,7 @@ export default function StudentDash() {
                             value={profileData.tenthPercentage}
                             onChange={(e) => setProfileData({ ...profileData, tenthPercentage: e.target.value })}
                             placeholder="e.g., 85.5"
-                            disabled={isAcademicLocked}
+                            disabled={isAcademicLocked || verificationStatus === 'VERIFIED'}
                             className={isAcademicLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
@@ -2120,7 +2174,7 @@ export default function StudentDash() {
                             value={profileData.tenthBoard}
                             onChange={(e) => setProfileData({ ...profileData, tenthBoard: e.target.value })}
                             placeholder="e.g., CBSE, ICSE"
-                            disabled={isAcademicLocked}
+                            disabled={isAcademicLocked || verificationStatus === 'VERIFIED'}
                             className={isAcademicLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
@@ -2133,7 +2187,7 @@ export default function StudentDash() {
                             value={profileData.tenthYear}
                             onChange={(e) => setProfileData({ ...profileData, tenthYear: e.target.value })}
                             placeholder="e.g., 2018"
-                            disabled={isAcademicLocked}
+                            disabled={isAcademicLocked || verificationStatus === 'VERIFIED'}
                             className={isAcademicLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
@@ -2152,7 +2206,7 @@ export default function StudentDash() {
                             value={profileData.twelfthInstitution}
                             onChange={(e) => setProfileData({ ...profileData, twelfthInstitution: e.target.value })}
                             placeholder="e.g., XYZ Junior College"
-                            disabled={isAcademicLocked}
+                            disabled={isAcademicLocked || verificationStatus === 'VERIFIED'}
                             className={isAcademicLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
@@ -2166,7 +2220,7 @@ export default function StudentDash() {
                             value={profileData.twelfthPercentage}
                             onChange={(e) => setProfileData({ ...profileData, twelfthPercentage: e.target.value })}
                             placeholder="e.g., 88.2"
-                            disabled={isAcademicLocked}
+                            disabled={isAcademicLocked || verificationStatus === 'VERIFIED'}
                             className={isAcademicLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
@@ -2178,7 +2232,7 @@ export default function StudentDash() {
                             value={profileData.twelfthBoard}
                             onChange={(e) => setProfileData({ ...profileData, twelfthBoard: e.target.value })}
                             placeholder="e.g., State Board, CBSE"
-                            disabled={isAcademicLocked}
+                            disabled={isAcademicLocked || verificationStatus === 'VERIFIED'}
                             className={isAcademicLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
@@ -2191,7 +2245,7 @@ export default function StudentDash() {
                             value={profileData.twelfthYear}
                             onChange={(e) => setProfileData({ ...profileData, twelfthYear: e.target.value })}
                             placeholder="e.g., 2020"
-                            disabled={isAcademicLocked}
+                            disabled={isAcademicLocked || verificationStatus === 'VERIFIED'}
                             className={isAcademicLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
@@ -2210,7 +2264,7 @@ export default function StudentDash() {
                             value={profileData.currentInstitution}
                             onChange={(e) => setProfileData({ ...profileData, currentInstitution: e.target.value })}
                             placeholder="e.g., University Institute of Technology"
-                            disabled={isAcademicLocked}
+                            disabled={isAcademicLocked || verificationStatus === 'VERIFIED'}
                             className={isAcademicLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
@@ -2222,7 +2276,7 @@ export default function StudentDash() {
                             value={profileData.degree}
                             onChange={(e) => setProfileData({ ...profileData, degree: e.target.value })}
                             placeholder="e.g., B.Tech, B.E"
-                            disabled={isAcademicLocked}
+                            disabled={isAcademicLocked || verificationStatus === 'VERIFIED'}
                             className={isAcademicLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
@@ -2234,7 +2288,7 @@ export default function StudentDash() {
                             value={profileData.branch}
                             onChange={(e) => setProfileData({ ...profileData, branch: e.target.value })}
                             placeholder="e.g., Computer Science"
-                            disabled={isAcademicLocked}
+                            disabled={isAcademicLocked || verificationStatus === 'VERIFIED'}
                             className={isAcademicLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
@@ -2249,7 +2303,7 @@ export default function StudentDash() {
                             value={profileData.semester}
                             onChange={(e) => setProfileData({ ...profileData, semester: e.target.value })}
                             placeholder="e.g., 6"
-                            disabled={isAcademicLocked}
+                            disabled={isAcademicLocked || verificationStatus === 'VERIFIED'}
                             className={isAcademicLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
@@ -2265,7 +2319,7 @@ export default function StudentDash() {
                             value={profileData.cgpa}
                             onChange={(e) => setProfileData({ ...profileData, cgpa: e.target.value })}
                             placeholder="e.g., 8.5"
-                            disabled={isAcademicLocked}
+                            disabled={isAcademicLocked || verificationStatus === 'VERIFIED'}
                             className={isAcademicLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                             required
                           />
@@ -2279,7 +2333,7 @@ export default function StudentDash() {
                             value={profileData.backlogs}
                             onChange={(e) => setProfileData({ ...profileData, backlogs: e.target.value })}
                             placeholder="e.g., 0"
-                            disabled={isAcademicLocked}
+                            disabled={isAcademicLocked || verificationStatus === 'VERIFIED'}
                             className={isAcademicLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
                           />
                         </div>
@@ -2304,7 +2358,7 @@ export default function StudentDash() {
                                   onChange={(e) => handleSemesterGPAChange(index, 'sgpa', e.target.value)}
                                   placeholder="SGPA"
                                   className={`h-8 text-sm ${isAcademicLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                                  disabled={isAcademicLocked}
+                                  disabled={isAcademicLocked || verificationStatus === 'VERIFIED'}
                                 />
                               </div>
                               <div>
@@ -2317,7 +2371,7 @@ export default function StudentDash() {
                                   onChange={(e) => handleSemesterGPAChange(index, 'cgpa', e.target.value)}
                                   placeholder="CGPA"
                                   className={`h-8 text-sm ${isAcademicLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                                  disabled={isAcademicLocked}
+                                  disabled={isAcademicLocked || verificationStatus === 'VERIFIED'}
                                 />
                               </div>
                             </div>
@@ -2341,7 +2395,7 @@ export default function StudentDash() {
                             onChange={(e) => setCurrentArrears(e.target.value)}
                             placeholder="e.g., 2"
                             className={isAcademicLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
-                            disabled={isAcademicLocked}
+                            disabled={isAcademicLocked || verificationStatus === 'VERIFIED'}
                             required
                           />
                           <p className="text-xs text-gray-500 mt-1">Enter the number of current pending arrears</p>
@@ -2355,7 +2409,7 @@ export default function StudentDash() {
                             onChange={(e) => setArrearHistory(e.target.value)}
                             placeholder="e.g., Semester 3: Data Structures (Cleared in Sem 4), Semester 5: DBMS (Pending)"
                             className={isAcademicLocked ? 'bg-gray-100 cursor-not-allowed' : ''}
-                            disabled={isAcademicLocked}
+                            disabled={isAcademicLocked || verificationStatus === 'VERIFIED'}
                             rows={4}
                             required
                           />
@@ -2367,9 +2421,13 @@ export default function StudentDash() {
                     </div>
 
                     <div className="flex justify-end">
-                      <Button type="submit" className="flex items-center gap-2">
+                      <Button
+                        type="submit"
+                        className={`flex items-center gap-2 ${isAcademicLocked ? 'bg-gray-400 cursor-not-allowed hover:bg-gray-400' : ''}`}
+                        disabled={isAcademicLocked || verificationStatus === 'VERIFIED'}
+                      >
                         <Save className="h-4 w-4" />
-                        Save Academic Details
+                        {isAcademicLocked ? 'Academic Details Locked' : 'Save Academic Details'}
                       </Button>
                     </div>
                   </form>

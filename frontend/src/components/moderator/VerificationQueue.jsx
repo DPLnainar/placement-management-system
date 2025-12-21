@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import SplitViewModal from './SplitViewModal';
+import { verificationAPI } from '../../services/api';
 
 const VerificationQueue = () => {
     const [queue, setQueue] = useState([]);
@@ -19,21 +20,11 @@ const VerificationQueue = () => {
     const fetchQueue = async () => {
         try {
             setLoading(true);
-            const token = localStorage.getItem('token');
-            const response = await fetch('/api/moderator/verification/queue', {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to fetch verification queue');
+            const response = await verificationAPI.getQueue();
+            if (response.data.success) {
+                setQueue(response.data.data || []);
+                setQueueCount(response.data.count || 0);
             }
-
-            const data = await response.json();
-            setQueue(data.data || []);
-            setQueueCount(data.count || 0);
         } catch (error) {
             console.error('Error fetching verification queue:', error);
             alert('Failed to load verification queue');
@@ -44,17 +35,9 @@ const VerificationQueue = () => {
 
     const fetchQueueCount = async () => {
         try {
-            const token = localStorage.getItem('token');
-            const response = await fetch('/api/moderator/verification/queue/count', {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                setQueueCount(data.count || 0);
+            const response = await verificationAPI.getQueueCount();
+            if (response.data.success) {
+                setQueueCount(response.data.count || 0);
             }
         } catch (error) {
             console.error('Error fetching queue count:', error);
@@ -63,29 +46,13 @@ const VerificationQueue = () => {
 
     const handleReviewClick = async (student) => {
         try {
-            const token = localStorage.getItem('token');
-            console.log('Fetching details for student:', student);
-            console.log('Student ID:', student.studentId);
-
-            const response = await fetch(`/api/moderator/verification/${student.studentId}/details`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            console.log('Response status:', response.status);
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-                console.error('Error response:', errorData);
-                throw new Error(errorData.message || 'Failed to fetch student details');
+            const response = await verificationAPI.getDetails(student.studentId);
+            if (response.data.success) {
+                setSelectedStudent(response.data.data);
+                setShowModal(true);
+            } else {
+                throw new Error(response.data.message || 'Failed to fetch student details');
             }
-
-            const data = await response.json();
-            console.log('Student details loaded:', data);
-            setSelectedStudent(data.data);
-            setShowModal(true);
         } catch (error) {
             console.error('Error fetching student details:', error);
             alert(`Failed to load student details: ${error.message}`);

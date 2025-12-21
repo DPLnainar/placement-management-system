@@ -4,6 +4,7 @@ import { Textarea } from '../ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Label } from '../ui/label';
 import { X, CheckCircle, XCircle, FileText, Download } from 'lucide-react';
+import { verificationAPI } from '../../services/api';
 
 const SplitViewModal = ({ student, onClose, onSuccess }) => {
     const [rejectionReason, setRejectionReason] = useState('');
@@ -18,25 +19,14 @@ const SplitViewModal = ({ student, onClose, onSuccess }) => {
 
         try {
             setIsApproving(true);
-            const token = localStorage.getItem('token');
-            const response = await fetch(`/api/moderator/verification/${student._id}/approve`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    notes: 'Approved by moderator'
-                })
-            });
+            const response = await verificationAPI.approve(student._id, 'Approved by moderator');
 
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Failed to approve verification');
+            if (response.data.success) {
+                alert('Student verification approved successfully!');
+                onSuccess();
+            } else {
+                throw new Error(response.data.message || 'Failed to approve verification');
             }
-
-            alert('Student verification approved successfully!');
-            onSuccess();
         } catch (error) {
             console.error('Error approving verification:', error);
             alert(`Failed to approve: ${error.message}`);
@@ -57,25 +47,14 @@ const SplitViewModal = ({ student, onClose, onSuccess }) => {
 
         try {
             setIsRejecting(true);
-            const token = localStorage.getItem('token');
-            const response = await fetch(`/api/moderator/verification/${student._id}/reject`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    reason: rejectionReason.trim()
-                })
-            });
+            const response = await verificationAPI.reject(student._id, rejectionReason.trim());
 
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Failed to reject verification');
+            if (response.data.success) {
+                alert('Student verification rejected');
+                onSuccess();
+            } else {
+                throw new Error(response.data.message || 'Failed to reject verification');
             }
-
-            alert('Student verification rejected');
-            onSuccess();
         } catch (error) {
             console.error('Error rejecting verification:', error);
             alert(`Failed to reject: ${error.message}`);

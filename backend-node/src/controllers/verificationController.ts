@@ -1,5 +1,6 @@
 import { Response } from 'express';
 import StudentData from '../models/StudentData';
+import { User } from '../models/index';
 import { IAuthRequest } from '../types';
 
 /**
@@ -181,7 +182,24 @@ export const approveVerification = async (req: IAuthRequest, res: Response): Pro
         student.verificationNotes = notes || 'Approved by moderator';
         student.verificationRejectionReason = undefined; // Clear any previous rejection reason
 
+        // LOCK profile sections after verification
+        student.personalInfoLocked = true;
+        student.academicInfoLocked = true;
+        student.personalInfoLockedDate = new Date();
+        student.academicInfoLockedDate = new Date();
+        student.personalInfoLockedBy = moderatorUserId as any;
+        student.academicInfoLockedBy = moderatorUserId as any;
+
         await student.save();
+
+        // Update User record to reflect approval
+        if (student.userId) {
+            await User.findByIdAndUpdate(student.userId, {
+                isApproved: true,
+                status: 'active'
+            });
+            console.log(`✅ Synced User status for student ${studentId}: isApproved=true, status=active`);
+        }
 
         res.status(200).json({
             success: true,
@@ -248,7 +266,21 @@ export const rejectVerification = async (req: IAuthRequest, res: Response): Prom
         student.verificationRejectionReason = reason.trim();
         student.verificationNotes = `Rejected: ${reason.trim()}`;
 
+        // UNLOCK profile sections to allow student to make corrections
+        student.personalInfoLocked = false;
+        student.academicInfoLocked = false;
+
         await student.save();
+
+        // Update User record to reflect rejection
+        if (student.userId) {
+            await User.findByIdAndUpdate(student.userId, {
+                isApproved: false,
+                // We keep status as active so they can still login and fix their profile
+                // but isApproved=false keeps the badge showing they are not yet fully verified
+            });
+            console.log(`❌ Synced User status for student ${studentId}: isApproved=false`);
+        }
 
         res.status(200).json({
             success: true,

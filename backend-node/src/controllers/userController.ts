@@ -56,6 +56,60 @@ export const getCollegeUsers = async (req: IAuthRequest, res: Response): Promise
                     if (studentData) {
                         profileCompleted = studentData.isProfileCompleted || false;
                         mandatoryFieldsCompleted = studentData.mandatoryFieldsCompleted || false;
+
+                        // Perform a "live" check if currently false (stale data fix)
+                        if (!profileCompleted) {
+                            const hasPersonalInfo = !!(
+                                (studentData.personal?.name || user.fullName) &&
+                                (studentData.personal?.email || user.email) &&
+                                (studentData.personal?.phone || (studentData as any).phoneNumber) &&
+                                (studentData.personal?.dob || (studentData as any).dateOfBirth) &&
+                                (studentData.personal?.gender || (studentData as any).gender)
+                            );
+                            const hasAcademicInfo = !!(
+                                (studentData.education?.tenth?.percentage || (studentData as any).tenthPercentage) &&
+                                (studentData.education?.twelfth?.percentage || (studentData as any).twelfthPercentage) &&
+                                (studentData.education?.graduation?.cgpa || (studentData as any).cgpa)
+                            );
+
+                            mandatoryFieldsCompleted = hasPersonalInfo && hasAcademicInfo;
+
+                            // A profile is complete if mandatory fields are done AND they have some skills OR experience
+                            const hasSkills = (studentData.skills?.length > 0) ||
+                                (studentData.technicalSkills?.programming?.length > 0) ||
+                                (studentData.technicalSkills?.tools?.length > 0) ||
+                                (studentData.softSkills?.length > 0);
+
+                            const hasExperience = (studentData.internships?.length > 0) ||
+                                (studentData.projects?.length > 0) ||
+                                (studentData.workExperience?.length > 0);
+
+                            profileCompleted = mandatoryFieldsCompleted && (hasSkills || hasExperience);
+
+                            // Proactively update the StudentData record
+                            if (mandatoryFieldsCompleted !== studentData.mandatoryFieldsCompleted ||
+                                profileCompleted !== studentData.isProfileCompleted) {
+                                StudentData.updateOne(
+                                    { _id: studentData._id },
+                                    {
+                                        mandatoryFieldsCompleted,
+                                        isProfileCompleted: profileCompleted
+                                    }
+                                ).catch(e => console.error('Background profile sync error:', e));
+                            }
+                        }
+
+                        // NEW: Also sync User approval status if Student is verified
+                        if (studentData.verificationStatus === 'VERIFIED' && user.isApproved === false) {
+                            User.updateOne(
+                                { _id: user._id },
+                                { isApproved: true, status: 'active' }
+                            ).catch(e => console.error('Background user approval sync error:', e));
+                            // Update local copy for immediate response
+                            (user as any).isApproved = true;
+                            (user as any).status = 'active';
+                            console.log(`✅ Live synced approval for verified student: ${user.email}`);
+                        }
                     }
                 } catch (error) {
                     console.error(`Error fetching student data for user ${user._id}:`, error);
@@ -131,6 +185,15 @@ export const updateUserStatus = async (req: IAuthRequest, res: Response): Promis
             res.status(403).json({
                 success: false,
                 message: 'Unauthorized: User not in your college'
+            });
+            return;
+        }
+
+        // NEW: Admin-Only Deactivation Rule
+        if (status === 'inactive' && req.user?.role !== 'admin' && req.user?.role !== 'superadmin') {
+            res.status(403).json({
+                success: false,
+                message: 'Unauthorized: Only administrators can deactivate accounts'
             });
             return;
         }

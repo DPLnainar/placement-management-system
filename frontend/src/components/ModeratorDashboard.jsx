@@ -1,18 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { jobAPI, userAPI, authAPI, applicationAPI } from '../services/api';
+import { jobAPI, userAPI, authAPI, applicationAPI, verificationAPI, moderatorAPI } from '../services/api';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
-import { Briefcase, LogOut, Plus, Trash2, Users, UserCheck, UserX, Lock, FileCheck, CheckCircle, XCircle, Clock, Edit, Eye, Menu, X, Mail } from 'lucide-react';
+import { Briefcase, LogOut, Plus, Trash2, Users, UserCheck, UserX, Lock, FileCheck, CheckCircle, XCircle, Clock, Edit, Eye, Menu, X, Mail, ShieldCheck } from 'lucide-react';
 import ChangePassword from './ChangePassword';
 import InviteStudents from './InviteStudents';
 import ModeratorJobsList from './ModeratorJobsList';
 import VerificationQueue from './moderator/VerificationQueue';
-import { moderatorAPI } from '../services/api';
 
 export default function ModeratorDashboard() {
   const { user, logout } = useAuth();
@@ -22,6 +21,9 @@ export default function ModeratorDashboard() {
   const [applications, setApplications] = useState([]);
   const [stats, setStats] = useState({ total: 0, active: 0, students: 0, applications: 0 });
   const [queueCount, setQueueCount] = useState(0);
+  const [verificationQueue, setVerificationQueue] = useState([]);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [isProcessingVerification, setIsProcessingVerification] = useState(false);
   const [activeTab, setActiveTab] = useState('jobs');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
@@ -297,6 +299,10 @@ export default function ModeratorDashboard() {
 
         // Resume
         resumeLink: editingStudent.resumeLink,
+
+        // Profile Locking Status
+        personalInfoLocked: editingStudent.personalInfoLocked,
+        academicInfoLocked: editingStudent.academicInfoLocked,
       });
       setShowEditStudentModal(false);
       setEditingStudent(null);
@@ -968,6 +974,48 @@ export default function ModeratorDashboard() {
             </CardHeader>
             <CardContent className="p-6">
               <form onSubmit={handleUpdateStudent} className="space-y-6">
+                {/* Profile Controls (Moderator Only) */}
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6">
+                  <h4 className="text-lg font-semibold mb-4 text-blue-800 border-b border-blue-200 pb-2">Profile Protection Controls</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="flex items-center justify-between p-2 bg-white rounded border">
+                      <div className="flex flex-col">
+                        <span className="font-medium text-blue-900">Personal Information Section</span>
+                        <span className="text-xs text-blue-600">
+                          {editingStudent.personalInfoLocked ? 'Locked (Student cannot edit)' : 'Unlocked (Student can edit)'}
+                        </span>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={!!editingStudent.personalInfoLocked}
+                          onChange={(e) => setEditingStudent({ ...editingStudent, personalInfoLocked: e.target.checked })}
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+
+                    <div className="flex items-center justify-between p-2 bg-white rounded border">
+                      <div className="flex flex-col">
+                        <span className="font-medium text-blue-900">Academic Details Section</span>
+                        <span className="text-xs text-blue-600">
+                          {editingStudent.academicInfoLocked ? 'Locked (Student cannot edit)' : 'Unlocked (Student can edit)'}
+                        </span>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={!!editingStudent.academicInfoLocked}
+                          onChange={(e) => setEditingStudent({ ...editingStudent, academicInfoLocked: e.target.checked })}
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Personal Information */}
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <h4 className="text-lg font-semibold mb-4 text-gray-800 border-b pb-2">Personal Information</h4>
@@ -1382,8 +1430,27 @@ export default function ModeratorDashboard() {
                     <p className="font-medium">{viewingStudent.gender || 'Not provided'}</p>
                   </div>
                   <div>
-                    <p className="text-gray-500 text-xs">Nationality</p>
-                    <p className="font-medium">{viewingStudent.nationality || 'Not provided'}</p>
+                    <p className="text-gray-500 text-xs">Profile Status</p>
+                    <div className="flex gap-2 mt-1">
+                      {viewingStudent.personalInfoLocked ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                          <Lock className="h-3 w-3 mr-1" /> Personal Locked
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+                          Personal Unlocked
+                        </span>
+                      )}
+                      {viewingStudent.academicInfoLocked ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                          <Lock className="h-3 w-3 mr-1" /> Academic Locked
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+                          Academic Unlocked
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
