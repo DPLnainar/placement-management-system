@@ -89,24 +89,9 @@ export const getVerificationDetails = async (req: IAuthRequest, res: Response): 
     try {
         const { studentId } = req.params;
         const moderatorDept = req.user?.department;
-        const collegeId = req.user?.collegeId;
-
-        console.log('\n\n========================================');
-        console.log('🔍 VERIFICATION DETAILS REQUEST');
-        console.log('========================================');
-        console.log('📋 Request Info:');
-        console.log('  Student ID:', studentId);
-        console.log('  URL:', req.url);
-        console.log('  Method:', req.method);
-        console.log('\n👤 Moderator Info (from req.user):');
-        console.log('  User ID:', req.user?._id);
-        console.log('  Role:', req.user?.role);
-        console.log('  College ID:', collegeId);
-        console.log('  College ID Type:', typeof collegeId);
-        console.log('  Department:', moderatorDept);
+        const moderatorCollegeId = req.user?.collegeId;
 
         if (!moderatorDept) {
-            console.log('❌ FAILED: Moderator department not found');
             res.status(400).json({ success: false, message: 'Moderator department not found' });
             return;
         }
@@ -115,61 +100,32 @@ export const getVerificationDetails = async (req: IAuthRequest, res: Response): 
             .populate('userId', 'fullName email username');
 
         if (!student) {
-            console.log('❌ FAILED: Student not found');
             res.status(404).json({ success: false, message: 'Student not found' });
             return;
         }
 
-        console.log('\n👨‍🎓 Student Info (from database):');
-        console.log('  Student ID:', student._id);
-        console.log('  College ID:', student.collegeId);
-        console.log('  College ID Type:', typeof student.collegeId);
-        console.log('  Department:', student.personal?.branch);
-
-        console.log('\n🔍 Authorization Checks:');
-        console.log('  1. College ID Comparison:');
-        console.log('     Moderator:', collegeId?.toString());
-        console.log('     Student:', student.collegeId?.toString());
-        console.log('     Match?', student.collegeId?.toString() === collegeId?.toString());
-
-        console.log('  2. Department Comparison:');
-        console.log('     Moderator:', moderatorDept);
-        console.log('     Student:', student.personal?.branch);
-        console.log('     Match?', student.personal?.branch === moderatorDept);
-
         // Verify student is in moderator's department
         if (student.personal?.branch !== moderatorDept) {
-            console.log('\n❌ AUTHORIZATION FAILED: Department mismatch');
-            console.log('   Expected:', moderatorDept);
-            console.log('   Got:', student.personal?.branch);
+            console.log(`❌ Dept Mismatch: Mod=${moderatorDept}, Student=${student.personal?.branch}`);
             res.status(403).json({ success: false, message: 'Unauthorized: Student not in your department' });
             return;
         }
 
         // Verify student is in same college
-        // Handle case where collegeId might be null/undefined
-        if (!collegeId) {
-            console.log('\n❌ AUTHORIZATION FAILED: Moderator has no college ID');
-            res.status(403).json({ success: false, message: 'Moderator college information missing' });
+        if (!moderatorCollegeId || !student.collegeId) {
+            res.status(403).json({ success: false, message: 'College information missing' });
             return;
         }
 
-        if (!student.collegeId) {
-            console.log('\n❌ AUTHORIZATION FAILED: Student has no college ID');
-            res.status(403).json({ success: false, message: 'Student college information missing' });
-            return;
-        }
+        const isCollegeMatch = student.collegeId.toString() === moderatorCollegeId.toString();
 
-        if (student.collegeId.toString() !== collegeId.toString()) {
-            console.log('\n❌ AUTHORIZATION FAILED: College ID mismatch');
-            console.log('   Moderator College:', collegeId.toString());
-            console.log('   Student College:', student.collegeId.toString());
+        if (!isCollegeMatch) {
+            console.log(`❌ College Mismatch: Mod=${moderatorCollegeId}, Student=${student.collegeId}`);
             res.status(403).json({ success: false, message: 'Unauthorized: Student not in your college' });
             return;
         }
 
-        console.log('\n✅ AUTHORIZATION PASSED - Returning student data');
-        console.log('========================================\n');
+        console.log(`✅ Authorization Passed: Moderator ${req.user?._id} reviewing Student ${studentId}`);
 
         res.status(200).json({
             success: true,
@@ -177,7 +133,7 @@ export const getVerificationDetails = async (req: IAuthRequest, res: Response): 
         });
 
     } catch (error: any) {
-        console.error('\n❌ ERROR in getVerificationDetails:', error);
+        console.error('Error in getVerificationDetails:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };

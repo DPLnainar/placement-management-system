@@ -63,29 +63,23 @@ export const authenticate = async (
         return;
       }
 
-      // Attach user to request object with complete information
-      console.log('\n🔐 AUTH MIDDLEWARE - User Loaded:');
-      console.log('  User ID:', user._id);
-      console.log('  Username:', user.username);
-      console.log('  Role:', user.role);
-      console.log('  College ID from DB:', user.collegeId);
-      console.log('  Department from DB:', (user as any).department);
-      console.log('  Status:', user.status);
+      // Extract the ID before attaching to req.user
+      // user.collegeId might be a populated object or an ObjectId
+      const collegeIdObj = user.collegeId;
+      const collegeIdString = collegeIdObj && (collegeIdObj as any)._id
+        ? (collegeIdObj as any)._id
+        : collegeIdObj;
 
       req.user = {
         _id: user._id.toString(),
         email: user.email,
         role: user.role,
-        collegeId: user.collegeId,
+        collegeId: collegeIdString, // Now consistently an ID for comparison
+        college: collegeIdObj, // Full object available here if needed
         department: (user as any).department || undefined,
         name: (user as any).name || (user as any).fullName || user.username,
         status: user.status
       };
-
-      console.log('\n🔐 AUTH MIDDLEWARE - req.user set to:');
-      console.log('  College ID:', req.user.collegeId);
-      console.log('  Department:', req.user.department);
-      console.log('  Role:', req.user.role);
 
       next();
     } catch (error: any) {
