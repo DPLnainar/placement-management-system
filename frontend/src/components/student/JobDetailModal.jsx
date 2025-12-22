@@ -99,8 +99,57 @@ const JobDetailModal = ({ job, isOpen, onClose, onApply }) => {
                                     <span className="info-value">{formatDate(registrationDeadline)}</span>
                                 </div>
                             )}
+                            {job.durationMonths && (
+                                <div className="info-item">
+                                    <span className="info-label">Internship Duration:</span>
+                                    <span className="info-value">{job.durationMonths} Months</span>
+                                </div>
+                            )}
                         </div>
                     </div>
+
+                    {/* Eligibility Criteria */}
+                    {job.eligibility && (
+                        <div className="info-section">
+                            <h3>Eligibility Criteria</h3>
+                            <div className="info-grid">
+                                {job.eligibility.tenthPct !== undefined && (
+                                    <div className="info-item">
+                                        <span className="info-label">Min 10th Percentage:</span>
+                                        <span className="info-value">{job.eligibility.tenthPct}%</span>
+                                    </div>
+                                )}
+                                {job.eligibility.twelfthPct !== undefined && (
+                                    <div className="info-item">
+                                        <span className="info-label">Min 12th Percentage:</span>
+                                        <span className="info-value">{job.eligibility.twelfthPct}%</span>
+                                    </div>
+                                )}
+                                {job.eligibility.cgpa !== undefined && (
+                                    <div className="info-item">
+                                        <span className="info-label">Min CGPA:</span>
+                                        <span className="info-value">{job.eligibility.cgpa}</span>
+                                    </div>
+                                )}
+                                <div className="info-item">
+                                    <span className="info-label">Backlogs Allowed:</span>
+                                    <span className="info-value">{job.eligibility.allowArrears ? 'Yes' : 'No'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Target Departments */}
+                    {job.targetDepartments && job.targetDepartments.length > 0 && (
+                        <div className="info-section">
+                            <h3>Eligible Departments</h3>
+                            <div className="modal-skills">
+                                {job.targetDepartments.map((dept, index) => (
+                                    <span key={index} className="modal-skill-tag" style={{ background: '#f3e5f5', color: '#7b1fa2' }}>{dept}</span>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Description */}
                     {description && (

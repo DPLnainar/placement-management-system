@@ -11,6 +11,7 @@ import { useReactToPrint } from 'react-to-print';
 import html2pdf from 'html2pdf.js';
 import { ResumeTemplate } from './ResumeTemplate';
 import ApplicationTracker from './ApplicationTracker';
+import JobDetailModal from './student/JobDetailModal';
 
 // Helper function to get inline viewable URL for PDFs
 const getInlineViewUrl = (url) => {
@@ -50,6 +51,8 @@ export default function StudentDash() {
   const [isAcademicLocked, setIsAcademicLocked] = useState(false);
   const [isProfileComplete, setIsProfileComplete] = useState(true);
   const [missingProfileFields, setMissingProfileFields] = useState([]);
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const [profileData, setProfileData] = useState({
     // NEW: Identity Fields
@@ -916,6 +919,16 @@ export default function StudentDash() {
     }
   };
 
+  const handleViewDetails = (job) => {
+    setSelectedJob(job);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedJob(null);
+  };
+
   const isJobExpired = (job) => {
     if (!job.deadline) return false;
     const deadline = new Date(job.deadline);
@@ -1415,6 +1428,15 @@ export default function StudentDash() {
                                       : 'Apply for this Position'}
                           </Button>
 
+                          <Button
+                            variant="outline"
+                            className="w-full mt-2"
+                            onClick={() => handleViewDetails(job)}
+                          >
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            View Full Details
+                          </Button>
+
                           {/* Show eligibility issues if not eligible */}
                           {jobEligibility[job._id || job.id]?.isEligible === false &&
                             jobEligibility[job._id || job.id]?.issues?.length > 0 && (
@@ -1448,6 +1470,23 @@ export default function StudentDash() {
                 )}
               </div>
             </div>
+
+            {/* Job Detail Modal */}
+            <JobDetailModal
+              job={selectedJob ? {
+                ...selectedJob,
+                jobId: selectedJob._id,
+                eligible: selectedJob.isEligible,
+                reasons: selectedJob.eligibilityIssues,
+                applyStatus: appliedJobs.has(selectedJob._id) ? 'APPLIED' : (isPlaced ? 'PLACED' : 'NOT_APPLIED')
+              } : null}
+              isOpen={isModalOpen}
+              onClose={handleCloseModal}
+              onApply={() => {
+                handleApply(selectedJob._id);
+                handleCloseModal();
+              }}
+            />
           </>
         )}
 
