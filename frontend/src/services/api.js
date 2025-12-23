@@ -330,4 +330,13 @@ export const verificationAPI = {
   reject: (studentId, reason) => api.post(`/verification/${studentId}/reject`, { reason }),
 };
 
+// Statistics API
+export const statisticsAPI = {
+  getPlacementStatistics: (params) => api.get('/statistics/placement', { params }),
+  getPlacementTrends: (params) => api.get('/statistics/placement/trends', { params }),
+  getStudentStatistics: () => api.get('/statistics/students'),
+  getCompanyStatistics: () => api.get('/statistics/companies'),
+  exportReport: (params) => api.get('/statistics/export/placements', { params }),
+};
+
 export default api;

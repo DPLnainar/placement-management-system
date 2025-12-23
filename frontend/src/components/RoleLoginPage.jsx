@@ -80,22 +80,19 @@ export default function RoleLogin() {
       title: 'Student Login',
       icon: GraduationCap,
       color: 'from-blue-500 to-blue-600',
-      bgGradient: 'from-blue-50 to-cyan-100',
-      testCreds: { username: 'student1_tu', password: 'student123' }
+      bgGradient: 'from-blue-50 to-cyan-100'
     },
     moderator: {
       title: 'Moderator Login',
       icon: Users,
       color: 'from-green-500 to-green-600',
-      bgGradient: 'from-green-50 to-emerald-100',
-      testCreds: { username: 'mod_tu', password: 'mod123' }
+      bgGradient: 'from-green-50 to-emerald-100'
     },
     admin: {
       title: 'Administrator Login',
       icon: Shield,
       color: 'from-purple-500 to-purple-600',
-      bgGradient: 'from-purple-50 to-pink-100',
-      testCreds: { username: 'admin_tu', password: 'admin123' }
+      bgGradient: 'from-purple-50 to-pink-100'
     }
   };
 
@@ -335,12 +332,7 @@ export default function RoleLogin() {
               )}
             </Button>
 
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mt-4">
-              <p className="text-xs font-semibold text-gray-700 mb-2">Test Credentials:</p>
-              <div className="text-xs text-gray-600">
-                <code className="bg-white px-1 rounded">{config.testCreds.username}</code> / <code className="bg-white px-1 rounded">{config.testCreds.password}</code>
-              </div>
-            </div>
+
           </form>
         </CardContent>
       </Card>

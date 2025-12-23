@@ -76,11 +76,13 @@ const seedData = async () => {
     // ==========================================
     console.log('\n👤 Creating admin users...');
 
+    const DEFAULT_PASSWORD = process.env.SEED_DEFAULT_PASSWORD || 'ChangeMe123!';
+
     // Admin for Tech University
     const admin1 = new User({
       username: 'admin_tu',
       email: 'admin@techuni.edu',
-      password: 'admin123',  // Will be hashed automatically
+      password: DEFAULT_PASSWORD,  // Will be hashed automatically
       fullName: 'John Admin',
       role: 'admin',
       collegeId: college1._id,  // CRITICAL: Assign admin to college
@@ -94,7 +96,7 @@ const seedData = async () => {
     const admin2 = new User({
       username: 'admin_sec',
       email: 'admin@stateeng.edu',
-      password: 'admin123',
+      password: DEFAULT_PASSWORD,
       fullName: 'Jane Admin',
       role: 'admin',
       collegeId: college2._id,  // CRITICAL: Assign admin to college
@@ -127,7 +129,7 @@ const seedData = async () => {
     const moderator1 = new User({
       username: 'mod_tu',
       email: 'moderator@techuni.edu',
-      password: 'mod123',
+      password: DEFAULT_PASSWORD,
       fullName: 'Bob Moderator',
       role: 'moderator',
       collegeId: college1._id,
@@ -141,7 +143,7 @@ const seedData = async () => {
     const student1 = new User({
       username: 'student1_tu',
       email: 'student1@techuni.edu',
-      password: 'student123',
+      password: DEFAULT_PASSWORD,
       fullName: 'Alice Student',
       role: 'student',
       collegeId: college1._id,
@@ -154,7 +156,7 @@ const seedData = async () => {
     const student2 = new User({
       username: 'student2_tu',
       email: 'student2@techuni.edu',
-      password: 'student123',
+      password: DEFAULT_PASSWORD,
       fullName: 'Charlie Student',
       role: 'student',
       collegeId: college1._id,
@@ -168,7 +170,7 @@ const seedData = async () => {
     const moderator2 = new User({
       username: 'mod_sec',
       email: 'moderator@stateeng.edu',
-      password: 'mod123',
+      password: DEFAULT_PASSWORD,
       fullName: 'David Moderator',
       role: 'moderator',
       collegeId: college2._id,
@@ -182,7 +184,7 @@ const seedData = async () => {
     const student3 = new User({
       username: 'student1_sec',
       email: 'student1@stateeng.edu',
-      password: 'student123',
+      password: DEFAULT_PASSWORD,
       fullName: 'Emma Student',
       role: 'student',
       collegeId: college2._id,
@@ -205,16 +207,17 @@ const seedData = async () => {
     console.log(`   - ${await User.countDocuments({ role: 'student' })} students created`);
 
     console.log('\n🔑 Test Credentials:');
+    console.log('   (Note: Passwords below are the DEFAULT. If you set SEED_DEFAULT_PASSWORD env var, use that instead.)');
     console.log('\n   Tech University (TU):');
-    console.log('   ├─ Admin:     username: admin_tu     | password: admin123');
-    console.log('   ├─ Moderator: username: mod_tu       | password: mod123');
-    console.log('   ├─ Student:   username: student1_tu  | password: student123');
-    console.log('   └─ Student:   username: student2_tu  | password: student123');
+    console.log(`   ├─ Admin:     username: admin_tu     | password: ${DEFAULT_PASSWORD}`);
+    console.log(`   ├─ Moderator: username: mod_tu       | password: ${DEFAULT_PASSWORD}`);
+    console.log(`   ├─ Student:   username: student1_tu  | password: ${DEFAULT_PASSWORD}`);
+    console.log(`   └─ Student:   username: student2_tu  | password: ${DEFAULT_PASSWORD}`);
 
     console.log('\n   State Engineering College (SEC):');
-    console.log('   ├─ Admin:     username: admin_sec    | password: admin123');
-    console.log('   ├─ Moderator: username: mod_sec      | password: mod123');
-    console.log('   └─ Student:   username: student1_sec | password: student123');
+    console.log(`   ├─ Admin:     username: admin_sec    | password: ${DEFAULT_PASSWORD}`);
+    console.log(`   ├─ Moderator: username: mod_sec      | password: ${DEFAULT_PASSWORD}`);
+    console.log(`   └─ Student:   username: student1_sec | password: ${DEFAULT_PASSWORD}`);
 
     console.log('\n💡 Key Points:');
     console.log('   - Users do NOT select college during login');

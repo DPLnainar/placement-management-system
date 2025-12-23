@@ -298,7 +298,7 @@ export const resendInvitation = async (req: IAuthRequest, res: Response): Promis
 
         // Check if expired
         await invitation.checkExpiration();
-        if (invitation.status === 'expired') {
+        if ((invitation.status as string) === 'expired') {
             res.status(400).json({
                 success: false,
                 message: 'Invitation has expired',

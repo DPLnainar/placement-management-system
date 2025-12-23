@@ -14,9 +14,9 @@ exports.createJob = async (req, res) => {
 
     // Validate required fields
     if (!jobData.title || !jobData.company || !jobData.description || !jobData.location || !jobData.deadline) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Please provide all required fields: title, company, description, location, deadline' 
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide all required fields: title, company, description, location, deadline'
       });
     }
 
@@ -73,6 +73,29 @@ exports.createJob = async (req, res) => {
     // Populate user info
     await newJob.populate('postedBy', 'username fullName role');
 
+    // Add to notification queue
+    const { notificationQueue } = require('../utils/queue');
+    notificationQueue.add('sendJobAlert', {
+      jobId: newJob._id,
+      jobTitle: newJob.title,
+      company: newJob.company,
+      collegeId: newJob.collegeId
+    });
+
+    // Emit real-time event for "New Job" toast
+    try {
+      const { getIO } = require('../utils/socket');
+      const io = getIO();
+      // Notify all students in this college
+      io.to(`college_${newJob.collegeId}`).emit('newJob', {
+        id: newJob._id,
+        title: newJob.title,
+        company: newJob.company
+      });
+    } catch (err) {
+      console.error('Socket emit error:', err.message);
+    }
+
     res.status(201).json({
       success: true,
       message: 'Job posted successfully',
@@ -81,18 +104,18 @@ exports.createJob = async (req, res) => {
 
   } catch (error) {
     console.error('Create job error:', error);
-    
+
     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({ 
-        success: false, 
-        message: messages.join(', ') 
+      return res.status(400).json({
+        success: false,
+        message: messages.join(', ')
       });
     }
 
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error creating job' 
+    res.status(500).json({
+      success: false,
+      message: 'Server error creating job'
     });
   }
 };
@@ -105,10 +128,10 @@ exports.createJob = async (req, res) => {
 exports.getJobs = async (req, res) => {
   try {
     const { status, jobType, jobCategory, priority, includeExpired } = req.query;
-    
+
     // Build query filter
-    const filter = { 
-      collegeId: req.user.collegeId._id || req.user.collegeId 
+    const filter = {
+      collegeId: req.user.collegeId._id || req.user.collegeId
     };
 
     // Optional filters
@@ -119,15 +142,15 @@ exports.getJobs = async (req, res) => {
     if (jobType) {
       filter.jobType = jobType;
     }
-    
+
     if (jobCategory) {
       filter.jobCategory = jobCategory;
     }
-    
+
     if (priority) {
       filter.priority = priority;
     }
-    
+
     // Exclude expired jobs unless explicitly requested
     if (!includeExpired) {
       filter.deadline = { $gte: new Date() };
@@ -155,9 +178,9 @@ exports.getJobs = async (req, res) => {
 
   } catch (error) {
     console.error('Get jobs error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error fetching jobs' 
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching jobs'
     });
   }
 };
@@ -177,9 +200,9 @@ exports.getJobById = async (req, res) => {
       .populate('collegeId', 'name code location');
 
     if (!job) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Job not found or does not belong to your college' 
+      return res.status(404).json({
+        success: false,
+        message: 'Job not found or does not belong to your college'
       });
     }
 
@@ -190,9 +213,9 @@ exports.getJobById = async (req, res) => {
 
   } catch (error) {
     console.error('Get job by ID error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error fetching job' 
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching job'
     });
   }
 };
@@ -214,9 +237,9 @@ exports.updateJob = async (req, res) => {
     });
 
     if (!job) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Job not found or does not belong to your college' 
+      return res.status(404).json({
+        success: false,
+        message: 'Job not found or does not belong to your college'
       });
     }
 
@@ -238,9 +261,9 @@ exports.updateJob = async (req, res) => {
 
   } catch (error) {
     console.error('Update job error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error updating job' 
+    res.status(500).json({
+      success: false,
+      message: 'Server error updating job'
     });
   }
 };
@@ -261,9 +284,9 @@ exports.deleteJob = async (req, res) => {
     });
 
     if (!job) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Job not found or does not belong to your college' 
+      return res.status(404).json({
+        success: false,
+        message: 'Job not found or does not belong to your college'
       });
     }
 
@@ -276,9 +299,9 @@ exports.deleteJob = async (req, res) => {
 
   } catch (error) {
     console.error('Delete job error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error deleting job' 
+    res.status(500).json({
+      success: false,
+      message: 'Server error deleting job'
     });
   }
 };
@@ -313,7 +336,7 @@ exports.extendDeadline = async (req, res) => {
     }
 
     const newDeadlineDate = new Date(newDeadline);
-    
+
     // Validate new deadline is in the future
     if (newDeadlineDate <= new Date()) {
       return res.status(400).json({
@@ -426,7 +449,7 @@ exports.getJobStatistics = async (req, res) => {
 
     // Get application statistics
     const applications = await Application.find({ jobId: id });
-    
+
     const stats = {
       totalApplications: applications.length,
       applicationsByStatus: {
@@ -441,7 +464,7 @@ exports.getJobStatistics = async (req, res) => {
       registrationOpen: job.isRegistrationOpen(),
       maxApplications: job.maxApplications,
       currentApplicationCount: job.currentApplicationCount,
-      applicationLimit: job.maxApplications ? 
+      applicationLimit: job.maxApplications ?
         `${job.currentApplicationCount}/${job.maxApplications}` : 'Unlimited'
     };
 

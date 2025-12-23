@@ -20,14 +20,15 @@ const { bulkUploadSummaryEmail } = require('../utils/emailTemplates');
  */
 exports.createCollegeWithAdmin = async (req, res) => {
   // Start a MongoDB session for transaction
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  // Transaction removed for standalone MongoDB compatibility
+  // const session = await mongoose.startSession();
+  // session.startTransaction();
 
   try {
     // SECURITY CHECK: Only Super Admin can create colleges
     if (req.user.role !== 'superadmin') {
-      await session.abortTransaction();
-      session.endSession();
+      // await session.abortTransaction();
+      // session.endSession();
       return res.status(403).json({
         success: false,
         message: 'Access denied. Insufficient permissions.'
@@ -47,8 +48,8 @@ exports.createCollegeWithAdmin = async (req, res) => {
 
     // Validate required fields
     if (!collegeName || !collegeAddress || !collegeCode || !adminName || !adminEmail || !adminUsername || !adminPassword) {
-      await session.abortTransaction();
-      session.endSession();
+      // await session.abortTransaction();
+      // session.endSession();
       return res.status(400).json({
         success: false,
         message: 'Missing required fields. Need: collegeName, collegeAddress, collegeCode, adminName, adminEmail, adminUsername, adminPassword'
@@ -64,8 +65,8 @@ exports.createCollegeWithAdmin = async (req, res) => {
     });
 
     if (existingCollege) {
-      await session.abortTransaction();
-      session.endSession();
+      // await session.abortTransaction();
+      // session.endSession();
       return res.status(400).json({
         success: false,
         message: 'A college with this name or code already exists'
@@ -81,8 +82,8 @@ exports.createCollegeWithAdmin = async (req, res) => {
     });
 
     if (existingUser) {
-      await session.abortTransaction();
-      session.endSession();
+      // await session.abortTransaction();
+      // session.endSession();
       return res.status(400).json({
         success: false,
         message: 'A user with this username or email already exists'
@@ -98,7 +99,7 @@ exports.createCollegeWithAdmin = async (req, res) => {
       status: 'active'
     });
 
-    await college.save({ session });
+    await college.save();
 
     // TRANSACTION STEP 2: Create the College Admin
     const admin = new User({
@@ -112,15 +113,15 @@ exports.createCollegeWithAdmin = async (req, res) => {
       status: 'active'
     });
 
-    await admin.save({ session });
+    await admin.save();
 
     // TRANSACTION STEP 3: Link Admin to College
     college.adminId = admin._id;
-    await college.save({ session });
+    await college.save();
 
     // Commit the transaction
-    await session.commitTransaction();
-    session.endSession();
+    // await session.commitTransaction();
+    // session.endSession();
 
     // Return success response with credentials
     const adminResponse = admin.toObject();
@@ -149,8 +150,13 @@ exports.createCollegeWithAdmin = async (req, res) => {
 
   } catch (error) {
     // Rollback transaction on error
-    await session.abortTransaction();
-    session.endSession();
+    // await session.abortTransaction();
+    // session.endSession();
+
+    // Attempt cleanup if college was created but flow failed (manual rollback)
+    if (college && college._id) {
+      try { await College.findByIdAndDelete(college._id); } catch (e) { }
+    }
 
     console.error('Create college with admin error:', error);
 
@@ -539,14 +545,14 @@ exports.updateCollege = async (req, res) => {
  * Deletes a college and its associated data
  */
 exports.deleteCollege = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  // const session = await mongoose.startSession();
+  // session.startTransaction();
 
   try {
     // SECURITY CHECK: Only Super Admin
     if (req.user.role !== 'superadmin') {
-      await session.abortTransaction();
-      session.endSession();
+      // await session.abortTransaction();
+      // session.endSession();
       return res.status(403).json({
         success: false,
         message: 'Access denied. Insufficient permissions.'
@@ -558,8 +564,8 @@ exports.deleteCollege = async (req, res) => {
     const college = await College.findById(id);
 
     if (!college) {
-      await session.abortTransaction();
-      session.endSession();
+      // await session.abortTransaction();
+      // session.endSession();
       return res.status(404).json({
         success: false,
         message: 'College not found'
@@ -567,17 +573,17 @@ exports.deleteCollege = async (req, res) => {
     }
 
     // Delete all users associated with this college
-    await User.deleteMany({ collegeId: id }).session(session);
+    await User.deleteMany({ collegeId: id });
 
     // Delete all jobs associated with this college
     const Job = require('../models/Job');
-    await Job.deleteMany({ collegeId: id }).session(session);
+    await Job.deleteMany({ collegeId: id });
 
     // Delete the college itself
-    await College.findByIdAndDelete(id).session(session);
+    await College.findByIdAndDelete(id);
 
-    await session.commitTransaction();
-    session.endSession();
+    // await session.commitTransaction();
+    // session.endSession();
 
     res.status(200).json({
       success: true,
@@ -585,8 +591,8 @@ exports.deleteCollege = async (req, res) => {
     });
 
   } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
+    // await session.abortTransaction();
+    // session.endSession();
     console.error('Delete college error:', error);
     res.status(500).json({
       success: false,

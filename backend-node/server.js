@@ -67,6 +67,13 @@ const exportRoutes = require('./routes/exportRoutes');
  *    - Middleware enforces college boundaries
  */
 
+// Initialize background workers
+try {
+  require('./workers/emailWorker');
+} catch (error) {
+  console.log('\n⚠️  Redis connection failed - Email worker disabled');
+}
+
 const app = express();
 
 // ==========================================
@@ -217,10 +224,18 @@ const PORT = process.env.PORT || 8000;
 const startServer = async () => {
   try {
     // Connect to MongoDB
+    // Connect to MongoDB
     await connectDB();
 
-    // Start Express server
-    app.listen(PORT, () => {
+    // Create HTTP server (needed for Socket.io)
+    const http = require('http');
+    const server = http.createServer(app);
+
+    // Initialize Socket.io
+    const io = require('./utils/socket').init(server);
+
+    // Start server
+    server.listen(PORT, () => {
       console.log('\n' + '='.repeat(60));
       console.log('🚀 SERVER STARTED SUCCESSFULLY');
       console.log('='.repeat(60));

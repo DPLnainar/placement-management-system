@@ -511,6 +511,7 @@ const studentDataSchema = new mongoose.Schema({
 studentDataSchema.index({ collegeId: 1 });
 studentDataSchema.index({ collegeId: 1, documentsVerified: 1 });
 studentDataSchema.index({ collegeId: 1, placementStatus: 1 });
+studentDataSchema.index({ collegeId: 1, 'education.graduation.branch': 1, cgpa: -1 }); // Optimized for filtering eligible students
 
 // Update the updatedAt timestamp before saving
 studentDataSchema.pre('save', function (next) {

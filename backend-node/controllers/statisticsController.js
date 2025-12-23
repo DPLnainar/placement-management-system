@@ -37,10 +37,12 @@ exports.getPlacementStatistics = async (req, res) => {
       ...filter,
       placementStatus: 'placed',
       'offerDetails.ctc': { $exists: true, $ne: null }
-    }).select('offerDetails.ctc');
+    })
+      .select('offerDetails.ctc')
+      .lean(); // Faster for read-only
 
     const packages = placedStudentsWithPackage.map(s => s.offerDetails.ctc);
-    const averagePackage = packages.length > 0 
+    const averagePackage = packages.length > 0
       ? (packages.reduce((sum, ctc) => sum + ctc, 0) / packages.length).toFixed(2)
       : 0;
     const highestPackage = packages.length > 0 ? Math.max(...packages) : 0;
@@ -57,20 +59,24 @@ exports.getPlacementStatistics = async (req, res) => {
     // Branch-wise statistics
     const branchStats = await StudentData.aggregate([
       { $match: { collegeId, placementStatus: 'placed' } },
-      { $group: { 
-        _id: '$education.graduation.branch',
-        placed: { $sum: 1 }
-      }},
+      {
+        $group: {
+          _id: '$education.graduation.branch',
+          placed: { $sum: 1 }
+        }
+      },
       { $sort: { placed: -1 } }
     ]);
 
     // Get total students per branch for percentage
     const branchTotals = await StudentData.aggregate([
       { $match: { collegeId } },
-      { $group: { 
-        _id: '$education.graduation.branch',
-        total: { $sum: 1 }
-      }}
+      {
+        $group: {
+          _id: '$education.graduation.branch',
+          total: { $sum: 1 }
+        }
+      }
     ]);
 
     const branchData = branchStats.map(stat => {
@@ -105,7 +111,8 @@ exports.getPlacementStatistics = async (req, res) => {
       .sort({ placementDate: -1 })
       .limit(10)
       .populate('userId', 'fullName email')
-      .select('userId placedCompany offerDetails.ctc placementDate placementType');
+      .select('userId placedCompany offerDetails.ctc placementDate placementType')
+      .lean(); // Faster for read-only
 
     // Active jobs count
     const activeJobs = await Job.countDocuments({ collegeId, status: 'active' });
@@ -184,7 +191,7 @@ exports.getPlacementTrends = async (req, res) => {
     const { startYear, endYear } = req.query;
 
     const matchStage = { collegeId, placementStatus: 'placed', placementDate: { $ne: null } };
-    
+
     if (startYear || endYear) {
       matchStage.placementDate = {};
       if (startYear) matchStage.placementDate.$gte = new Date(`${startYear}-01-01`);
@@ -298,20 +305,20 @@ exports.getCompanyStatistics = async (req, res) => {
     const companiesVisited = await Job.distinct('company', { collegeId });
 
     // Companies with placements
-    const companiesWithPlacements = await StudentData.distinct('placedCompany', { 
-      collegeId, 
-      placementStatus: 'placed' 
+    const companiesWithPlacements = await StudentData.distinct('placedCompany', {
+      collegeId,
+      placementStatus: 'placed'
     });
 
     // Average package by company
     const companyPackages = await StudentData.aggregate([
-      { 
-        $match: { 
-          collegeId, 
+      {
+        $match: {
+          collegeId,
           placementStatus: 'placed',
           placedCompany: { $ne: null },
           'offerDetails.ctc': { $exists: true }
-        } 
+        }
       },
       {
         $group: {
@@ -329,7 +336,7 @@ exports.getCompanyStatistics = async (req, res) => {
       statistics: {
         totalCompaniesVisited: companiesVisited.length,
         companiesWithPlacements: companiesWithPlacements.length,
-        conversionRate: companiesVisited.length > 0 
+        conversionRate: companiesVisited.length > 0
           ? ((companiesWithPlacements.length / companiesVisited.length) * 100).toFixed(2)
           : 0,
         companyDetails: companyPackages.map(c => ({

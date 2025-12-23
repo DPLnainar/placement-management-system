@@ -1,0 +1,23 @@
+OK: ./routes/authRoutes
+OK: ./routes/userRoutes
+OK: ./routes/jobRoutes
+OK: ./routes/applicationRoutes
+OK: ./routes/studentRoutes
+OK: ./routes/superAdminRoutes
+OK: ./routes/eligibilityRoutes
+OK: ./routes/placementDriveRoutes
+OK: ./routes/invitationRoutes
+OK: ./routes/publicRoutes
+FAIL: ./routes/uploadRoutes - Cannot find module '@aws-sdk/client-s3'
+Require stack:
+- D:\Web development\placment\placement-management-system\backend-node\config\fileUpload.js
+- D:\Web development\placment\placement-management-system\backend-node\routes\uploadRoutes.js
+- D:\Web development\placment\placement-management-system\backend-node\diagnose_routes.js
+OK: ./routes/statisticsRoutes
+OK: ./routes/announcementRoutes
+OK: ./routes/eventRoutes
+OK: ./routes/auditRoutes
+OK: ./routes/workflowRoutes
+OK: ./routes/companyRoutes
+OK: ./routes/searchRoutes
+OK: ./routes/exportRoutes

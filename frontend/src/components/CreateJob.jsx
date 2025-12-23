@@ -19,19 +19,15 @@ export default function CreateJob() {
     description: '',
     location: '',
     deadline: '',
-    categories: ['fulltime'], // Array: can include 'fulltime' and/or 'intern'
+    categories: ['fulltime'],
     packageLPA: '',
     stipend: '',
     durationMonths: '',
-
-    // Eligibility
-    eligibilityMode: 'common', // 'common' or 'per-dept'
+    eligibilityMode: 'common',
     tenthPct: '',
     twelfthPct: '',
     cgpa: '',
     allowArrears: false,
-
-    // Target departments
     targetDepartments: [],
     selectAllDepts: false,
     otherDepartment: '',
@@ -39,10 +35,8 @@ export default function CreateJob() {
 
   const [skills, setSkills] = useState([]);
   const [skillInput, setSkillInput] = useState('');
-
   const [rounds, setRounds] = useState([]);
   const [roundInput, setRoundInput] = useState('');
-
   const [customDeptRules, setCustomDeptRules] = useState([]);
 
   const DEPARTMENTS = ['CSE', 'IT', 'ECE', 'EEE', 'MECH', 'CIVIL', 'AIML', 'DS', 'ISE', 'MBA', 'MCA'];
@@ -57,13 +51,11 @@ export default function CreateJob() {
 
   const handleCategoryToggle = (category) => {
     if (formData.categories.includes(category)) {
-      // Remove category if already selected
       setFormData({
         ...formData,
         categories: formData.categories.filter(c => c !== category),
       });
     } else {
-      // Add category
       setFormData({
         ...formData,
         categories: [...formData.categories, category],
@@ -144,7 +136,6 @@ export default function CreateJob() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validate at least one category is selected
     if (formData.categories.length === 0) {
       alert('Please select at least one job category (Full-time or Internship)');
       return;
@@ -153,13 +144,11 @@ export default function CreateJob() {
     setLoading(true);
 
     try {
-      // Build target departments list
       const targetDepts = [
         ...formData.targetDepartments,
         ...(formData.otherDepartment ? [formData.otherDepartment.trim()] : []),
       ];
 
-      // Build eligibility criteria
       const eligibility = {
         tenthPct: parseFloat(formData.tenthPct) || undefined,
         twelfthPct: parseFloat(formData.twelfthPct) || undefined,
@@ -184,7 +173,7 @@ export default function CreateJob() {
         description: formData.description,
         location: formData.location,
         deadline: formData.deadline,
-        category: formData.categories, // Array of selected categories
+        category: formData.categories,
         packageLPA: formData.categories.includes('fulltime') ? parseFloat(formData.packageLPA) : undefined,
         stipend: formData.categories.includes('intern') ? parseFloat(formData.stipend) : undefined,
         durationMonths: formData.categories.includes('intern') ? parseInt(formData.durationMonths) : undefined,
@@ -226,222 +215,106 @@ export default function CreateJob() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Section 1: Basic Details */}
+              {/* Basic Details */}
               <div className="space-y-4 border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
                 <h3 className="text-lg font-semibold text-blue-700">Basic Details</h3>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="companyName">Company Name *</Label>
-                    <Input
-                      id="companyName"
-                      name="companyName"
-                      value={formData.companyName}
-                      onChange={handleChange}
-                      required
-                    />
+                    <Input id="companyName" name="companyName" value={formData.companyName} onChange={handleChange} required />
                   </div>
                   <div>
                     <Label htmlFor="title">Job Title *</Label>
-                    <Input
-                      id="title"
-                      name="title"
-                      placeholder="e.g., Software Engineer"
-                      value={formData.title}
-                      onChange={handleChange}
-                      required
-                    />
+                    <Input id="title" name="title" placeholder="e.g., Software Engineer" value={formData.title} onChange={handleChange} required />
                   </div>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="role">Job Role *</Label>
-                    <Input
-                      id="role"
-                      name="role"
-                      placeholder="e.g., Backend Developer"
-                      value={formData.role}
-                      onChange={handleChange}
-                      required
-                    />
+                    <Input id="role" name="role" placeholder="e.g., Backend Developer" value={formData.role} onChange={handleChange} required />
                   </div>
                   <div>
                     <Label htmlFor="location">Location *</Label>
-                    <Input
-                      id="location"
-                      name="location"
-                      value={formData.location}
-                      onChange={handleChange}
-                      required
-                    />
+                    <Input id="location" name="location" value={formData.location} onChange={handleChange} required />
                   </div>
                 </div>
-
                 <div>
                   <Label htmlFor="description">Job Description *</Label>
-                  <Textarea
-                    id="description"
-                    name="description"
-                    rows={4}
-                    value={formData.description}
-                    onChange={handleChange}
-                    required
-                  />
+                  <Textarea id="description" name="description" rows={4} value={formData.description} onChange={handleChange} required />
                 </div>
-
                 <div>
                   <Label htmlFor="deadline">Application Deadline *</Label>
-                  <Input
-                    id="deadline"
-                    name="deadline"
-                    type="datetime-local"
-                    value={formData.deadline}
-                    onChange={handleChange}
-                    required
-                  />
+                  <Input id="deadline" name="deadline" type="datetime-local" value={formData.deadline} onChange={handleChange} required />
                 </div>
               </div>
 
-              {/* Section 2: Job Category & Package */}
+              {/* Job Category & Package */}
               <div className="space-y-4 border-2 border-purple-200 rounded-lg p-4 bg-purple-50">
                 <h3 className="text-lg font-semibold text-purple-700">Job Category & Package</h3>
-
                 <div>
                   <Label>Job Category * (Select one or both)</Label>
                   <div className="flex gap-4 mt-2">
                     <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={formData.categories.includes('fulltime')}
-                        onChange={() => handleCategoryToggle('fulltime')}
-                        className="mr-2"
-                      />
+                      <input type="checkbox" checked={formData.categories.includes('fulltime')} onChange={() => handleCategoryToggle('fulltime')} className="mr-2" />
                       Full-time
                     </label>
                     <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={formData.categories.includes('intern')}
-                        onChange={() => handleCategoryToggle('intern')}
-                        className="mr-2"
-                      />
+                      <input type="checkbox" checked={formData.categories.includes('intern')} onChange={() => handleCategoryToggle('intern')} className="mr-2" />
                       Internship
                     </label>
                   </div>
-                  {formData.categories.length === 0 && (
-                    <p className="text-sm text-red-600 mt-1">Please select at least one category</p>
-                  )}
+                  {formData.categories.length === 0 && <p className="text-sm text-red-600 mt-1">Please select at least one category</p>}
                 </div>
-
-
                 {formData.categories.includes('fulltime') && (
                   <div>
                     <Label htmlFor="packageLPA">Package (LPA) *</Label>
-                    <Input
-                      id="packageLPA"
-                      name="packageLPA"
-                      type="number"
-                      step="0.1"
-                      placeholder="e.g., 12"
-                      value={formData.packageLPA}
-                      onChange={handleChange}
-                      required
-                    />
+                    <Input id="packageLPA" name="packageLPA" type="number" step="0.1" placeholder="e.g., 12" value={formData.packageLPA} onChange={handleChange} required />
                   </div>
                 )}
-
                 {formData.categories.includes('intern') && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="stipend">Stipend (₹/month) *</Label>
-                      <Input
-                        id="stipend"
-                        name="stipend"
-                        type="number"
-                        placeholder="e.g., 15000"
-                        value={formData.stipend}
-                        onChange={handleChange}
-                        required
-                      />
+                      <Input id="stipend" name="stipend" type="number" placeholder="e.g., 15000" value={formData.stipend} onChange={handleChange} required />
                     </div>
                     <div>
                       <Label htmlFor="durationMonths">Duration (months) *</Label>
-                      <Input
-                        id="durationMonths"
-                        name="durationMonths"
-                        type="number"
-                        placeholder="e.g., 6"
-                        value={formData.durationMonths}
-                        onChange={handleChange}
-                        required
-                      />
+                      <Input id="durationMonths" name="durationMonths" type="number" placeholder="e.g., 6" value={formData.durationMonths} onChange={handleChange} required />
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Section 3: Skills & Workflow */}
+              {/* Skills & Workflow */}
               <div className="space-y-4 border-2 border-green-200 rounded-lg p-4 bg-green-50">
                 <h3 className="text-lg font-semibold text-green-700">Skills & Hiring Workflow</h3>
-
                 <div>
                   <Label>Skills Required</Label>
                   <div className="flex gap-2 mt-2">
-                    <Input
-                      value={skillInput}
-                      onChange={(e) => setSkillInput(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSkill())}
-                      placeholder="Add skill and press Enter"
-                    />
-                    <Button type="button" onClick={handleAddSkill} size="sm">
-                      <Plus className="h-4 w-4" />
-                    </Button>
+                    <Input value={skillInput} onChange={(e) => setSkillInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSkill())} placeholder="Add skill and press Enter" />
+                    <Button type="button" onClick={handleAddSkill} size="sm"><Plus className="h-4 w-4" /></Button>
                   </div>
                   <div className="flex flex-wrap gap-2 mt-3">
                     {skills.map((skill, idx) => (
-                      <span
-                        key={idx}
-                        className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800"
-                      >
+                      <span key={idx} className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
                         {skill}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveSkill(idx)}
-                          className="ml-2 text-green-600 hover:text-green-800"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
+                        <button type="button" onClick={() => handleRemoveSkill(idx)} className="ml-2 text-green-600 hover:text-green-800"><X className="h-3 w-3" /></button>
                       </span>
                     ))}
                   </div>
                 </div>
-
                 <div>
                   <Label>Hiring Workflow Rounds</Label>
                   <div className="flex gap-2 mt-2">
-                    <Input
-                      value={roundInput}
-                      onChange={(e) => setRoundInput(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddRound())}
-                      placeholder="e.g., Online Test"
-                    />
-                    <Button type="button" onClick={handleAddRound} size="sm">
-                      <Plus className="h-4 w-4" />
-                    </Button>
+                    <Input value={roundInput} onChange={(e) => setRoundInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddRound())} placeholder="e.g., Online Test" />
+                    <Button type="button" onClick={handleAddRound} size="sm"><Plus className="h-4 w-4" /></Button>
                   </div>
                   {rounds.length > 0 && (
                     <ol className="list-decimal list-inside mt-3 space-y-2">
                       {rounds.map((round, idx) => (
                         <li key={idx} className="flex justify-between items-center bg-white p-2 rounded">
                           <span>{round.roundName}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveRound(idx)}
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
+                          <button type="button" onClick={() => handleRemoveRound(idx)} className="text-red-600 hover:text-red-800"><X className="h-4 w-4" /></button>
                         </li>
                       ))}
                     </ol>
@@ -449,226 +322,77 @@ export default function CreateJob() {
                 </div>
               </div>
 
-              {/* Section 4: Eligibility Criteria */}
+              {/* Eligibility */}
               <div className="space-y-4 border-2 border-indigo-200 rounded-lg p-4 bg-indigo-50">
                 <h3 className="text-lg font-semibold text-indigo-700">Eligibility Criteria</h3>
-
                 <div className="flex items-center space-x-2 p-3 bg-white rounded-lg">
-                  <Checkbox
-                    id="eligibilityCommon"
-                    checked={formData.eligibilityMode === 'common'}
-                    onCheckedChange={(checked) =>
-                      setFormData({
-                        ...formData,
-                        eligibilityMode: checked ? 'common' : 'per-dept',
-                      })
-                    }
-                  />
-                  <Label htmlFor="eligibilityCommon" className="cursor-pointer">
-                    Same criteria for all departments
-                  </Label>
+                  <Checkbox id="eligibilityCommon" checked={formData.eligibilityMode === 'common'} onCheckedChange={(checked) => setFormData({ ...formData, eligibilityMode: checked ? 'common' : 'per-dept' })} />
+                  <Label htmlFor="eligibilityCommon" className="cursor-pointer">Same criteria for all departments</Label>
                 </div>
-
                 {formData.eligibilityMode === 'common' && (
                   <div className="space-y-4 bg-white p-4 rounded-lg">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <Label htmlFor="tenthPct">10th Percentage (Min)</Label>
-                        <Input
-                          id="tenthPct"
-                          name="tenthPct"
-                          type="number"
-                          step="0.1"
-                          min="0"
-                          max="100"
-                          value={formData.tenthPct}
-                          onChange={handleChange}
-                          placeholder="e.g., 60"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="twelfthPct">12th Percentage (Min)</Label>
-                        <Input
-                          id="twelfthPct"
-                          name="twelfthPct"
-                          type="number"
-                          step="0.1"
-                          min="0"
-                          max="100"
-                          value={formData.twelfthPct}
-                          onChange={handleChange}
-                          placeholder="e.g., 60"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="cgpa">CGPA (Min)</Label>
-                        <Input
-                          id="cgpa"
-                          name="cgpa"
-                          type="number"
-                          step="0.1"
-                          min="0"
-                          max="10"
-                          value={formData.cgpa}
-                          onChange={handleChange}
-                          placeholder="e.g., 7.0"
-                        />
-                      </div>
+                      <div><Label htmlFor="tenthPct">10th Percentage (Min)</Label><Input id="tenthPct" name="tenthPct" type="number" step="0.1" min="0" max="100" value={formData.tenthPct} onChange={handleChange} placeholder="e.g., 60" /></div>
+                      <div><Label htmlFor="twelfthPct">12th Percentage (Min)</Label><Input id="twelfthPct" name="twelfthPct" type="number" step="0.1" min="0" max="100" value={formData.twelfthPct} onChange={handleChange} placeholder="e.g., 60" /></div>
+                      <div><Label htmlFor="cgpa">CGPA (Min)</Label><Input id="cgpa" name="cgpa" type="number" step="0.1" min="0" max="10" value={formData.cgpa} onChange={handleChange} placeholder="e.g., 7.0" /></div>
                     </div>
-
                     <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="allowArrears"
-                        name="allowArrears"
-                        checked={formData.allowArrears}
-                        onCheckedChange={(checked) =>
-                          setFormData({ ...formData, allowArrears: checked })
-                        }
-                      />
-                      <Label htmlFor="allowArrears" className="cursor-pointer">
-                        Allow students with arrear history
-                      </Label>
+                      <Checkbox id="allowArrears" name="allowArrears" checked={formData.allowArrears} onCheckedChange={(checked) => setFormData({ ...formData, allowArrears: checked })} />
+                      <Label htmlFor="allowArrears" className="cursor-pointer">Allow students with arrear history</Label>
                     </div>
-                    <p className="text-sm text-gray-600">
-                      <strong>Note:</strong> If unchecked, students with ANY history of arrears (even if currently cleared) will NOT be eligible.
-                    </p>
                   </div>
                 )}
-
                 {formData.eligibilityMode === 'per-dept' && (
                   <div className="space-y-4">
-                    <p className="text-sm text-gray-600">
-                      Set different eligibility criteria for different departments (e.g., Google: CSE/IT/ECE → CGPA 7.0, Others → CGPA 7.5)
-                    </p>
-
                     {customDeptRules.map((rule, idx) => (
                       <div key={idx} className="bg-white p-4 rounded-lg border border-indigo-200">
                         <div className="flex justify-between items-center mb-3">
                           <h4 className="font-medium text-indigo-600">Rule {idx + 1}</h4>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveCustomDeptRule(idx)}
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
+                          <button type="button" onClick={() => handleRemoveCustomDeptRule(idx)} className="text-red-600 hover:text-red-800"><X className="h-4 w-4" /></button>
                         </div>
-
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <Label>Department</Label>
-                            <select
-                              value={rule.department}
-                              onChange={(e) => handleCustomDeptRuleChange(idx, 'department', e.target.value)}
-                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                            >
-                              <option value="">Select department</option>
-                              {DEPARTMENTS.map(dept => (
-                                <option key={dept} value={dept}>{dept}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <div>
-                            <Label>10th Min (%)</Label>
-                            <Input
-                              type="number"
-                              step="0.1"
-                              value={rule.minTenthPct}
-                              onChange={(e) => handleCustomDeptRuleChange(idx, 'minTenthPct', e.target.value)}
-                            />
-                          </div>
-                          <div>
-                            <Label>12th Min (%)</Label>
-                            <Input
-                              type="number"
-                              step="0.1"
-                              value={rule.minTwelfthPct}
-                              onChange={(e) => handleCustomDeptRuleChange(idx, 'minTwelfthPct', e.target.value)}
-                            />
-                          </div>
-                          <div>
-                            <Label>CGPA Min</Label>
-                            <Input
-                              type="number"
-                              step="0.1"
-                              value={rule.minCGPA}
-                              onChange={(e) => handleCustomDeptRuleChange(idx, 'minCGPA', e.target.value)}
-                            />
-                          </div>
+                          <div><Label>Department</Label><select value={rule.department} onChange={(e) => handleCustomDeptRuleChange(idx, 'department', e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"><option value="">Select department</option>{DEPARTMENTS.map(dept => (<option key={dept} value={dept}>{dept}</option>))}</select></div>
+                          <div><Label>10th Min (%)</Label><Input type="number" step="0.1" value={rule.minTenthPct} onChange={(e) => handleCustomDeptRuleChange(idx, 'minTenthPct', e.target.value)} /></div>
+                          <div><Label>12th Min (%)</Label><Input type="number" step="0.1" value={rule.minTwelfthPct} onChange={(e) => handleCustomDeptRuleChange(idx, 'minTwelfthPct', e.target.value)} /></div>
+                          <div><Label>CGPA Min</Label><Input type="number" step="0.1" value={rule.minCGPA} onChange={(e) => handleCustomDeptRuleChange(idx, 'minCGPA', e.target.value)} /></div>
                         </div>
-
                         <div className="flex items-center space-x-2 mt-3">
-                          <Checkbox
-                            checked={rule.allowArrears}
-                            onCheckedChange={(checked) => handleCustomDeptRuleChange(idx, 'allowArrears', checked)}
-                          />
+                          <Checkbox checked={rule.allowArrears} onCheckedChange={(checked) => handleCustomDeptRuleChange(idx, 'allowArrears', checked)} />
                           <Label className="cursor-pointer">Allow arrears for this department</Label>
                         </div>
                       </div>
                     ))}
-
-                    <Button type="button" onClick={handleAddCustomDeptRule} variant="outline">
-                      <Plus className="mr-2 h-4 w-4" /> Add Department Rule
-                    </Button>
+                    <Button type="button" onClick={handleAddCustomDeptRule} variant="outline"><Plus className="mr-2 h-4 w-4" /> Add Department Rule</Button>
                   </div>
                 )}
               </div>
 
-              {/* Section 5: Target Departments */}
+              {/* Target Departments */}
               <div className="space-y-4 border-2 border-orange-200 rounded-lg p-4 bg-orange-50">
                 <h3 className="text-lg font-semibold text-orange-700">Target Departments</h3>
-                <p className="text-sm text-gray-600">Select which departments can view and apply for this job</p>
-
                 <div className="flex items-center space-x-2 p-3 bg-white rounded-lg">
-                  <Checkbox
-                    id="selectAllDepts"
-                    checked={formData.selectAllDepts}
-                    onCheckedChange={handleSelectAllDepts}
-                  />
-                  <Label htmlFor="selectAllDepts" className="cursor-pointer font-medium">
-                    All Departments
-                  </Label>
+                  <Checkbox id="selectAllDepts" checked={formData.selectAllDepts} onCheckedChange={handleSelectAllDepts} />
+                  <Label htmlFor="selectAllDepts" className="cursor-pointer font-medium">All Departments</Label>
                 </div>
-
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3 bg-white p-4 rounded-lg">
                   {DEPARTMENTS.map(dept => (
                     <div key={dept} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`dept-${dept}`}
-                        checked={formData.targetDepartments.includes(dept)}
-                        onCheckedChange={() => handleDeptToggle(dept)}
-                      />
-                      <Label htmlFor={`dept-${dept}`} className="cursor-pointer">
-                        {dept}
-                      </Label>
+                      <Checkbox id={`dept-${dept}`} checked={formData.targetDepartments.includes(dept)} onCheckedChange={() => handleDeptToggle(dept)} />
+                      <Label htmlFor={`dept-${dept}`} className="cursor-pointer">{dept}</Label>
                     </div>
                   ))}
                 </div>
-
                 <div>
                   <Label htmlFor="otherDepartment">Other Department (Not Listed)</Label>
-                  <Input
-                    id="otherDepartment"
-                    name="otherDepartment"
-                    placeholder="e.g., Biomedical Engineering"
-                    value={formData.otherDepartment}
-                    onChange={handleChange}
-                    className="mt-2"
-                  />
+                  <Input id="otherDepartment" name="otherDepartment" placeholder="e.g., Biomedical Engineering" value={formData.otherDepartment} onChange={handleChange} className="mt-2" />
                 </div>
               </div>
 
-              {/* Submit Buttons */}
               <div className="flex gap-4">
                 <Button type="submit" disabled={loading} className="flex-1">
                   {loading ? 'Creating & Notifying Students...' : 'Create Job & Notify Students'}
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate('/admin/dashboard')}
-                  disabled={loading}
-                >
+                <Button type="button" variant="outline" onClick={() => navigate('/admin/dashboard')} disabled={loading}>
                   Cancel
                 </Button>
               </div>

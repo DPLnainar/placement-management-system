@@ -71,8 +71,15 @@ export const generateResume = async (
         const pdfBuffer = await generatePDF(htmlTemplate);
 
         // 6. Upload to S3
-        const fileName = `resumes/${studentId}_${Date.now()}.pdf`;
-        const s3Url = await uploadToS3(pdfBuffer, fileName, 'application/pdf');
+        // 6. Upload to S3
+        const fileName = `${studentId}_${Date.now()}.pdf`;
+        const uploadResult = await uploadToS3(pdfBuffer, 'resumes', fileName, 'application/pdf');
+
+        if (!uploadResult.success) {
+            throw new Error(uploadResult.message || 'Failed to upload resume to S3');
+        }
+
+        const s3Url = uploadResult.url;
 
         console.log(`Resume generated successfully: ${s3Url}`);
         return s3Url;

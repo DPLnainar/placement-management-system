@@ -546,6 +546,26 @@ exports.updateUserApproval = async (req, res) => {
     user.isApproved = isApproved === 'true';
     await user.save();
 
+    // Emit real-time event
+    try {
+      const { getIO } = require('../utils/socket');
+      const io = getIO();
+
+      // Notify the specific user (if they are observing their own channel)
+      io.to(`user_${user._id}`).emit('verificationUpdate', {
+        isApproved: user.isApproved,
+        status: user.status
+      });
+
+      // Notify college channel (for live dashboards)
+      io.to(`college_${adminCollegeId}`).emit('studentVerificationUpdate', {
+        userId: user._id,
+        isApproved: user.isApproved
+      });
+    } catch (err) {
+      console.error('Socket emit error:', err.message);
+    }
+
     res.json({
       success: true,
       message: `User ${user.isApproved ? 'approved' : 'approval revoked'} successfully`,

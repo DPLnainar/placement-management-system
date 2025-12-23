@@ -24,27 +24,28 @@ exports.uploadResume = async (req, res) => {
       });
     }
 
-    // Delete old resume from Cloudinary if exists
+    // Delete old resume from S3 if exists
     if (user.resumePublicId) {
       try {
-        await deleteFile(user.resumePublicId, 'raw');
+        await deleteFile(user.resumePublicId);
       } catch (error) {
         console.error('Error deleting old resume:', error);
       }
     }
 
     // Update user with new resume
-    user.resumeFile = req.file.path; // Cloudinary URL
-    user.resumePublicId = req.file.filename; // Cloudinary public ID
+    // S3 Location returns the full URL, Key returns the efficient storage key
+    user.resumeFile = req.file.location; // S3 URL
+    user.resumePublicId = req.file.key; // S3 Key (for deletion)
     user.resumeUploadedAt = new Date();
-    
+
     await user.save();
 
     res.status(200).json({
       success: true,
       message: 'Resume uploaded successfully',
       data: {
-        resumeUrl: req.file.path,
+        resumeUrl: req.file.location,
         uploadedAt: user.resumeUploadedAt
       }
     });
@@ -81,26 +82,26 @@ exports.uploadProfilePhoto = async (req, res) => {
       });
     }
 
-    // Delete old photo from Cloudinary if exists
+    // Delete old photo from S3 if exists
     if (user.profilePhotoPublicId) {
       try {
-        await deleteFile(user.profilePhotoPublicId, 'image');
+        await deleteFile(user.profilePhotoPublicId);
       } catch (error) {
         console.error('Error deleting old photo:', error);
       }
     }
 
     // Update user with new photo
-    user.profilePhoto = req.file.path;
-    user.profilePhotoPublicId = req.file.filename;
-    
+    user.profilePhoto = req.file.location;
+    user.profilePhotoPublicId = req.file.key;
+
     await user.save();
 
     res.status(200).json({
       success: true,
       message: 'Profile photo uploaded successfully',
       data: {
-        photoUrl: req.file.path
+        photoUrl: req.file.location
       }
     });
   } catch (error) {
@@ -141,8 +142,8 @@ exports.uploadDocument = async (req, res) => {
     const document = {
       name: name || req.file.originalname,
       type: type || 'other',
-      url: req.file.path,
-      publicId: req.file.filename,
+      url: req.file.location, // S3 URL
+      publicId: req.file.key, // S3 Key
       uploadedAt: new Date()
     };
 
@@ -189,14 +190,14 @@ exports.deleteResume = async (req, res) => {
       });
     }
 
-    // Delete from Cloudinary
-    await deleteFile(user.resumePublicId, 'raw');
+    // Delete from S3
+    await deleteFile(user.resumePublicId);
 
     // Clear resume fields
     user.resumeFile = '';
     user.resumePublicId = '';
     user.resumeUploadedAt = null;
-    
+
     await user.save();
 
     res.status(200).json({
@@ -221,7 +222,7 @@ exports.deleteDocument = async (req, res) => {
   try {
     const userId = req.user.id;
     const { documentId } = req.params;
-    
+
     const user = await User.findById(userId);
 
     if (!user) {
@@ -240,9 +241,9 @@ exports.deleteDocument = async (req, res) => {
       });
     }
 
-    // Delete from Cloudinary
+    // Delete from S3
     if (document.publicId) {
-      await deleteFile(document.publicId, 'auto');
+      await deleteFile(document.publicId);
     }
 
     // Remove document from array

@@ -60,7 +60,7 @@ exports.createApplication = async (req, res) => {
 
     // Get student data to check profile completion
     const studentData = await StudentData.findOne({ userId: studentId });
-    
+
     if (!studentData) {
       return res.status(400).json({
         success: false,
@@ -94,16 +94,22 @@ exports.createApplication = async (req, res) => {
     if (missingFields.length > 0) {
       return res.status(400).json({
         success: false,
-        message: 'Please complete your profile before applying to jobs. Missing fields: ' + 
-                 missingFields.map(f => f.replace(/([A-Z])/g, ' $1').toLowerCase()).join(', '),
+        message: 'Please complete your profile before applying to jobs. Missing fields: ' +
+          missingFields.map(f => f.replace(/([A-Z])/g, ' $1').toLowerCase()).join(', '),
         profileIncomplete: true,
         missingFields: missingFields
       });
     }
+<<<<<<< Updated upstream
     
     // Check eligibility - BLOCK ineligible students from applying
+=======
+
+    // Check eligibility - auto-approve eligible students
+    let applicationStatus = 'under_review'; // Default: auto-approved
+>>>>>>> Stashed changes
     let eligibilityCheck = { isEligible: true, issues: [] };
-    
+
     if (studentData && job.checkEligibility) {
       eligibilityCheck = job.checkEligibility(studentData);
     }
@@ -145,8 +151,8 @@ exports.createApplication = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: eligibilityCheck.isEligible 
-        ? 'Application submitted and automatically approved - you are eligible!' 
+      message: eligibilityCheck.isEligible
+        ? 'Application submitted and automatically approved - you are eligible!'
         : 'Application submitted successfully',
       data: {
         application: {
@@ -157,8 +163,8 @@ exports.createApplication = async (req, res) => {
           isEligible: eligibilityCheck.isEligible,
           eligibilityIssues: eligibilityCheck.issues,
           appliedAt: application.appliedAt,
-          message: eligibilityCheck.isEligible 
-            ? 'Your application has been automatically approved. Good luck!' 
+          message: eligibilityCheck.isEligible
+            ? 'Your application has been automatically approved. Good luck!'
             : 'Your application is under review.'
         }
       }
@@ -166,7 +172,7 @@ exports.createApplication = async (req, res) => {
 
   } catch (error) {
     console.error('Create application error:', error);
-    
+
     if (error.code === 11000) {
       return res.status(400).json({
         success: false,
@@ -266,6 +272,20 @@ exports.updateApplicationStatus = async (req, res) => {
 
     application.status = status;
     await application.save();
+
+    // Emit real-time update
+    try {
+      const { getIO } = require('../utils/socket');
+      const io = getIO();
+      // Notify the specific student
+      io.to(`user_${application.studentId}`).emit('applicationUpdate', {
+        id: application._id,
+        status: status,
+        jobId: application.jobId
+      });
+    } catch (err) {
+      console.error('Socket emit error:', err.message);
+    }
 
     res.json({
       success: true,

@@ -168,35 +168,42 @@ const jobSchema = new mongoose.Schema({
     minCGPA: { type: Number, min: 0, max: 10, default: 0 },
     minTenthPercentage: { type: Number, min: 0, max: 100, default: 0 },
     minTwelfthPercentage: { type: Number, min: 0, max: 100, default: 0 },
-    
+
     // Backlog restrictions
     maxBacklogsAllowed: { type: Number, min: 0, default: 0 },
     maxCurrentBacklogs: { type: Number, min: 0, default: 0 },
+<<<<<<< Updated upstream
     
     // Branch/Department eligibility
     openToAllBranches: { type: Boolean, default: true }, // If true, all branches are eligible
     eligibleBranches: { type: [String], default: [] }, // Specific branches if openToAllBranches is false
     
+=======
+
+    // Branch eligibility
+    eligibleBranches: { type: [String], default: [] },
+
+>>>>>>> Stashed changes
     // Year of study
     eligibleYears: { type: [Number], default: [4] },
-    
+
     // Gender preference (if any)
-    genderPreference: { 
-      type: String, 
+    genderPreference: {
+      type: String,
       enum: ['all', 'male', 'female', 'other'],
       default: 'all'
     },
-    
+
     // Gap year restrictions
     maxGapYears: { type: Number, default: 2 },
-    
+
     // Required skills
     requiredSkills: { type: [String], default: [] },
     preferredSkills: { type: [String], default: [] },
-    
+
     // Required certifications
     requiredCertifications: { type: [String], default: [] },
-    
+
     // Additional criteria
     otherCriteria: { type: String, default: null }
   },
@@ -209,20 +216,20 @@ const jobSchema = new mongoose.Schema({
   interviewProcess: {
     hasPrePlacementTalk: { type: Boolean, default: false },
     prePlacementTalkDate: { type: Date },
-    
+
     hasAptitudeRound: { type: Boolean, default: false },
     aptitudeDetails: { type: String },
-    
+
     hasTechnicalRound: { type: Boolean, default: false },
     technicalRoundCount: { type: Number, min: 0, max: 5, default: 1 },
     technicalDetails: { type: String },
-    
+
     hasHRRound: { type: Boolean, default: false },
     hrDetails: { type: String },
-    
+
     hasGroupDiscussion: { type: Boolean, default: false },
     gdDetails: { type: String },
-    
+
     totalRounds: { type: Number, min: 1, default: 1 },
     processDescription: { type: String }
   },
@@ -300,7 +307,7 @@ const jobSchema = new mongoose.Schema({
 });
 
 // Update the updatedAt timestamp before saving
-jobSchema.pre('save', function(next) {
+jobSchema.pre('save', function (next) {
   this.updatedAt = Date.now();
   next();
 });
@@ -309,38 +316,39 @@ jobSchema.pre('save', function(next) {
 jobSchema.index({ collegeId: 1, status: 1 });
 jobSchema.index({ collegeId: 1, jobCategory: 1 });
 jobSchema.index({ collegeId: 1, deadline: 1 });
-jobSchema.index({ postedBy: 1 });
+jobSchema.index({ collegeId: 1, deadline: 1 });
+jobSchema.index({ collegeId: 1, status: 1, jobCategory: 1 }); // Optimized for dashboard job feeds
 
 // Check if job deadline has passed
-jobSchema.methods.isExpired = function() {
+jobSchema.methods.isExpired = function () {
   return new Date() > this.deadline;
 };
 
 // Check if registration is still open
-jobSchema.methods.isRegistrationOpen = function() {
+jobSchema.methods.isRegistrationOpen = function () {
   const now = new Date();
-  
+
   // Check if job is active
   if (this.status !== 'active') return false;
-  
+
   // Check registration deadline if exists
   if (this.registrationDeadline && now > this.registrationDeadline) {
     return false;
   }
-  
+
   // Check application deadline
   if (now > this.deadline) return false;
-  
+
   // Check max applications limit
   if (this.maxApplications && this.currentApplicationCount >= this.maxApplications) {
     return false;
   }
-  
+
   return true;
 };
 
 // Get days remaining until deadline
-jobSchema.methods.getDaysRemaining = function() {
+jobSchema.methods.getDaysRemaining = function () {
   const now = new Date();
   const deadline = this.registrationDeadline || this.deadline;
   const timeDiff = deadline - now;
@@ -348,13 +356,13 @@ jobSchema.methods.getDaysRemaining = function() {
 };
 
 // Check if job is closing soon (within 3 days)
-jobSchema.methods.isClosingSoon = function() {
+jobSchema.methods.isClosingSoon = function () {
   const daysRemaining = this.getDaysRemaining();
   return daysRemaining > 0 && daysRemaining <= 3;
 };
 
 // Extend deadline
-jobSchema.methods.extendDeadline = function(newDeadline) {
+jobSchema.methods.extendDeadline = function (newDeadline) {
   if (!this.deadlineExtended) {
     this.originalDeadline = this.deadline;
     this.deadlineExtended = true;
@@ -363,7 +371,12 @@ jobSchema.methods.extendDeadline = function(newDeadline) {
 };
 
 // Check if student is eligible for this job
+<<<<<<< Updated upstream
 jobSchema.methods.checkEligibility = function(studentData) {
+=======
+jobSchema.methods.checkEligibility = function (studentData) {
+  const criteria = this.eligibilityCriteria;
+>>>>>>> Stashed changes
   const issues = [];
 
   // ===== NEW: Check eligibility criteria (common or department-wise) =====

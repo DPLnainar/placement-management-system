@@ -3,24 +3,50 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Building2, Users, LayoutDashboard, Menu, X, LogOut, Briefcase, UserCog, TrendingUp } from "lucide-react";
 import { Button } from "./ui/button";
 
+import { statisticsAPI } from "../services/api";
+
 function PlacementGraph() {
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   // Determine role from URL or state
   const role = location.state?.role || "admin";
   const roleTitle = role.charAt(0).toUpperCase() + role.slice(1);
 
   // Department-wise placement data
-  const departmentData = [
-    { department: "Computer Science", placed: 45, total: 50, percentage: 90 },
-    { department: "Information Technology", placed: 38, total: 45, percentage: 84 },
-    { department: "Electronics & Communication", placed: 30, total: 40, percentage: 75 },
-    { department: "Electrical Engineering", placed: 25, total: 35, percentage: 71 },
-    { department: "Mechanical Engineering", placed: 28, total: 42, percentage: 67 },
-    { department: "Civil Engineering", placed: 20, total: 35, percentage: 57 },
-  ];
+  const [departmentData, setDepartmentData] = useState([]);
+
+  React.useEffect(() => {
+    fetchStatistics();
+  }, []);
+
+  const fetchStatistics = async () => {
+    try {
+      setLoading(true);
+      const response = await statisticsAPI.getPlacementStatistics();
+      if (response.data.success && response.data.statistics.branchWise) {
+        // Map backend branchWise data to frontend structure
+        // Backend: { branch: 'CSE', placed: 10, total: 20, percentage: 50.00 }
+        // Frontend expected: { department: 'Computer Science', placed: 45, total: 50, percentage: 90 }
+        const mappedData = response.data.statistics.branchWise.map(item => ({
+          department: item.branch,
+          placed: item.placed,
+          total: item.total,
+          percentage: parseFloat(item.percentage)
+        }));
+        setDepartmentData(mappedData);
+      }
+    } catch (err) {
+      console.error("Error fetching statistics:", err);
+      // Fallback to empty or error state, but don't crash
+      setError("Failed to load live data. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     navigate("/");
@@ -74,9 +100,8 @@ function PlacementGraph() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 h-full bg-slate-800 text-white w-64 transform transition-transform duration-300 ease-in-out z-40 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } lg:translate-x-0`}
+        className={`fixed top-0 left-0 h-full bg-slate-800 text-white w-64 transform transition-transform duration-300 ease-in-out z-40 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          } lg:translate-x-0`}
       >
         <div className="p-6 border-b border-slate-700">
           <div className="flex items-center space-x-3">
@@ -89,15 +114,14 @@ function PlacementGraph() {
             </div>
           </div>
         </div>
-        
+
         <nav className="p-4 space-y-6">
           {/* Dashboard */}
           <div>
-            <button 
+            <button
               onClick={() => navigate(menuItems[0].path)}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive(menuItems[0].path) ? "bg-blue-600 text-white" : "hover:bg-slate-700"
-              }`}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${isActive(menuItems[0].path) ? "bg-blue-600 text-white" : "hover:bg-slate-700"
+                }`}
             >
               <LayoutDashboard className="w-5 h-5" />
               <span>Dashboard</span>
@@ -106,11 +130,10 @@ function PlacementGraph() {
 
           {/* Placement Graph */}
           <div>
-            <button 
+            <button
               onClick={() => navigate(menuItems[1].path)}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive(menuItems[1].path) ? "bg-blue-600 text-white" : "hover:bg-slate-700"
-              }`}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${isActive(menuItems[1].path) ? "bg-blue-600 text-white" : "hover:bg-slate-700"
+                }`}
             >
               <TrendingUp className="w-5 h-5" />
               <span>Placement Graph</span>
@@ -125,9 +148,8 @@ function PlacementGraph() {
             <div className="space-y-2">
               <button
                 onClick={() => navigate(menuItems[2].path)}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive(menuItems[2].path) ? "bg-blue-600 text-white" : "hover:bg-slate-700"
-                }`}
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${isActive(menuItems[2].path) ? "bg-blue-600 text-white" : "hover:bg-slate-700"
+                  }`}
               >
                 <Briefcase className="w-5 h-5" />
                 <span>Add Job</span>
@@ -140,18 +162,16 @@ function PlacementGraph() {
             <div className="space-y-2">
               <button
                 onClick={() => navigate(menuItems[3].path)}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive(menuItems[3].path) ? "bg-blue-600 text-white" : "hover:bg-slate-700"
-                }`}
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${isActive(menuItems[3].path) ? "bg-blue-600 text-white" : "hover:bg-slate-700"
+                  }`}
               >
                 <UserCog className="w-5 h-5" />
                 <span>Moderators</span>
               </button>
               <button
                 onClick={() => navigate(menuItems[4].path)}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive(menuItems[4].path) ? "bg-blue-600 text-white" : "hover:bg-slate-700"
-                }`}
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${isActive(menuItems[4].path) ? "bg-blue-600 text-white" : "hover:bg-slate-700"
+                  }`}
               >
                 <Building2 className="w-5 h-5" />
                 <span>View Jobs</span>
@@ -159,7 +179,7 @@ function PlacementGraph() {
             </div>
           </div>
         </nav>
-        
+
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-700">
           <Button
             onClick={handleLogout}
@@ -209,15 +229,14 @@ function PlacementGraph() {
                   </div>
                   <div className="relative w-full h-10 bg-slate-100 rounded-lg overflow-hidden">
                     <div
-                      className={`absolute left-0 top-0 h-full flex items-center justify-end px-4 text-white text-sm font-semibold transition-all duration-500 ${
-                        dept.percentage >= 80
+                      className={`absolute left-0 top-0 h-full flex items-center justify-end px-4 text-white text-sm font-semibold transition-all duration-500 ${dept.percentage >= 80
                           ? "bg-gradient-to-r from-green-500 to-green-600"
                           : dept.percentage >= 70
-                          ? "bg-gradient-to-r from-blue-500 to-blue-600"
-                          : dept.percentage >= 60
-                          ? "bg-gradient-to-r from-yellow-500 to-yellow-600"
-                          : "bg-gradient-to-r from-red-500 to-red-600"
-                      }`}
+                            ? "bg-gradient-to-r from-blue-500 to-blue-600"
+                            : dept.percentage >= 60
+                              ? "bg-gradient-to-r from-yellow-500 to-yellow-600"
+                              : "bg-gradient-to-r from-red-500 to-red-600"
+                        }`}
                       style={{ width: `${dept.percentage}%` }}
                     >
                       {dept.percentage >= 20 && `${dept.percentage}%`}
@@ -265,7 +284,7 @@ function PlacementGraph() {
                         {Math.round(
                           (departmentData.reduce((sum, dept) => sum + dept.placed, 0) /
                             departmentData.reduce((sum, dept) => sum + dept.total, 0)) *
-                            100
+                          100
                         )}%
                       </p>
                     </div>

@@ -975,13 +975,7 @@ const studentDataSchema = new Schema<IStudentData>(
       enum: ['general', 'obc', 'sc', 'st', 'other'],
       default: null,
     },
-    isProfileCompleted: { type: Boolean, default: false },
-    profileCompletionPercentage: { type: Number, min: 0, max: 100, default: 0 },
-    mandatoryFieldsCompleted: { type: Boolean, default: false },
-    personalInfoCompleted: { type: Boolean, default: false },
-    personalInfoCompletedDate: { type: Date, default: null },
-    academicInfoCompleted: { type: Boolean, default: false },
-    academicInfoCompletedDate: { type: Date, default: null },
+
     placementPreferences: {
       preferredLocations: { type: [String], default: [] },
       preferredCompanyTypes: { type: [String], default: [] },
@@ -990,10 +984,7 @@ const studentDataSchema = new Schema<IStudentData>(
       willingToRelocate: { type: Boolean, default: true },
       noticeRequired: { type: String },
     },
-    documentsVerified: { type: Boolean, default: false },
-    verifiedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
-    verificationDate: { type: Date, default: null },
-    verificationNotes: { type: String, default: null },
+
     placementStatus: {
       type: String,
       enum: ['eligible', 'not_eligible', 'not_placed', 'placed', 'opted_out', 'barred'],
